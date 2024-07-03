@@ -191,9 +191,11 @@ class TransformerLM(torch.nn.Module):
         # 5. step by step decode
         out_tokens = []
         offset = 0
-        att_cache, cnn_cache = torch.zeros((0, 0, 0, 0), device=lm_input.device), torch.zeros((0, 0, 0, 0), device=lm_input.device)
+        key_caches = [torch.zeors((lm_input.size(0), self.llm.attention_heads, max_len, self.head_dim)) for _ in range(len(self.llm.encoders))]
+        value_caches = [torch.zeors((lm_input.size(0), self.llm.attention_heads, max_len, self.head_dim)) for _ in range(len(self.llm.encoders))]
+        cnn_cache = torch.zeros((0, 0, 0, 0), device=lm_input.device)
         for i in range(max_len):
-            y_pred, att_cache, cnn_cache = self.llm.forward_chunk(lm_input, offset=0, required_cache_size=-1, att_cache=att_cache, cnn_cache=cnn_cache,
+            y_pred, cnn_cache = self.llm.forward_chunk(lm_input, offset=0, required_cache_size=-1, key_cache=key_caches, value_cache=value_caches, cnn_cache=cnn_cache,
                                                                   att_mask=torch.tril(torch.ones((1, lm_input.shape[1], lm_input.shape[1]), device=lm_input.device)).to(torch.bool))
             logp = self.llm_decoder(y_pred[:, -1]).log_softmax(dim=-1)
             top_ids = self.sampling_ids(logp.squeeze(dim=0), sampling, beam_size, ignore_eos=True if i < min_len else False).item()

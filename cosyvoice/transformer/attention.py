@@ -133,7 +133,8 @@ class MultiHeadedAttention(nn.Module):
         value: torch.Tensor,
         mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
         pos_emb: torch.Tensor = torch.empty(0),
-        cache: torch.Tensor = torch.zeros((0, 0, 0, 0))
+        key_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
+        value_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute scaled dot product attention.
 
@@ -184,17 +185,11 @@ class MultiHeadedAttention(nn.Module):
         # >>> d = torch.split(a, 2, dim=-1)
         # >>> torch.equal(d[0], d[1])  # True
         if cache.size(0) > 0:
-            key_cache, value_cache = torch.split(cache,
-                                                 cache.size(-1) // 2,
-                                                 dim=-1)
-            k = torch.cat([key_cache, k], dim=2)
-            v = torch.cat([value_cache, v], dim=2)
-        # NOTE(xcsong): We do cache slicing in encoder.forward_chunk, since it's
-        #   non-trivial to calculate `next_cache_start` here.
-        new_cache = torch.cat((k, v), dim=-1)
+            key_cache = torch.cat([key_cache, k], dim=2)
+            value_cache = torch.cat([value_cache, v], dim=2)
 
         scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_k)
-        return self.forward_attention(v, scores, mask), new_cache
+        return self.forward_attention(value_cache, scores, mask), key_cache, value_cache
 
 
 class RelPositionMultiHeadedAttention(MultiHeadedAttention):
@@ -249,7 +244,8 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         value: torch.Tensor,
         mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
         pos_emb: torch.Tensor = torch.empty(0),
-        cache: torch.Tensor = torch.zeros((0, 0, 0, 0))
+        key_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
+        value_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute 'Scaled Dot Product Attention' with rel. positional encoding.
         Args:
@@ -288,15 +284,10 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         # >>> torch.equal(b, c)        # True
         # >>> d = torch.split(a, 2, dim=-1)
         # >>> torch.equal(d[0], d[1])  # True
+
         if cache.size(0) > 0:
-            key_cache, value_cache = torch.split(cache,
-                                                 cache.size(-1) // 2,
-                                                 dim=-1)
-            k = torch.cat([key_cache, k], dim=2)
-            v = torch.cat([value_cache, v], dim=2)
-        # NOTE(xcsong): We do cache slicing in encoder.forward_chunk, since it's
-        #   non-trivial to calculate `next_cache_start` here.
-        new_cache = torch.cat((k, v), dim=-1)
+            key_cache = torch.cat([key_cache, k], dim=2)
+            value_cache = torch.cat([value_cache, v], dim=2)
 
         n_batch_pos = pos_emb.size(0)
         p = self.linear_pos(pos_emb).view(n_batch_pos, -1, self.h, self.d_k)
@@ -311,7 +302,7 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         # first compute matrix a and matrix c
         # as described in https://arxiv.org/abs/1901.02860 Section 3.3
         # (batch, head, time1, time2)
-        matrix_ac = torch.matmul(q_with_bias_u, k.transpose(-2, -1))
+        matrix_ac = torch.matmul(q_with_bias_u, key_cache.transpose(-2, -1))
 
         # compute matrix b and matrix d
         # (batch, head, time1, time2)
@@ -323,4 +314,4 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         scores = (matrix_ac + matrix_bd) / math.sqrt(
             self.d_k)  # (batch, head, time1, time2)
 
-        return self.forward_attention(v, scores, mask), new_cache
+        return self.forward_attention(value_cache, scores, mask), key_cache, value_cache

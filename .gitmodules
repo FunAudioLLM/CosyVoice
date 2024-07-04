@@ -1,0 +1,6 @@
+[submodule "third_party/AcademiCodec"]
+	path = third_party/AcademiCodec
+	url = https://github.com/yangdongchao/AcademiCodec.git
+[submodule "third_party/Matcha-TTS"]
+	path = third_party/Matcha-TTS
+	url = https://github.com/shivammehta25/Matcha-TTS.git

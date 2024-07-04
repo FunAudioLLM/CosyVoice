@@ -75,8 +75,7 @@ def get_args():
     parser.add_argument('--timeout',
                         default=30,
                         type=int,
-                        help='timeout (in seconds) of cosyvoice_join. ' +
-                        '30s for aishell & 300s for wenetspeech')
+                        help='timeout (in seconds) of cosyvoice_join.')
     parser = deepspeed.add_config_arguments(parser)
     args = parser.parse_args()
     return args

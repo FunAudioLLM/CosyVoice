@@ -152,7 +152,7 @@ class MultiHeadedAttention(nn.Module):
                 4.If the different position in decoder see different block
                 of the encoder, such as Mocha, the passed in mask could be
                 in (#batch, L, T) shape. But there is no such case in current
-                Wenet.
+                CosyVoice.
             cache (torch.Tensor): Cache tensor (1, head, cache_t, d_k * 2),
                 where `cache_t == chunk_size * num_decoding_left_chunks`
                 and `head * d_k == size`

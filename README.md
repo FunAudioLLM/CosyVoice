@@ -81,7 +81,7 @@ import torchaudio
 cosyvoice = CosyVoice('speech_tts/CosyVoice-300M-SFT')
 # sft usage
 print(cosyvoice.list_avaliable_spks())
-output = cosyvoice.inference_sft('你好，我是通义千问语音合成大模型，请问有什么可以帮您的吗？', '中文女')
+output = cosyvoice.inference_sft('你好，我是通义语音合成大模型，请问有什么可以帮您的吗？', '中文女')
 torchaudio.save('sft.wav', output['tts_speech'], 22050)
 
 cosyvoice = CosyVoice('speech_tts/CosyVoice-300M')

@@ -140,9 +140,11 @@ You can also scan the QR code to join our officla Dingding chat group.
 
 ## Acknowledge
 
-1. We borrowed a lot of code from [Matcha-TTS](https://github.com/shivammehta25/Matcha-TTS).
-2. We borrowed a lot of code from [AcademiCodec](https://github.com/yangdongchao/AcademiCodec).
-3. We borrowed a lot of code from [WeNet](https://github.com/wenet-e2e/wenet).
+1. We borrowed a lot of code from [FunASR](https://github.com/modelscope/FunASR).
+2. We borrowed a lot of code from [FunCodec](https://github.com/modelscope/FunCodec).
+3. We borrowed a lot of code from [Matcha-TTS](https://github.com/shivammehta25/Matcha-TTS).
+4. We borrowed a lot of code from [AcademiCodec](https://github.com/yangdongchao/AcademiCodec).
+5. We borrowed a lot of code from [WeNet](https://github.com/wenet-e2e/wenet).
 
 ## Disclaimer
 The content provided above is for academic purposes only and is intended to demonstrate technical capabilities. Some examples are sourced from the internet. If any content infringes on your rights, please contact us to request its removal.

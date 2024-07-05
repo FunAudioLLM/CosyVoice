@@ -1,5 +1,5 @@
 # CosyVoice
-### Demos are at [FunAudioLLM Homepage](https://fun-audio-llm.github.io/).
+## Demos are at [FunAudioLLM Homepage](https://fun-audio-llm.github.io/).
 [[CosyVoice Paper](https://fun-audio-llm.github.io/pdf/CosyVoice_v1.pdf)][[CosyVoice Code](https://github.com/FunAudioLLM/CosyVoice)][[CosyVoice Studio](https://www.modelscope.cn/studios/iic/CosyVoice-300M)]
 
 For `SenseVoice`, visit [SenseVoice repo](https://github.com/FunAudioLLM/SenseVoice) and [SenseVoice space](https://www.modelscope.cn/studios/iic/SenseVoice).

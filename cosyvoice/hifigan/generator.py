@@ -116,14 +116,14 @@ class SineGen(torch.nn.Module):
         segment is always sin(np.pi) or cos(0)
     """
 
-    def __init__(self, samp_rate, harmonic_num=0,
+    def __init__(self, sampling_rate, harmonic_num=0,
                  sine_amp=0.1, noise_std=0.003,
                  voiced_threshold=0):
         super(SineGen, self).__init__()
         self.sine_amp = sine_amp
         self.noise_std = noise_std
         self.harmonic_num = harmonic_num
-        self.sampling_rate = samp_rate
+        self.sampling_rate = sampling_rate
         self.voiced_threshold = voiced_threshold
 
     def _f02uv(self, f0):

@@ -67,10 +67,10 @@ pip install ttsfrd-0.3.6-cp38-cp38-linux_x86_64.whl
 For zero_shot/cross_lingual inference, please use `CosyVoice-300M` model.
 For sft inference, please use `CosyVoice-300M-SFT` model.
 For instruct inference, please use `CosyVoice-300M-Instruct` model.
-First, add `third_party/AcademiCodec` and `third_party/Matcha-TTS` to your `PYTHONPATH`.
+First, add `third_party/Matcha-TTS` to your `PYTHONPATH`.
 
 ``` sh
-export PYTHONPATH=third_party/AcademiCodec:third_party/Matcha-TTS
+export PYTHONPATH=third_party/Matcha-TTS
 ```
 
 ``` python
@@ -78,13 +78,13 @@ from cosyvoice.cli.cosyvoice import CosyVoice
 from cosyvoice.utils.file_utils import load_wav
 import torchaudio
 
-cosyvoice = CosyVoice('speech_tts/CosyVoice-300M-SFT')
+cosyvoice = CosyVoice('iic/CosyVoice-300M-SFT')
 # sft usage
 print(cosyvoice.list_avaliable_spks())
 output = cosyvoice.inference_sft('你好，我是通义生成式语音大模型，请问有什么可以帮您的吗？', '中文女')
 torchaudio.save('sft.wav', output['tts_speech'], 22050)
 
-cosyvoice = CosyVoice('speech_tts/CosyVoice-300M')
+cosyvoice = CosyVoice('iic/CosyVoice-300M')
 # zero_shot usage
 prompt_speech_16k = load_wav('zero_shot_prompt.wav', 16000)
 output = cosyvoice.inference_zero_shot('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。', '希望你以后能够做的比我还好呦。', prompt_speech_16k)
@@ -94,7 +94,7 @@ prompt_speech_16k = load_wav('cross_lingual_prompt.wav', 16000)
 output = cosyvoice.inference_cross_lingual('<|en|>And then later on, fully acquiring that company. So keeping management in line, interest in line with the asset that\'s coming into the family is a reason why sometimes we don\'t buy the whole thing.', prompt_speech_16k)
 torchaudio.save('cross_lingual.wav', output['tts_speech'], 22050)
 
-cosyvoice = CosyVoice('speech_tts/CosyVoice-300M-Instruct')
+cosyvoice = CosyVoice('iic/CosyVoice-300M-Instruct')
 # instruct usage
 output = cosyvoice.inference_instruct('在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。', '中文男', 'Theo \'Crimson\', is a fiery, passionate rebel leader. Fights with fervor for justice, but struggles with impulsiveness.')
 torchaudio.save('instruct.wav', output['tts_speech'], 22050)
@@ -108,8 +108,8 @@ We support sft/zero_shot/cross_lingual/instruct inference in web demo.
 Please see the demo website for details.
 
 ``` python
-# change speech_tts/CosyVoice-300M-SFT for sft inference, or speech_tts/CosyVoice-300M-Instruct for instruct inference
-python3 webui.py --port 50000 --model_dir speech_tts/CosyVoice-300M
+# change iic/CosyVoice-300M-SFT for sft inference, or iic/CosyVoice-300M-Instruct for instruct inference
+python3 webui.py --port 50000 --model_dir iic/CosyVoice-300M
 ```
 
 **Advanced Usage**
@@ -125,8 +125,8 @@ you can run following steps. Otherwise, you can just ignore this step.
 ``` sh
 cd runtime/python
 docker build -t cosyvoice:v1.0 .
-# change speech_tts/CosyVoice-300M to speech_tts/CosyVoice-300M-Instruct if you want to use instruct inference
-docker run -d --runtime=nvidia -p 50000:50000 cosyvoice:v1.0 /bin/bash -c "cd /opt/CosyVoice/CosyVoice/runtime/python && python3 server.py --port 50000 --max_conc 4 --model_dir speech_tts/CosyVoice-300M && sleep infinity"
+# change iic/CosyVoice-300M to iic/CosyVoice-300M-Instruct if you want to use instruct inference
+docker run -d --runtime=nvidia -p 50000:50000 cosyvoice:v1.0 /bin/bash -c "cd /opt/CosyVoice/CosyVoice/runtime/python && python3 server.py --port 50000 --max_conc 4 --model_dir iic/CosyVoice-300M && sleep infinity"
 python3 client.py --port 50000 --mode <sft|zero_shot|cross_lingual|instruct>
 ```
 

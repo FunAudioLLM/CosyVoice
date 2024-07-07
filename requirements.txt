@@ -15,7 +15,8 @@ matplotlib==3.7.5
 modelscope==1.15.0
 networkx==3.1
 omegaconf==2.3.0
-onnxruntime-gpu==1.16.0
+onnxruntime-gpu==1.16.0; sys_platform == 'linux'
+onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'
 openai-whisper==20231117
 protobuf==4.25
 pydantic==2.7.0

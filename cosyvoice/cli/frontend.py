@@ -21,7 +21,12 @@ import torchaudio.compliance.kaldi as kaldi
 import torchaudio
 import os
 import inflect
-import ttsfrd
+try:
+    import ttsfrd
+    use_ttsfrd = True
+except:
+    print("failed to import ttsfrd, please normalize input text manually")
+    use_ttsfrd = False
 from cosyvoice.utils.frontend_utils import contains_chinese, replace_blank, replace_corner_mark, remove_bracket, spell_out_number, split_paragraph
 
 
@@ -48,12 +53,14 @@ class CosyVoiceFrontEnd:
         self.instruct = instruct
         self.allowed_special = allowed_special
         self.inflect_parser = inflect.engine()
-        self.frd = ttsfrd.TtsFrontendEngine()
-        ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-        assert self.frd.initialize('{}/../../pretrained_models/CosyVoice-ttsfrd/resource'.format(ROOT_DIR)) is True, 'failed to initialize ttsfrd resource'
-        self.frd.set_lang_type('pinyin')
-        self.frd.enable_pinyin_mix(True)
-        self.frd.set_breakmodel_index(1)
+        self.use_ttsfrd = use_ttsfrd
+        if self.use_ttsfrd:
+            self.frd = ttsfrd.TtsFrontendEngine()
+            ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+            assert self.frd.initialize('{}/../../pretrained_models/CosyVoice-ttsfrd/resource'.format(ROOT_DIR)) is True, 'failed to initialize ttsfrd resource'
+            self.frd.set_lang_type('pinyin')
+            self.frd.enable_pinyin_mix(True)
+            self.frd.set_breakmodel_index(1)
 
     def _extract_text_token(self, text):
         text_token = self.tokenizer.encode(text, allowed_special=self.allowed_special)
@@ -88,7 +95,9 @@ class CosyVoiceFrontEnd:
     def text_normalize(self, text, split=True):
         text = text.strip()
         if contains_chinese(text):
-            text = self.frd.get_frd_extra_info(text, 'input').replace("\n", "")
+            if self.use_ttsfrd:
+                text = self.frd.get_frd_extra_info(text, 'input')
+            text = text.replace("\n", "")
             text = replace_blank(text)
             text = replace_corner_mark(text)
             text = text.replace(".", "、")

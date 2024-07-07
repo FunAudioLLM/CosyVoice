@@ -55,7 +55,10 @@ git clone https://www.modelscope.cn/iic/CosyVoice-300M-Instruct.git pretrained_m
 git clone https://www.modelscope.cn/iic/CosyVoice-ttsfrd.git pretrained_models/CosyVoice-ttsfrd
 ```
 
-Unzip `ttsfrd` resouce and install `ttsfrd` package
+Optionaly, you can unzip `ttsfrd` resouce and install `ttsfrd` package.
+
+Notice that this step is not necessary. If you do not install `ttsfrd` package, you need to normalize input text manually.
+
 ``` sh
 cd pretrained_models/CosyVoice-ttsfrd/
 unzip resource.zip -d .

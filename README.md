@@ -33,7 +33,7 @@ sudo yum install sox sox-devel
 
 **Model download**
 
-We strongly recommand that you download our pretrained `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `speech_kantts_ttsfrd` resource.
+We strongly recommend that you download our pretrained `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `speech_kantts_ttsfrd` resource.
 
 If you are expert in this field, and you are only interested in training your own CosyVoice model from scratch, you can skip this step.
 

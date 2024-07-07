@@ -50,7 +50,7 @@ class CosyVoiceFrontEnd:
         self.inflect_parser = inflect.engine()
         self.frd = ttsfrd.TtsFrontendEngine()
         ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-        assert self.frd.initialize('{}/../../pretrained_models/speech_kantts_ttsfrd/resource'.format(ROOT_DIR)) is True, 'failed to initialize ttsfrd resource'
+        assert self.frd.initialize('{}/../../pretrained_models/CosyVoice-ttsfrd/resource'.format(ROOT_DIR)) is True, 'failed to initialize ttsfrd resource'
         self.frd.set_lang_type('pinyin')
         self.frd.enable_pinyin_mix(True)
         self.frd.set_breakmodel_index(1)

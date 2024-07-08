@@ -106,7 +106,7 @@ def filter(data,
         yield sample
 
 
-def resample(data, resample_rate=22050, mode='train'):
+def resample(data, resample_rate=22050, min_sample_rate=16000, mode='train'):
     """ Resample data.
         Inplace operation.
 
@@ -123,7 +123,7 @@ def resample(data, resample_rate=22050, mode='train'):
         sample_rate = sample['sample_rate']
         waveform = sample['speech']
         if sample_rate != resample_rate:
-            if sample_rate < resample_rate:
+            if sample_rate < min_sample_rate:
                 continue
             sample['sample_rate'] = resample_rate
             sample['speech'] = torchaudio.transforms.Resample(

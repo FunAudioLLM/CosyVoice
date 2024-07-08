@@ -2,7 +2,7 @@
 
 Matcha-TTS is a third_party module. Please check `third_party` directory. If there is no `Matcha-TTS`, execute `git submodule update --init --recursive`.
 
-run `export PYTHONPATH=third_party/AcademiCodec:third_party/Matcha-TTS` if you want to use `from cosyvoice.cli.cosyvoice import CosyVoice` in python script.
+run `export PYTHONPATH=third_party/Matcha-TTS` if you want to use `from cosyvoice.cli.cosyvoice import CosyVoice` in python script.
 
 ## cannot find resource.zip or cannot unzip resource.zip
 

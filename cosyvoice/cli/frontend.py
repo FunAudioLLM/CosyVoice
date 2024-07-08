@@ -39,10 +39,11 @@ class CosyVoiceFrontEnd:
                  speech_tokenizer_model: str,
                  spk2info: str = '',
                  instruct: bool = False,
-                 allowed_special: str = 'all'):
+                 allowed_special: str = 'all',
+                 device: torch.device = None):
         self.tokenizer = get_tokenizer()
         self.feat_extractor = feat_extractor
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = device
         option = onnxruntime.SessionOptions()
         option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
         option.intra_op_num_threads = 1

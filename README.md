@@ -137,7 +137,7 @@ python3 client.py --port 50000 --mode <sft|zero_shot|cross_lingual|instruct>
 
 You can directly discuss on [Github Issues](https://github.com/FunAudioLLM/CosyVoice/issues).
 
-You can also scan the QR code to join our officla Dingding chat group.
+You can also scan the QR code to join our official Dingding chat group.
 
 <img src="./asset/dingding.png" width="250px">
 

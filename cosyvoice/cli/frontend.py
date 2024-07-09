@@ -21,6 +21,8 @@ import torchaudio.compliance.kaldi as kaldi
 import torchaudio
 import os
 import inflect
+from tn.chinese.normalizer import Normalizer as ZhNormalizer
+from tn.english.normalizer import Normalizer as EnNormalizer
 try:
     import ttsfrd
     use_ttsfrd = True
@@ -61,6 +63,9 @@ class CosyVoiceFrontEnd:
             self.frd.set_lang_type('pinyin')
             self.frd.enable_pinyin_mix(True)
             self.frd.set_breakmodel_index(1)
+        else:
+            self.zh_tn_model = ZhNormalizer(remove_erhua=False,full_to_half=False)
+            self.en_tn_model = EnNormalizer()	
 
     def _extract_text_token(self, text):
         text_token = self.tokenizer.encode(text, allowed_special=self.allowed_special)
@@ -97,6 +102,8 @@ class CosyVoiceFrontEnd:
         if contains_chinese(text):
             if self.use_ttsfrd:
                 text = self.frd.get_frd_extra_info(text, 'input')
+            else:
+                text = self.zh_tn_model.normalize(text)	
             text = text.replace("\n", "")
             text = replace_blank(text)
             text = replace_corner_mark(text)
@@ -107,6 +114,7 @@ class CosyVoiceFrontEnd:
                                                 token_min_n=60, merge_len=20,
                                                 comma_split=False)]
         else:
+            text = self.en_tn_model.normalize(text)
             text = spell_out_number(text, self.inflect_parser)
             texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=80,
                                                 token_min_n=60, merge_len=20,

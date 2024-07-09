@@ -92,7 +92,10 @@ def split_paragraph(text: str, tokenize, lang="zh", token_max_n=80, token_min_n=
             else:
                 st = i + 1
     if len(utts) == 0:
-        utts.append(text)
+        if lang == "zh":
+            utts.append(text + '。')
+        else:
+            utts.append(text + '.')
     final_utts = []
     cur_utt = ""
     for utt in utts:

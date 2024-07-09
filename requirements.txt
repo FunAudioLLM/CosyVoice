@@ -28,3 +28,4 @@ torchaudio==2.0.2
 wget==3.2
 fastapi==0.111.0
 fastapi-cli==0.0.4
+WeTextProcessing==1.0.3

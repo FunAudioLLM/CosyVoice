@@ -43,7 +43,7 @@ Download models with python script.
 python download.py
 ```
 
-Download models with git, you should install `git lfs` first.
+Download models with git, you should install [git lfs](https://github.com/git-lfs/git-lfs?utm_source=CosyVoice_site&utm_medium=download_models&utm_campaign=gitlfs#installing) first.
 ``` sh
 mkdir -p pretrained_models
 git clone https://www.modelscope.cn/iic/CosyVoice-300M.git pretrained_models/CosyVoice-300M

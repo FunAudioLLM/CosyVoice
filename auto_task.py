@@ -261,8 +261,8 @@ def get_texts(text, language="zh"):
     text = split_text_by_punctuation(text, {"。", "？", "！", "～"})
     texts = text.split("\n")
     texts = process_text(texts)
-    # texts = merge_short_text_in_array(texts, 10)
-    # texts = cut_text(texts, 60)
+    texts = merge_short_text_in_array(texts, 10)
+    texts = cut_text(texts, 60)
     return texts
 
 
@@ -342,45 +342,42 @@ def process_chapter_v2(book_name, idx):
         file_content = file.read()
 
     file_content = format_text(file_content)
-    # texts = get_texts(file_content)
+    texts = get_texts(file_content)
 
     # Initialize wav_list
-    # wav_list = []
-    output = cosyvoice.inference_sft(file_content, "旁白")
+    wav_list = []
+
+    for i, line in enumerate(tqdm(texts, desc=f"Processing chapter {idx}")):
+        # Clear torch cache
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        output = cosyvoice.inference_sft(line, "旁白")
+
+        # Save temporary output
+        tts_speech = output["tts_speech"]
+        # Ensure tts_speech is 2-dimensional
+        if tts_speech.ndim == 1:
+            tts_speech = tts_speech.unsqueeze(0)
+        wav_list.append(tts_speech)
+
+        if line[-1] == "，":
+            random_duration = np.random.uniform(0.05, 0.08)
+        else:
+            random_duration = np.random.uniform(0.09, 0.13)
+
+        zero_wav = np.zeros(
+            int(22050 * random_duration),
+            dtype=np.float32,
+        )
+        # Convert numpy array to torch tensor and ensure it is 2-dimensional
+        zero_wav = torch.from_numpy(zero_wav).unsqueeze(0)
+        wav_list.append(zero_wav)
+
+    # Concatenate and save to ./tmp/{book_name}/gen/{idx}.wav
+    wav_list = torch.concat(wav_list, dim=1)
     output_path = os.path.join(f"./tmp/{book_name}/gen", f"{idx}.wav")
-    torchaudio.save(output_path, output["tts_speech"], 22050)
-
-    # for i, line in enumerate(tqdm(texts, desc=f"Processing chapter {idx}")):
-    #     # Clear torch cache
-    #     if torch.cuda.is_available():
-    #         torch.cuda.empty_cache()
-
-    #     output = cosyvoice.inference_sft(line, "旁白")
-
-    #     # Save temporary output
-    #     tts_speech = output["tts_speech"]
-    #     # Ensure tts_speech is 2-dimensional
-    #     if tts_speech.ndim == 1:
-    #         tts_speech = tts_speech.unsqueeze(0)
-    #     wav_list.append(tts_speech)
-
-    #     # if line[-1] == "，":
-    #     #     random_duration = np.random.uniform(0.05, 0.08)
-    #     # else:
-    #     #     random_duration = np.random.uniform(0.09, 0.13)
-
-    #     # zero_wav = np.zeros(
-    #     #     int(22050 * random_duration),
-    #     #     dtype=np.float32,
-    #     # )
-    #     # Convert numpy array to torch tensor and ensure it is 2-dimensional
-    #     # zero_wav = torch.from_numpy(zero_wav).unsqueeze(0)
-    #     # wav_list.append(zero_wav)
-
-    # # Concatenate and save to ./tmp/{book_name}/gen/{idx}.wav
-    # wav_list = torch.concat(wav_list, dim=1)
-    # output_path = os.path.join(f"./tmp/{book_name}/gen", f"{idx}.wav")
-    # torchaudio.save(output_path, wav_list, 22050)
+    torchaudio.save(output_path, wav_list, 22050)
     logger.info(f"文件已保存到 {output_path}")
 
     # Record processing information

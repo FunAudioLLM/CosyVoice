@@ -118,7 +118,8 @@ For advanced user, we have provided train and inference scripts in `examples/lib
 You can get familiar with CosyVoice following this recipie.
 
 **Serve with FastAPI**
-The `main.py` file has added a `TTS` api with `CosyVoice-300M-SFT` model, you can update the code based on **Basic Usage** as above.
+
+The `runtime/python/fastapi_server.py` file contains the http API build with `FastAPI`.
 
 ```sh
 cd runtime/python

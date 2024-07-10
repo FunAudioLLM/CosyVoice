@@ -715,3 +715,25 @@ class NoamHoldAnnealing(WarmupHoldPolicy):
 
     def set_step(self, step: int):
         self.last_epoch = step
+
+
+class ConstantLR(_LRScheduler):
+    """The ConstantLR scheduler
+
+    This scheduler keeps a constant lr
+
+    """
+
+    def __init__(
+        self,
+        optimizer: torch.optim.Optimizer,
+    ):
+        # __init__() must be invoked before setting field
+        # because step() is also invoked in __init__()
+        super().__init__(optimizer)
+
+    def get_lr(self):
+        return self.base_lrs
+
+    def set_step(self, step: int):
+        self.last_epoch = step

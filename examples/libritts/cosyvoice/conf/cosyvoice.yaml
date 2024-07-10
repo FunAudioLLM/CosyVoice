@@ -186,8 +186,8 @@ data_pipeline: [
 train_conf:
     optim: adam
     optim_conf:
-        lr: 0.001
-    scheduler: warmuplr
+        lr: 0.001 # change to 1e-5 during sft
+    scheduler: warmuplr # change to constantlr during sft
     scheduler_conf:
         warmup_steps: 2500
     max_epoch: 200

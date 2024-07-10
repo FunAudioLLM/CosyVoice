@@ -15,7 +15,6 @@ import os
 import sys
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append("{}/third_party/AcademiCodec".format(ROOT_DIR))
 sys.path.append("{}/third_party/Matcha-TTS".format(ROOT_DIR))
 
 import argparse
@@ -63,10 +62,10 @@ def postprocess(speech, top_db=60, hop_length=220, win_length=440):
 
 inference_mode_list = ["预训练音色", "3s极速复刻", "跨语种复刻", "自然语言控制"]
 instruct_dict = {
-    "预训练音色": "1. 选择预训练音色\n2.点击生成音频按钮",
-    "3s极速复刻": "1. 选择prompt音频文件，或录入prompt音频，若同时提供，优先选择prompt音频文件\n2. 输入prompt文本\n3.点击生成音频按钮",
-    "跨语种复刻": "1. 选择prompt音频文件，或录入prompt音频，若同时提供，优先选择prompt音频文件\n2.点击生成音频按钮",
-    "自然语言控制": "1. 输入instruct文本\n2.点击生成音频按钮",
+    "预训练音色": "1. 选择预训练音色\n2. 点击生成音频按钮",
+    "3s极速复刻": "1. 选择prompt音频文件，或录入prompt音频，注意不超过30s，若同时提供，优先选择prompt音频文件\n2. 输入prompt文本\n3. 点击生成音频按钮",
+    "跨语种复刻": "1. 选择prompt音频文件，或录入prompt音频，注意不超过30s，若同时提供，优先选择prompt音频文件\n2. 点击生成音频按钮",
+    "自然语言控制": "1. 选择预训练音色\n2. 输入instruct文本\n3. 点击生成音频按钮",
 }
 
 
@@ -109,13 +108,11 @@ def generate_audio(
         prompt_wav = prompt_wav_record
     else:
         prompt_wav = None
-
-    # 自然语言控制模式的处理
-    # if instruct mode, please make sure that model is speech_tts/CosyVoice-300M-Instruct and not cross_lingual mode
+    # if instruct mode, please make sure that model is iic/CosyVoice-300M-Instruct and not cross_lingual mode
     if mode_checkbox_group in ["自然语言控制"]:
-        if not cosyvoice.frontend.instruct:
+        if cosyvoice.frontend.instruct is False:
             gr.Warning(
-                "您正在使用自然语言控制模式, {}模型不支持此模式, 请使用speech_tts/CosyVoice-300M-Instruct模型".format(
+                "您正在使用自然语言控制模式, {}模型不支持此模式, 请使用iic/CosyVoice-300M-Instruct模型".format(
                     args.model_dir
                 )
             )
@@ -125,13 +122,11 @@ def generate_audio(
             return (target_sr, default_data)
         if prompt_wav is not None or prompt_text != "":
             gr.Info("您正在使用自然语言控制模式, prompt音频/prompt文本会被忽略")
-
-    # 跨语种复刻模式的处理
-    # if cross_lingual mode, please make sure that model is speech_tts/CosyVoice-300M and tts_text prompt_text are different language
+    # if cross_lingual mode, please make sure that model is iic/CosyVoice-300M and tts_text prompt_text are different language
     if mode_checkbox_group in ["跨语种复刻"]:
-        if cosyvoice.frontend.instruct:
+        if cosyvoice.frontend.instruct is True:
             gr.Warning(
-                "您正在使用跨语种复刻模式, {}模型不支持此模式, 请使用speech_tts/CosyVoice-300M模型".format(
+                "您正在使用跨语种复刻模式, {}模型不支持此模式, 请使用iic/CosyVoice-300M模型".format(
                     args.model_dir
                 )
             )
@@ -202,7 +197,7 @@ def generate_audio(
 def main():
     with gr.Blocks() as demo:
         gr.Markdown(
-            "### 代码库 [CosyVoice](https://github.com/FunAudioLLM/CosyVoice) 预训练模型 [CosyVoice-300M](https://www.modelscope.cn/models/speech_tts/CosyVoice-300M) [CosyVoice-300M-Instruct](https://www.modelscope.cn/models/speech_tts/CosyVoice-300M-Instruct) [CosyVoice-300M-SFT](https://www.modelscope.cn/models/speech_tts/CosyVoice-300M-SFT)"
+            "### 代码库 [CosyVoice](https://github.com/FunAudioLLM/CosyVoice) 预训练模型 [CosyVoice-300M](https://www.modelscope.cn/models/iic/CosyVoice-300M) [CosyVoice-300M-Instruct](https://www.modelscope.cn/models/iic/CosyVoice-300M-Instruct) [CosyVoice-300M-SFT](https://www.modelscope.cn/models/iic/CosyVoice-300M-SFT)"
         )
         gr.Markdown("#### 请输入需要合成的文本，选择推理模式，并按照提示步骤进行操作")
 
@@ -284,7 +279,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_dir",
         type=str,
-        default="speech_tts/CosyVoice-300M",
+        default="iic/CosyVoice-300M",
         help="local path or modelscope repo id",
     )
     args = parser.parse_args()

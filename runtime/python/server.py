@@ -15,7 +15,6 @@ import os
 import sys
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/../..'.format(ROOT_DIR))
-sys.path.append('{}/../../third_party/AcademiCodec'.format(ROOT_DIR))
 sys.path.append('{}/../../third_party/Matcha-TTS'.format(ROOT_DIR))
 from concurrent import futures
 import argparse
@@ -79,7 +78,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_dir',
                         type=str,
                         required=True,
-                        default='speech_tts/CosyVoice-300M',
+                        default='iic/CosyVoice-300M',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
     main()

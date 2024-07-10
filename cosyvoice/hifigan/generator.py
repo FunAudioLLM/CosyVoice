@@ -27,8 +27,8 @@ from torch.nn.utils import weight_norm
 from torch.distributions.uniform import Uniform
 
 from cosyvoice.transformer.activation import Snake
-from academicodec.utils import get_padding
-from academicodec.utils import init_weights
+from cosyvoice.utils.common import get_padding
+from cosyvoice.utils.common import init_weights
 
 
 """hifigan based generator implementation.

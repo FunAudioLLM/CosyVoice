@@ -21,7 +21,14 @@ import torchaudio.compliance.kaldi as kaldi
 import torchaudio
 import os
 import inflect
-import ttsfrd
+try:
+    import ttsfrd
+    use_ttsfrd = True
+except ImportError:
+    print("failed to import ttsfrd, use WeTextProcessing instead")
+    from tn.chinese.normalizer import Normalizer as ZhNormalizer
+    from tn.english.normalizer import Normalizer as EnNormalizer
+    use_ttsfrd = False
 from cosyvoice.utils.frontend_utils import contains_chinese, replace_blank, replace_corner_mark, remove_bracket, spell_out_number, split_paragraph
 
 
@@ -42,18 +49,23 @@ class CosyVoiceFrontEnd:
         option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
         option.intra_op_num_threads = 1
         self.campplus_session = onnxruntime.InferenceSession(campplus_model, sess_options=option, providers=["CPUExecutionProvider"])
-        self.speech_tokenizer_session = onnxruntime.InferenceSession(speech_tokenizer_model, sess_options=option, providers=["CUDAExecutionProvider"])
+        self.speech_tokenizer_session = onnxruntime.InferenceSession(speech_tokenizer_model, sess_options=option, providers=["CUDAExecutionProvider"if torch.cuda.is_available() else "CPUExecutionProvider"])
         if os.path.exists(spk2info):
             self.spk2info = torch.load(spk2info, map_location=self.device)
         self.instruct = instruct
         self.allowed_special = allowed_special
         self.inflect_parser = inflect.engine()
-        self.frd = ttsfrd.TtsFrontendEngine()
-        ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-        assert self.frd.initialize('{}/../../pretrained_models/speech_kantts_ttsfrd/resource'.format(ROOT_DIR)) is True, 'failed to initialize ttsfrd resource'
-        self.frd.set_lang_type('pinyin')
-        self.frd.enable_pinyin_mix(True)
-        self.frd.set_breakmodel_index(1)
+        self.use_ttsfrd = use_ttsfrd
+        if self.use_ttsfrd:
+            self.frd = ttsfrd.TtsFrontendEngine()
+            ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+            assert self.frd.initialize('{}/../../pretrained_models/CosyVoice-ttsfrd/resource'.format(ROOT_DIR)) is True, 'failed to initialize ttsfrd resource'
+            self.frd.set_lang_type('pinyin')
+            self.frd.enable_pinyin_mix(True)
+            self.frd.set_breakmodel_index(1)
+        else:
+            self.zh_tn_model = ZhNormalizer(remove_erhua=False, full_to_half=False)
+            self.en_tn_model = EnNormalizer()
 
     def _extract_text_token(self, text):
         text_token = self.tokenizer.encode(text, allowed_special=self.allowed_special)
@@ -88,7 +100,11 @@ class CosyVoiceFrontEnd:
     def text_normalize(self, text, split=True):
         text = text.strip()
         if contains_chinese(text):
-            text = self.frd.get_frd_extra_info(text, 'input').replace("\n", "")
+            if self.use_ttsfrd:
+                text = self.frd.get_frd_extra_info(text, 'input')
+            else:
+                text = self.zh_tn_model.normalize(text)
+            text = text.replace("\n", "")
             text = replace_blank(text)
             text = replace_corner_mark(text)
             text = text.replace(".", "、")
@@ -98,6 +114,10 @@ class CosyVoiceFrontEnd:
                                                 token_min_n=60, merge_len=20,
                                                 comma_split=False)]
         else:
+            if self.use_ttsfrd:
+                text = self.frd.get_frd_extra_info(text, 'input')
+            else:
+                text = self.en_tn_model.normalize(text)
             text = spell_out_number(text, self.inflect_parser)
             texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=80,
                                                 token_min_n=60, merge_len=20,

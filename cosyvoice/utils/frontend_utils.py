@@ -84,7 +84,7 @@ def split_paragraph(
             return len(tokenize(_text)) < merge_len
 
     if lang == "zh":
-        pounc = ["。", "？", "！", "；", "：", ".", "?", "!", ";", "，"]
+        pounc = ["。", "？", "！", "；", "：", "、", ".", "?", "!", ";"]
     else:
         pounc = [".", "?", "!", ";", ":"]
     if comma_split:
@@ -101,6 +101,11 @@ def split_paragraph(
                 st = i + 2
             else:
                 st = i + 1
+    if len(utts) == 0:
+        if lang == "zh":
+            utts.append(text + "。")
+        else:
+            utts.append(text + ".")
     final_utts = []
     cur_utt = ""
     for utt in utts:

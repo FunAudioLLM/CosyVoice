@@ -56,4 +56,5 @@ class CosyVoiceModel:
                                       prompt_feat_len=prompt_speech_feat_len.to(self.device),
                                       embedding=flow_embedding.to(self.device))
         tts_speech = self.hift.inference(mel=tts_mel).cpu()
+        torch.cuda.empty_cache()
         return {'tts_speech': tts_speech}

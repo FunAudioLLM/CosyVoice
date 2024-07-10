@@ -53,6 +53,8 @@ def main(args):
         if spk not in spk2embedding:
             spk2embedding[spk] = []
         spk2embedding[spk].append(embedding)
+    for k, v in spk2embedding.items():
+        spk2embedding[k] = torch.tensor(v).mean(dim=0).tolist()
 
     torch.save(utt2embedding, '{}/utt2embedding.pt'.format(args.dir))
     torch.save(spk2embedding, '{}/spk2embedding.pt'.format(args.dir))

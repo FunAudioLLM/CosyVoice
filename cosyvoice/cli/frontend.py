@@ -114,7 +114,10 @@ class CosyVoiceFrontEnd:
                                                 token_min_n=60, merge_len=20,
                                                 comma_split=False)]
         else:
-            text = self.en_tn_model.normalize(text)
+            if self.use_ttsfrd:
+                text = self.frd.get_frd_extra_info(text, 'input')
+            else:
+                text = self.en_tn_model.normalize(text)
             text = spell_out_number(text, self.inflect_parser)
             texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=80,
                                                 token_min_n=60, merge_len=20,

@@ -125,10 +125,14 @@ The `runtime/python/fastapi_server.py` file contains the http API build with `Fa
 cd runtime/python
 # Set inference model
 export MODEL_DIR=pretrained_models/CosyVoice-300M-Instruct
+
 # For development
-fastapi dev --port 6006 fastapi_server.py 
+fastapi dev --port 6006 fastapi_server.py
 # For production
-fastapi run --port 6006 fastapi_server.py 
+fastapi run --port 6006 fastapi_server.py
+
+# Call the API with python client
+python fastapi_client.py --api_base http://127.0.0.1:6006 --mode cross_lingual --tts_wav ./demo.wav
 ```
 
 **Build for deployment**

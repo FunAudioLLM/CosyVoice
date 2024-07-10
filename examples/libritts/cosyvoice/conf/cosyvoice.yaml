@@ -190,6 +190,7 @@ train_conf:
     scheduler: warmuplr # change to constantlr during sft
     scheduler_conf:
         warmup_steps: 2500
+    use_spk_embedding: False # change to True during sft
     max_epoch: 200
     grad_clip: 5
     accum_grad: 2

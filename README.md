@@ -121,10 +121,13 @@ You can get familiar with CosyVoice following this recipie.
 The `main.py` file has added a `TTS` api with `CosyVoice-300M-SFT` model, you can update the code based on **Basic Usage** as above.
 
 ```sh
+cd runtime/python
+# Set inference model
+export MODEL_DIR=pretrained_models/CosyVoice-300M-Instruct
 # For development
-fastapi dev --port 3003
+fastapi dev --port 6006 fastapi_server.py 
 # For production
-fastapi run --port 3003
+fastapi run --port 6006 fastapi_server.py 
 ```
 
 **Build for deployment**

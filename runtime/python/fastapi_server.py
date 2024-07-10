@@ -1,3 +1,10 @@
+# Set inference model
+# export MODEL_DIR=pretrained_models/CosyVoice-300M-Instruct
+# For development
+# fastapi dev --port 6006 fastapi_server.py 
+# For production deployment
+# fastapi run --port 6006 fastapi_server.py 
+
 import os
 import sys
 import io,time

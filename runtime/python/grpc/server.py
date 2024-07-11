@@ -14,8 +14,8 @@
 import os
 import sys
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append('{}/../..'.format(ROOT_DIR))
-sys.path.append('{}/../../third_party/Matcha-TTS'.format(ROOT_DIR))
+sys.path.append('{}/../../..'.format(ROOT_DIR))
+sys.path.append('{}/../../../third_party/Matcha-TTS'.format(ROOT_DIR))
 from concurrent import futures
 import argparse
 import cosyvoice_pb2
@@ -77,7 +77,6 @@ if __name__ == '__main__':
                         default=4)
     parser.add_argument('--model_dir',
                         type=str,
-                        required=True,
                         default='iic/CosyVoice-300M',
                         help='local path or modelscope repo id')
     args = parser.parse_args()

@@ -10,6 +10,7 @@ import sys
 import io,time
 from fastapi import FastAPI, Response, File, UploadFile, Form
 from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware  #引入 CORS中间件模块
 from contextlib import asynccontextmanager
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/../../..'.format(ROOT_DIR))
@@ -38,6 +39,15 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+#设置允许访问的域名
+origins = ["*"]  #"*"，即为所有,也可以改为允许的特定ip。
+app.add_middleware(
+    CORSMiddleware, 
+    allow_origins=origins,  #设置允许的origins来源
+    allow_credentials=True,
+    allow_methods=["*"],  # 设置允许跨域的http方法，比如 get、post、put等。
+    allow_headers=["*"])  #允许跨域的headers，可以用来鉴别来源等作用。
 
 def buildResponse(output):
     buffer = io.BytesIO()

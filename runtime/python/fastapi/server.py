@@ -1,9 +1,9 @@
 # Set inference model
 # export MODEL_DIR=pretrained_models/CosyVoice-300M-Instruct
 # For development
-# fastapi dev --port 6006 fastapi_server.py 
+# fastapi dev --port 6006 fastapi_server.py
 # For production deployment
-# fastapi run --port 6006 fastapi_server.py 
+# fastapi run --port 6006 fastapi_server.py
 
 import os
 import sys
@@ -12,8 +12,8 @@ from fastapi import FastAPI, Response, File, UploadFile, Form
 from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append('{}/../..'.format(ROOT_DIR))
-sys.path.append('{}/../../third_party/Matcha-TTS'.format(ROOT_DIR))
+sys.path.append('{}/../../..'.format(ROOT_DIR))
+sys.path.append('{}/../../../third_party/Matcha-TTS'.format(ROOT_DIR))
 from cosyvoice.cli.cosyvoice import CosyVoice
 from cosyvoice.utils.file_utils import load_wav
 import numpy as np
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     model_dir = os.getenv("MODEL_DIR", "pretrained_models/CosyVoice-300M-SFT")
     if model_dir:
         logging.info("MODEL_DIR is {}", model_dir)
-        app.cosyvoice = CosyVoice('../../'+model_dir)
+        app.cosyvoice = CosyVoice(model_dir)
         # sft usage
         logging.info("Avaliable speakers {}", app.cosyvoice.list_avaliable_spks())
     else:

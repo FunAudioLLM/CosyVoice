@@ -52,10 +52,6 @@ class Executor:
                 info_dict["batch_idx"] = batch_idx
                 if cosyvoice_join(group_join, info_dict):
                     break
-                if info_dict["use_spk_embedding"] is True:
-                    batch_dict["embedding"] = batch_dict["spk_embedding"]
-                else:
-                    batch_dict["embedding"] = batch_dict["utt_embedding"]
 
                 # Disable gradient synchronizations across DDP processes.
                 # Within this context, gradients will be accumulated on module

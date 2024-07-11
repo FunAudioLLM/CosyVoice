@@ -308,7 +308,7 @@ def batch(data, batch_type='static', batch_size=16, max_frames_in_batch=12000, m
             logging.fatal('Unsupported batch type {}'.format(batch_type))
 
 
-def padding(data, mode='train'):
+def padding(data, use_spk_embedding, mode='train'):
     """ Padding the data into training data
 
         Args:
@@ -362,4 +362,8 @@ def padding(data, mode='train'):
                           'tts_index': tts_index,
                           'tts_text_token': tts_text_token,
                           'tts_text_token_len': tts_text_token_len})
+        if use_spk_embedding is True:
+            batch["embedding"] = batch["spk_embedding"]
+        else:
+            batch["embedding"] = batch["utt_embedding"]
         yield batch

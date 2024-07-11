@@ -167,6 +167,7 @@ batch: !name:cosyvoice.dataset.processor.batch
     batch_type: 'dynamic'
     max_frames_in_batch: 12000
 padding: !name:cosyvoice.dataset.processor.padding
+    use_spk_embedding: False # change to True during sft
 
 # dataset processor pipeline
 data_pipeline: [
@@ -190,7 +191,6 @@ train_conf:
     scheduler: warmuplr
     scheduler_conf:
         warmup_steps: 25000
-    use_spk_embedding: False # change to True during sft
     max_epoch: 200
     grad_clip: 5
     accum_grad: 2

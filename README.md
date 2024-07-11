@@ -33,6 +33,39 @@ sudo apt-get install sox libsox-dev
 sudo yum install sox sox-devel
 ```
 
+#### FFmpeg
+
+##### Conda Users
+```bash
+conda install ffmpeg
+```
+
+##### Ubuntu/Debian Users
+
+```bash
+sudo apt install ffmpeg
+sudo apt install libsox-dev
+conda install -c conda-forge 'ffmpeg<7'
+```
+
+##### MacOS Users
+
+```bash
+brew install ffmpeg
+```
+
+##### Windows Users
+
+```bash
+winget install ffmpeg
+```
+
+or
+
+```
+choco install ffmpeg
+```
+
 **Model download**
 
 We strongly recommend that you download our pretrained `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `CosyVoice-ttsfrd` resource.

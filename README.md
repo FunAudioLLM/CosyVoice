@@ -39,8 +39,13 @@ sudo yum install sox sox-devel
 We strongly recommend that you download our pretrained `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `CosyVoice-ttsfrd` resource.
 
 Download models with python script.
-``` shell
-python download.py
+
+``` python
+from modelscope import snapshot_download
+snapshot_download('iic/CosyVoice-300M', local_dir='pretrained_models/CosyVoice-300M')
+snapshot_download('iic/CosyVoice-300M-SFT', local_dir='pretrained_models/CosyVoice-300M-SFT')
+snapshot_download('iic/CosyVoice-300M-Instruct', local_dir='pretrained_models/CosyVoice-300M-Instruct')
+snapshot_download('iic/CosyVoice-ttsfrd', local_dir='pretrained_models/CosyVoice-ttsfrd')
 ```
 
 Download models with git, you should install [git lfs](https://github.com/git-lfs/git-lfs?utm_source=CosyVoice_site&utm_medium=download_models&utm_campaign=gitlfs#installing) first.

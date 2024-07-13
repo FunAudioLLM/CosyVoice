@@ -60,7 +60,7 @@ class MaskedDiffWithXvec(torch.nn.Module):
         token_len = batch['speech_token_len'].to(device)
         feat = batch['speech_feat'].to(device)
         feat_len = batch['speech_feat_len'].to(device)
-        embedding = batch['utt_embedding'].to(device)
+        embedding = batch['embedding'].to(device)
 
         # xvec projection
         embedding = F.normalize(embedding, dim=1)

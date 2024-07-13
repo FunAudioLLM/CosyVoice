@@ -14,8 +14,8 @@
 import os
 import sys
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append('{}/../..'.format(ROOT_DIR))
-sys.path.append('{}/../../third_party/Matcha-TTS'.format(ROOT_DIR))
+sys.path.append('{}/../../..'.format(ROOT_DIR))
+sys.path.append('{}/../../../third_party/Matcha-TTS'.format(ROOT_DIR))
 import logging
 import argparse
 import torchaudio
@@ -90,7 +90,7 @@ if __name__ == "__main__":
                         default='希望你以后能够做的比我还好呦。')
     parser.add_argument('--prompt_wav',
                         type=str,
-                        default='../../zero_shot_prompt.wav')
+                        default='../../../zero_shot_prompt.wav')
     parser.add_argument('--instruct_text',
                         type=str,
                         default='Theo \'Crimson\', is a fiery, passionate rebel leader. Fights with fervor for justice, but struggles with impulsiveness.')

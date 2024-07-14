@@ -7,20 +7,18 @@ from cosyvoice.utils.file_utils import load_wav
 import torchaudio
 import os
 import argparse
-import logging
+from time import time as ttime
+from pypinyin import pinyin, Style
+from difflib import SequenceMatcher
 
-# 配置日志记录
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+from tools.asr.funasr_asr import only_asr
 
 prompt_speecher = {
-    # "旁白": {
+    # "枫原万叶": {
     #     "wav_path": "./tmp/model/打道回府，告诉公司有个蠢货把一切都搞砸了。.wav",
     #     "wav_txt": "打道回府，告诉公司有个蠢货把一切都搞砸了。",
     # }
-    # "旁白": {
+    # "枫原万叶": {
     #     "wav_path": "tmp/model/樊娜轻轻点了点头，什么都没说，她脑海中浮现出的却是昨夜那惊悚的梦境。.wav",
     #     "wav_txt": "樊娜轻轻点了点头，什么都没说，她脑海中浮现出的却是昨夜那惊悚的梦境。",
     # }
@@ -30,10 +28,12 @@ prompt_speecher = {
     }
 }
 
-logger.info(f"CUDA available: {torch.cuda.is_available()}")
+print(f"CUDA available: {torch.cuda.is_available()}")
 
 # 初始化 CosyVoice 实例
-cosyvoice = CosyVoice("pretrained_models/CosyVoice-300M")
+cosyvoice = CosyVoice("./pretrained_models/CosyVoice-300M-Instruct")
+sft_spk = cosyvoice.list_avaliable_spks()
+print(sft_spk)
 
 # 加载提示语音
 # prompt_speech_16k = load_wav(prompt_speecher["旁白"]["wav_path"], 16000)
@@ -123,6 +123,8 @@ def merge_short_text_in_array(texts, threshold):
     current_text = ""
 
     for text in texts:
+        text = text.replace("。", "，").replace("！", "，").replace("？", "，")
+
         # 将当前文本添加到合并文本中
         current_text += text
         # 如果合并文本长度达到阈值，将其添加到结果列表中，并重置合并文本
@@ -196,6 +198,8 @@ def format_text(text, language="zh"):
     text = re.sub(r" ", punct["comma"], text)  # 一个空格替换为逗号
     text = re.sub(r"[\"\'‘’“”\[\]【】〖〗]", "", text)  # 删除特殊符号
     text = re.sub(r"[:：……—]", punct["period"], text)  # 替换为句号
+    text = text.replace("、", "，")
+    text = text.replace("；", "，")
 
     # 替换所有非当前语言的符号为对应语言的符号
     if language == "en":
@@ -257,12 +261,83 @@ def format_text(text, language="zh"):
     return text
 
 
+def has_omission(gen_text, text):
+    """
+    检查生成的文本是否有遗漏原文的内容，通过拼音比较和相似度判断。
+    :param gen_text: 生成的文本
+    :param text: 原始文本
+    :return: 若生成的文本拼音相似度超过98%且没有增加重复字，则返回 False（没有遗漏），否则返回 True（有遗漏）
+    """
+
+    def remove_punctuation(text):
+        """
+        移除文本中的标点符号。
+        """
+        return re.sub(r"[^\w\s]", "", text)
+
+    def get_pinyin(text):
+        """
+        获取文本的拼音表示。
+        """
+        return " ".join(["".join(p) for p in pinyin(text, style=Style.TONE2)])
+
+    def get_pinyin_duo(text):
+        """
+        获取文本的拼音表示，支持多音字。
+        """
+        res = []
+        for ch in text:
+            res.extend(pinyin(ch, heteronym=True, style=Style.FIRST_LETTER))
+        return res
+
+    def calculate_similarity(pinyin1, pinyin2):
+        """
+        计算两个拼音字符串的相似度。
+        """
+        return SequenceMatcher(None, pinyin1, pinyin2).ratio()
+
+    # 去除标点符号
+    gen_text_clean = remove_punctuation(gen_text)
+    text_clean = remove_punctuation(text)
+
+    # 获取拼音
+    gen_text_pinyin = get_pinyin(gen_text_clean)
+    text_pinyin = get_pinyin(text_clean)
+
+    gen_text_ping_duo = get_pinyin_duo(gen_text_clean)
+    text_ping_duo = get_pinyin_duo(text_clean)
+
+    # 计算拼音相似度
+    sim_ratio = calculate_similarity(gen_text_pinyin, text_pinyin) * 100
+
+    res = True
+    # 判断是否有遗漏
+    if len(gen_text_clean) != len(text_clean):
+        # 如果字数不等，根据拼音相似度判断，每个字的差异减少5%的相似度
+        length_difference = abs(len(gen_text_clean) - len(text_clean))
+        res = True
+        sim_ratio = sim_ratio - length_difference * 5
+    else:
+        # 对比 gen_text_ping_duo 与 text_ping_duo
+        # 判断每个字符是否存在多音字，若存在，则对比两个字符多音字是否有相同，若有则满足字符相等，若不存在则减 5
+        is_multi_word = True
+        for gen_word, text_word in zip(gen_text_ping_duo, text_ping_duo):
+            if not any(g in text_word for g in gen_word):
+                sim_ratio -= 5
+                is_multi_word = False
+        if is_multi_word:
+            sim_ratio = 100
+        res = sim_ratio < 98
+
+    return res, sim_ratio, gen_text_clean, text_clean
+
+
 def get_texts(text, language="zh"):
     text = split_text_by_punctuation(text, {"。", "？", "！", "～"})
     texts = text.split("\n")
     texts = process_text(texts)
     texts = merge_short_text_in_array(texts, 10)
-    texts = cut_text(texts, 60)
+    texts = cut_text(texts, 40)
     return texts
 
 
@@ -272,7 +347,7 @@ def process_chapter(book_name, idx, prompt_speech_16k):
 
     # Check if file exists
     if not os.path.exists(file_path):
-        logger.warning(f"文件 {file_path} 不存在，跳过处理。")
+        print(f"文件 {file_path} 不存在，跳过处理。")
         return
 
     # Read file content
@@ -320,7 +395,7 @@ def process_chapter(book_name, idx, prompt_speech_16k):
     wav_list = torch.concat(wav_list, dim=1)
     output_path = os.path.join(f"./tmp/{book_name}/gen", f"{idx}.wav")
     torchaudio.save(output_path, wav_list, 22050)
-    logger.info(f"文件已保存到 {output_path}")
+    print(f"文件已保存到 {output_path}")
 
     # Record processing information
     process_file_path = f"./tmp/{book_name}/process.txt"
@@ -334,7 +409,7 @@ def process_chapter_v2(book_name, idx):
 
     # Check if file exists
     if not os.path.exists(file_path):
-        logger.warning(f"文件 {file_path} 不存在，跳过处理。")
+        print(f"文件 {file_path} 不存在，跳过处理。")
         return
 
     # Read file content
@@ -346,39 +421,139 @@ def process_chapter_v2(book_name, idx):
 
     # Initialize wav_list
     wav_list = []
+    total_texts = len(texts)
+    index = 0
+    pinyin_similarity_map = {}
+    try_again = 0
 
-    for i, line in enumerate(tqdm(texts, desc=f"Processing chapter {idx}")):
-        # Clear torch cache
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+    with tqdm(total=total_texts, desc=f"Processing chapter {idx}") as pbar:
+        while index < total_texts:
+            line = texts[index]
+            # Clear torch cache
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
-        output = cosyvoice.inference_sft(line, "旁白")
+            output = cosyvoice.inference_sft(line, "旁白")
 
-        # Save temporary output
-        tts_speech = output["tts_speech"]
-        # Ensure tts_speech is 2-dimensional
-        if tts_speech.ndim == 1:
-            tts_speech = tts_speech.unsqueeze(0)
-        wav_list.append(tts_speech)
+            # Save temporary output
+            tts_speech = output["tts_speech"]
 
-        if line[-1] == "，":
-            random_duration = np.random.uniform(0.05, 0.08)
-        else:
-            random_duration = np.random.uniform(0.09, 0.13)
+            t2 = ttime()
 
-        zero_wav = np.zeros(
-            int(22050 * random_duration),
-            dtype=np.float32,
-        )
-        # Convert numpy array to torch tensor and ensure it is 2-dimensional
-        zero_wav = torch.from_numpy(zero_wav).unsqueeze(0)
-        wav_list.append(zero_wav)
+            temp_audio_path = os.path.join(
+                "tmp", "gen", "audio", f"temp_audio_{t2}.wav"
+            )
+            torchaudio.save(temp_audio_path, output["tts_speech"], 22050)
+            asr_result = only_asr(temp_audio_path)
+
+            is_continu, pinyin_similarity, gen_text_clean, text_clean = has_omission(
+                asr_result, line
+            )
+
+            print(f"""
+=========
+try_again: {try_again}
+生成文本：{gen_text_clean}
+输入文本：{text_clean}
+相似度：{pinyin_similarity}
+=========
+    """)
+            pinyin_similarity_map[pinyin_similarity] = output["tts_speech"]
+            os.remove(temp_audio_path)
+
+            if is_continu:
+                if try_again >= 5:
+                    # 退出
+                    # 清空数据
+                    best_similarity = max(pinyin_similarity_map.keys())
+                    best_audio = pinyin_similarity_map[best_similarity]
+                    pinyin_similarity_map = {}
+                    try_again = 0
+
+                    # 进行下一个
+                    index += 1
+                    pbar.update(1)
+
+                    if best_audio.ndim == 1:
+                        best_audio = best_audio.unsqueeze(0)
+
+                    wav_list.append(best_audio)
+
+                    if line[-1] == "，":
+                        random_duration = np.random.uniform(0.05, 0.08)
+                    else:
+                        random_duration = np.random.uniform(0.09, 0.13)
+                    zero_wav = np.zeros(
+                        int(22050 * random_duration),
+                        dtype=np.float32,
+                    )
+                    # Convert numpy array to torch tensor and ensure it is 2-dimensional
+                    zero_wav = torch.from_numpy(zero_wav).unsqueeze(0)
+                    wav_list.append(zero_wav)
+
+                else:
+                    try_again += 1
+                    # 继续
+                    continue
+
+            else:
+                # 清空数据
+                pinyin_similarity_map = {}
+                try_again = 0
+
+                #  进行下一个
+                pbar.update(1)
+                index += 1
+
+                if tts_speech.ndim == 1:
+                    tts_speech = tts_speech.unsqueeze(0)
+                wav_list.append(tts_speech)
+
+                if line[-1] == "，":
+                    random_duration = np.random.uniform(0.05, 0.08)
+                else:
+                    random_duration = np.random.uniform(0.09, 0.13)
+
+                zero_wav = np.zeros(
+                    int(22050 * random_duration),
+                    dtype=np.float32,
+                )
+                # Convert numpy array to torch tensor and ensure it is 2-dimensional
+                zero_wav = torch.from_numpy(zero_wav).unsqueeze(0)
+                wav_list.append(zero_wav)
 
     # Concatenate and save to ./tmp/{book_name}/gen/{idx}.wav
     wav_list = torch.concat(wav_list, dim=1)
     output_path = os.path.join(f"./tmp/{book_name}/gen", f"{idx}.wav")
     torchaudio.save(output_path, wav_list, 22050)
-    logger.info(f"文件已保存到 {output_path}")
+    print(f"文件已保存到 {output_path}")
+
+    # Record processing information
+    process_file_path = f"./tmp/{book_name}/process.txt"
+    with open(process_file_path, "a", encoding="utf-8") as process_file:
+        process_file.write(f"Chapter {idx} processed and saved to {output_path}\n")
+
+
+def process_chapter_v3(book_name, idx):
+    # Read file path
+    file_path = f"./tmp/{book_name}/data/chapter_{idx}.txt"
+
+    # Check if file exists
+    if not os.path.exists(file_path):
+        print(f"文件 {file_path} 不存在，跳过处理。")
+        return
+
+    # Read file content
+    with open(file_path, "r", encoding="utf-8") as file:
+        file_content = file.read()
+
+    file_content = format_text(file_content)
+
+    output = cosyvoice.inference_sft(file_content, "枫原万叶")
+
+    output_path = os.path.join(f"./tmp/{book_name}/gen", f"{idx}.wav")
+    torchaudio.save(output_path, output["tts_speech"], 22050)
+    print(f"文件已保存到 {output_path}")
 
     # Record processing information
     process_file_path = f"./tmp/{book_name}/process.txt"
@@ -390,7 +565,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Process book chapters to generate audio files."
     )
-    parser.add_argument("--book_name", type=str, help="Name of the book", default="jy")
+    parser.add_argument("--book_name", type=str, help="Name of the book", default="fz")
     parser.add_argument(
         "--start_idx", type=int, help="Starting chapter index", default=1
     )

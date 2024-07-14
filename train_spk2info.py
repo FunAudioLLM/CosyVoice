@@ -40,7 +40,7 @@ class Trainer(CosyVoiceFrontEnd):
             configs["feat_extractor"],
             f"{model_dir}/campplus.onnx",
             f"{model_dir}/speech_tokenizer_v1.onnx",
-            f"{model_dir}/spk2info_1.pt",
+            f"{model_dir}/spk2info.pt",
             instruct,
             configs["allowed_special"],
         )
@@ -79,7 +79,7 @@ class Trainer(CosyVoiceFrontEnd):
                 print(f"训练完成:{spk_name}")
 
     def save(self):
-        torch.save(self.spk2info, os.path.join(self.model_dir, "spk2info.pt"))
+        torch.save(self.spk2info, os.path.join(self.model_dir, "spk2info_pb.pt"))
 
 
 if __name__ == "__main__":

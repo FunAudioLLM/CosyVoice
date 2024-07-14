@@ -50,7 +50,7 @@ pretrained_models/*
 
 
 *log
-tmp
+tmp/*
 original_data/*
 data/*
 examples/*

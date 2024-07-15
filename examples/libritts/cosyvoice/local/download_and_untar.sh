@@ -43,7 +43,7 @@ if [ -z "$url" ]; then
   exit 1
 fi
 
-if [ -f $data/LibriSpeech/$part/.complete ]; then
+if [ -f $data/LibriTTS/$part/.complete ]; then
   echo "$0: data part $part was already successfully extracted, nothing to do."
   exit 0
 fi
@@ -87,7 +87,7 @@ if ! tar -C $data -xvzf $data/$part.tar.gz; then
   exit 1
 fi
 
-touch $data/LibriSpeech/$part/.complete
+touch $data/LibriTTS/$part/.complete
 
 echo "$0: Successfully downloaded and un-tarred $data/$part.tar.gz"
 

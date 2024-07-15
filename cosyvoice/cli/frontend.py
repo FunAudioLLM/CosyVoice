@@ -20,6 +20,7 @@ from typing import Callable
 import torchaudio.compliance.kaldi as kaldi
 import torchaudio
 import os
+import re
 import inflect
 try:
     import ttsfrd
@@ -110,6 +111,7 @@ class CosyVoiceFrontEnd:
             text = text.replace(".", "、")
             text = text.replace(" - ", "，")
             text = remove_bracket(text)
+            text = re.sub(r'[，,]+$', '。', text)
             texts = [i for i in split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=80,
                                                 token_min_n=60, merge_len=20,
                                                 comma_split=False)]

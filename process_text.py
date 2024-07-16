@@ -24,8 +24,7 @@ def split_novel(novel_name, content):
     :param content: 小说内容
     """
     # 定义匹配章节标题的正则表达式
-    # pattern = r"(第\s*\d+\s*章\s*.*?\n)"
-    pattern = r"第\s*\S+\s*章\s*.*?\n"
+    pattern = r"第[0123456789]+章\s*.*?\n"
 
     # 查找所有章节标题的位置
     matches = list(re.finditer(pattern, content))
@@ -38,7 +37,6 @@ def split_novel(novel_name, content):
     for i, match in enumerate(matches):
         start = match.start()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
-        chapter_title = match.group(0)
         chapter_content = content[start:end].strip()
 
         if chapter_content:
@@ -84,6 +82,13 @@ def process_novel(novel_name):
     chapters_path = f"tmp/{novel_name}/data"
     chapter_files = sorted(os.listdir(chapters_path))
 
+    total_chapters = len(chapter_files)
+    missing_chapters = [i + 1 for i in range(total_chapters) if i >= processed_chapter]
+
+    print(f"Total chapters: {total_chapters}")
+    print(f"Processed chapters: {processed_chapter}")
+    print(f"Missing chapters: {missing_chapters}")
+
     for i, chapter_file in enumerate(chapter_files):
         if i >= processed_chapter:
             # 在这里处理每一章
@@ -97,5 +102,5 @@ def process_novel(novel_name):
 
 
 # 示例调用
-novel_name = "fz"
+novel_name = "srzy"
 process_novel(novel_name)

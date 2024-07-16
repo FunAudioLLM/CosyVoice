@@ -38,7 +38,7 @@ class CosyVoice:
         )
         self.model = CosyVoiceModel(configs["llm"], configs["flow"], configs["hift"])
         self.model.load(
-            "{}/llm_pb.pt".format(model_dir),
+            "{}/llm_pb_31.pt".format(model_dir),
             "{}/flow.pt".format(model_dir),
             "{}/hift.pt".format(model_dir),
         )

@@ -1,4 +1,14 @@
-﻿from tools.auto_task_help import get_texts, has_omission
+﻿import os
+import sys
+
+# 设置 PYTHONPATH 环境变量
+os.environ["PYTHONPATH"] = "third_party/Matcha-TTS"
+
+# 将 PYTHONPATH 添加到 sys.path
+sys.path.append("third_party/Matcha-TTS")
+
+
+from tools.auto_task_help import get_texts, has_omission
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -8,20 +18,14 @@ import os
 import argparse
 import pyloudnorm as pyln
 
-import logging
-from venv import logger
+import warnings
+from loguru import logger
 
 
-# 初始化日志信息
-logging.getLogger("markdown_it").setLevel(logging.ERROR)
-logging.getLogger("urllib3").setLevel(logging.ERROR)
-logging.getLogger("httpcore").setLevel(logging.ERROR)
-logging.getLogger("httpx").setLevel(logging.ERROR)
-logging.getLogger("asyncio").setLevel(logging.ERROR)
-logging.getLogger("charset_normalizer").setLevel(logging.ERROR)
-logging.getLogger("torchaudio._extension").setLevel(logging.ERROR)
-
+# 抑制 pyloudnorm 中的 UserWarning 警告
+warnings.filterwarnings("ignore", category=UserWarning, module="pyloudnorm")
 logger.info(f"CUDA available: {torch.cuda.is_available()}")
+
 
 # 初始化 CosyVoice 实例
 cosyvoice = CosyVoice("./pretrained_models/CosyVoice-300M-SFT")
@@ -59,14 +63,13 @@ def prepare_audio(audio):
     return _norm_loudness(audio, 22050)
 
 
-def process_text_line(index, texts, try_again, wav_list, pbar):
+def process_text_line(index, texts, try_again, wav_list):
     """
     处理单行文本
     :param index: 当前处理的文本行索引
     :param texts: 文本列表
     :param try_again: 重试次数
     :param wav_list: 音频列表
-    :param pbar: tqdm 进度条
     :return: 更新后的索引和重试次数
     """
     line = texts[index]
@@ -79,9 +82,6 @@ def process_text_line(index, texts, try_again, wav_list, pbar):
     is_continu, pinyin_similarity, gen_text_clean, text_clean = has_omission(
         output["tts_speech"], line
     )
-
-    pinyin_similarity_map[pinyin_similarity] = output["tts_speech"]
-
     logger.info(f"""
 =========
 原始文本：{line}
@@ -92,6 +92,8 @@ try_again: {try_again}
 =========
     """)
 
+    pinyin_similarity_map[pinyin_similarity] = output["tts_speech"]
+
     if is_continu:
         try_again += 1
         if try_again >= 5:
@@ -100,7 +102,6 @@ try_again: {try_again}
             pinyin_similarity_map.clear()
             try_again = 0
             index += 1
-            pbar.update(1)
             best_audio = prepare_audio(best_audio)
             wav_list.append(best_audio)
             wav_list.append(generate_silence(line))
@@ -108,7 +109,6 @@ try_again: {try_again}
         pinyin_similarity_map.clear()
         try_again = 0
         index += 1
-        pbar.update(1)
         tts_speech = prepare_audio(output["tts_speech"])
         wav_list.append(tts_speech)
         wav_list.append(generate_silence(line))
@@ -153,12 +153,18 @@ def process_chapter(book_name, idx):
     total_texts = len(texts)
     index = 0
     try_again = 0
+    last_idx = index
 
-    with tqdm(total=total_texts, desc=f"正在处理：{book_name}-{idx} - {title}") as pbar:
+    with tqdm(
+        total=total_texts,
+        desc=f"正在处理：{book_name}-{idx} - {title}",
+        leave=True,  # 确保进度条在完成后不会被清除
+    ) as pbar:
         while index < total_texts:
-            index, try_again = process_text_line(
-                index, texts, try_again, wav_list, pbar
-            )
+            index, try_again = process_text_line(index, texts, try_again, wav_list)
+            if last_idx != index:
+                last_idx = index
+                pbar.update(1)
 
     wav_list = [wav if wav.ndim == 2 else wav.unsqueeze(0) for wav in wav_list]
     wav_list = torch.concat(wav_list, dim=1)
@@ -175,6 +181,7 @@ def main():
     """
     主函数
     """
+
     parser = argparse.ArgumentParser(
         description="Process book chapters to generate audio files."
     )

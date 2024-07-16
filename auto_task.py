@@ -1,5 +1,4 @@
-﻿import logging
-from tools.auto_task_help import get_texts, has_omission
+﻿from tools.auto_task_help import get_texts, has_omission
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -9,14 +8,18 @@ import os
 import argparse
 import pyloudnorm as pyln
 
-# 配置日志记录
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    filename="out.log",  # 指定日志文件名
-    filemode="a",  # 追加模式
-)
-logger = logging.getLogger(__name__)
+import logging
+from venv import logger
+
+
+# 初始化日志信息
+logging.getLogger("markdown_it").setLevel(logging.ERROR)
+logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("httpcore").setLevel(logging.ERROR)
+logging.getLogger("httpx").setLevel(logging.ERROR)
+logging.getLogger("asyncio").setLevel(logging.ERROR)
+logging.getLogger("charset_normalizer").setLevel(logging.ERROR)
+logging.getLogger("torchaudio._extension").setLevel(logging.ERROR)
 
 logger.info(f"CUDA available: {torch.cuda.is_available()}")
 
@@ -136,7 +139,7 @@ def process_chapter(book_name, idx):
     """
     file_path = f"./tmp/{book_name}/data/chapter_{idx}.txt"
     if not os.path.exists(file_path):
-        logger.warning(f"文件 {file_path} 不存在，跳过处理。")
+        logger.info(f"文件 {file_path} 不存在，跳过处理。")
         return
 
     with open(file_path, "r", encoding="utf-8") as file:

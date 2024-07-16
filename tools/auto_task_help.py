@@ -12,6 +12,9 @@ from tools.zh_normalization.text_normlization import TextNormalizer
 
 from tools.model import SenseVoiceSmall
 
+"""
+auto_task 辅助函数
+"""
 
 # 加载 SenseVoiceSmall 模型
 model_dir = "iic/SenseVoiceSmall"

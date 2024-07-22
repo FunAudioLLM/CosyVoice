@@ -28,7 +28,7 @@ import logging
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 from cosyvoice.cli.cosyvoice import CosyVoice
-from cosyvoice.utils.file_utils import load_wav,speed_change
+from cosyvoice.utils.file_utils import load_wav, speed_change
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -135,7 +135,7 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
     
     if speed_factor != 1.0:
         try:
-            audio_data , sample_rate = speed_change(output["tts_speech"],target_sr,str(speed_factor))
+            audio_data, sample_rate = speed_change(output["tts_speech"], target_sr, str(speed_factor))
             audio_data = audio_data.numpy().flatten()
         except Exception as e:
             print(f"Failed to change speed of audio: \n{e}")
@@ -171,7 +171,7 @@ def main():
 
         seed_button.click(generate_seed, inputs=[], outputs=seed)
         generate_button.click(generate_audio,
-                              inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text, seed,speed_factor],
+                              inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text, seed, speed_factor],
                               outputs=[audio_output])
         mode_checkbox_group.change(fn=change_instruction, inputs=[mode_checkbox_group], outputs=[instruction_text])
     demo.queue(max_size=4, default_concurrency_limit=2)

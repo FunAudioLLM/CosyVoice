@@ -80,7 +80,7 @@ export PYTHONPATH=third_party/Matcha-TTS
 
 ``` python
 from cosyvoice.cli.cosyvoice import CosyVoice
-from cosyvoice.utils.file_utils import load_wav
+from cosyvoice.utils.file_utils import load_wav,speed_change
 import torchaudio
 
 cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-SFT')
@@ -88,6 +88,10 @@ cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-SFT')
 print(cosyvoice.list_avaliable_spks())
 output = cosyvoice.inference_sft('你好，我是通义生成式语音大模型，请问有什么可以帮您的吗？', '中文女')
 torchaudio.save('sft.wav', output['tts_speech'], 22050)
+
+# if you wanna change the speed
+audio,sample_rate = speed_change(output["tts_speech"],22050,"1.6")
+torchaudio.save('sft_speed_1.6.wav',audio, 22050)
 
 cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M')
 # zero_shot usage, <|zh|><|en|><|jp|><|yue|><|ko|> for Chinese/English/Japanese/Cantonese/Korean

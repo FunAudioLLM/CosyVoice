@@ -66,7 +66,7 @@ instruct_dict = {'预训练音色': '1. 选择预训练音色\n2. 点击生成�
 def change_instruction(mode_checkbox_group):
     return instruct_dict[mode_checkbox_group]
 
-def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text, seed,speed_factor):
+def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text, seed, speed_factor):
     if prompt_wav_upload is not None:
         prompt_wav = prompt_wav_upload
     elif prompt_wav_record is not None:
@@ -150,7 +150,7 @@ def main():
         gr.Markdown("#### 请输入需要合成的文本，选择推理模式，并按照提示步骤进行操作")
 
         tts_text = gr.Textbox(label="输入合成文本", lines=1, value="我是通义实验室语音团队全新推出的生成式语音大模型，提供舒适自然的语音合成能力。")
-        speed_factor = gr.Slider(minimum=0.25,maximum=4,step=0.05,label="语速调节",value=1.0,interactive=True)
+        speed_factor = gr.Slider(minimum=0.25, maximum=4, step=0.05, label="语速调节", value=1.0, interactive=True)
         with gr.Row():
             mode_checkbox_group = gr.Radio(choices=inference_mode_list, label='选择推理模式', value=inference_mode_list[0])
             instruction_text = gr.Text(label="操作步骤", value=instruct_dict[inference_mode_list[0]], scale=0.5)

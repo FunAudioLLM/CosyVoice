@@ -43,7 +43,7 @@ class InterpolateRegulator(nn.Module):
     def forward(self, x, ylens=None):
         # x in (B, T, D)
         mask = (~make_pad_mask(ylens)).to(x).unsqueeze(-1)
-        x = F.interpolate(x.transpose(1, 2).contiguous(), size=ylens.max(), mode='nearest')
+        x = F.interpolate(x.transpose(1, 2).contiguous(), size=ylens.max(), mode='linear')
         out = self.model(x).transpose(1, 2).contiguous()
         olens = ylens
         return out * mask, olens

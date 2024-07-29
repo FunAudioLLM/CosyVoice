@@ -37,7 +37,8 @@ class MultiHeadedAttention(nn.Module):
                  n_head: int,
                  n_feat: int,
                  dropout_rate: float,
-                 key_bias: bool = True):
+                 key_bias: bool = True,
+                 use_sdpa: bool = True):
         """Construct an MultiHeadedAttention object."""
         super().__init__()
         assert n_feat % n_head == 0
@@ -49,6 +50,7 @@ class MultiHeadedAttention(nn.Module):
         self.linear_v = nn.Linear(n_feat, n_feat)
         self.linear_out = nn.Linear(n_feat, n_feat)
         self.dropout = nn.Dropout(p=dropout_rate)
+        self.use_sdpa = use_sdpa
 
     def forward_qkv(
         self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
@@ -73,9 +75,6 @@ class MultiHeadedAttention(nn.Module):
         q = self.linear_q(query).view(n_batch, -1, self.h, self.d_k)
         k = self.linear_k(key).view(n_batch, -1, self.h, self.d_k)
         v = self.linear_v(value).view(n_batch, -1, self.h, self.d_k)
-        q = q.transpose(1, 2)  # (batch, head, time1, d_k)
-        k = k.transpose(1, 2)  # (batch, head, time2, d_k)
-        v = v.transpose(1, 2)  # (batch, head, time2, d_k)
 
         return q, k, v
 
@@ -133,7 +132,9 @@ class MultiHeadedAttention(nn.Module):
         value: torch.Tensor,
         mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
         pos_emb: torch.Tensor = torch.empty(0),
-        cache: torch.Tensor = torch.zeros((0, 0, 0, 0))
+        key_cache: torch.Tensor = None,
+        value_cache: torch.Tensor = None,
+        cache_offset: int = 0,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute scaled dot product attention.
 
@@ -166,6 +167,9 @@ class MultiHeadedAttention(nn.Module):
 
         """
         q, k, v = self.forward_qkv(query, key, value)
+        q = q.transpose(1, 2)  # (batch, head, time1, d_k)
+        k = k.transpose(1, 2)  # (batch, head, time2, d_k)
+        v = v.transpose(1, 2)  # (batch, head, time2, d_k)
 
         # NOTE(xcsong):
         #   when export onnx model, for 1st chunk, we feed
@@ -183,18 +187,38 @@ class MultiHeadedAttention(nn.Module):
         # >>> torch.equal(b, c)        # True
         # >>> d = torch.split(a, 2, dim=-1)
         # >>> torch.equal(d[0], d[1])  # True
-        if cache.size(0) > 0:
-            key_cache, value_cache = torch.split(cache,
-                                                 cache.size(-1) // 2,
-                                                 dim=-1)
-            k = torch.cat([key_cache, k], dim=2)
-            v = torch.cat([value_cache, v], dim=2)
-        # NOTE(xcsong): We do cache slicing in encoder.forward_chunk, since it's
-        #   non-trivial to calculate `next_cache_start` here.
-        new_cache = torch.cat((k, v), dim=-1)
 
-        scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_k)
-        return self.forward_attention(v, scores, mask), new_cache
+        if key_cache is not None and value_cache is not None:
+            key_cache[:, :, cache_offset: cache_offset + k.size(2), :] = k[:, :, :, :]
+            value_cache[:, :, cache_offset: cache_offset + v.size(2), :] = v[:, :, :, :]
+            key_len, value_len = cache_offset + k.size(2), cache_offset + v.size(2)
+            # NOTE: This will cause the torch.tensor to be non-contiguous. However, since it 
+            # participates in matmul calculations and the subsequent transpose operations do 
+            # not change the memory values, only the stride, there is no need to create a new 
+            # tensor using contiguous here, as the kv cache requires a large amount of space.
+            # TODO: It is necessary to verify whether executing contiguous can bring performance benefits.
+            key = key_cache[:, :, :key_len, :]
+            value = value_cache[:, :, :value_len, :]
+        else:
+            key = k
+            value = v
+
+        if not self.use_sdpa:
+            scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_k)
+            return self.forward_attention(v, scores, mask), new_cache
+        else:
+            output = torch.nn.functional.scaled_dot_product_attention(
+                q,
+                key,
+                value,
+                attn_mask=mask.unsqueeze(1),
+                dropout_p=self.dropout_rate,
+                scale=1 / math.sqrt(self.d_k),
+            )
+            output = (output.transpose(1, 2).contiguous().view(
+                query.size(0), -1,
+                self.h * self.d_k))  # (batch, time1, d_model)
+            return self.linear_out(output), new_cache
 
 
 class RelPositionMultiHeadedAttention(MultiHeadedAttention):
@@ -210,9 +234,10 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
                  n_head: int,
                  n_feat: int,
                  dropout_rate: float,
-                 key_bias: bool = True):
+                 key_bias: bool = True,
+                 use_sdpa: bool = False):
         """Construct an RelPositionMultiHeadedAttention object."""
-        super().__init__(n_head, n_feat, dropout_rate, key_bias)
+        super().__init__(n_head, n_feat, dropout_rate, key_bias, use_sdpa)
         # linear transformation for positional encoding
         self.linear_pos = nn.Linear(n_feat, n_feat, bias=False)
         # these two learnable bias are used in matrix c and matrix d
@@ -249,7 +274,9 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         value: torch.Tensor,
         mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
         pos_emb: torch.Tensor = torch.empty(0),
-        cache: torch.Tensor = torch.zeros((0, 0, 0, 0))
+        key_cache: torch.Tensor = None,
+        value_cache: torch.Tensor = None,
+        cache_offset: int = 0,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute 'Scaled Dot Product Attention' with rel. positional encoding.
         Args:
@@ -270,7 +297,8 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
                 and `head * d_k == size`
         """
         q, k, v = self.forward_qkv(query, key, value)
-        q = q.transpose(1, 2)  # (batch, time1, head, d_k)
+        k = k.transpose(1, 2)  # (batch, head, time2, d_k)
+        v = v.transpose(1, 2)  # (batch, head, time2, d_k)
 
         # NOTE(xcsong):
         #   when export onnx model, for 1st chunk, we feed
@@ -288,15 +316,21 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         # >>> torch.equal(b, c)        # True
         # >>> d = torch.split(a, 2, dim=-1)
         # >>> torch.equal(d[0], d[1])  # True
-        if cache.size(0) > 0:
-            key_cache, value_cache = torch.split(cache,
-                                                 cache.size(-1) // 2,
-                                                 dim=-1)
-            k = torch.cat([key_cache, k], dim=2)
-            v = torch.cat([value_cache, v], dim=2)
-        # NOTE(xcsong): We do cache slicing in encoder.forward_chunk, since it's
-        #   non-trivial to calculate `next_cache_start` here.
-        new_cache = torch.cat((k, v), dim=-1)
+
+        if key_cache is not None and value_cache is not None:
+            key_cache[:, :, cache_offset: cache_offset + k.size(2), :] = k[:, :, :, :]
+            value_cache[:, :, cache_offset: cache_offset + v.size(2), :] = v[:, :, :, :]
+            key_len, value_len = cache_offset + k.size(2), cache_offset + v.size(2)
+            # NOTE: This will cause the torch.tensor to be non-contiguous. However, since it 
+            # participates in matmul calculations and the subsequent transpose operations do 
+            # not change the memory values, only the stride, there is no need to create a new 
+            # tensor using contiguous here, as the kv cache requires a large amount of space.
+            # TODO: It is necessary to verify whether executing contiguous can bring performance benefits.
+            key = key_cache[:, :, :key_len, :]
+            value = value_cache[:, :, :value_len, :]
+        else:
+            key = k
+            value = v
 
         n_batch_pos = pos_emb.size(0)
         p = self.linear_pos(pos_emb).view(n_batch_pos, -1, self.h, self.d_k)
@@ -311,16 +345,35 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         # first compute matrix a and matrix c
         # as described in https://arxiv.org/abs/1901.02860 Section 3.3
         # (batch, head, time1, time2)
-        matrix_ac = torch.matmul(q_with_bias_u, k.transpose(-2, -1))
+        matrix_ac = torch.matmul(q_with_bias_u, key.transpose(-2, -1))
 
         # compute matrix b and matrix d
         # (batch, head, time1, time2)
         matrix_bd = torch.matmul(q_with_bias_v, p.transpose(-2, -1))
         # NOTE(Xiang Lyu): Keep rel_shift since espnet rel_pos_emb is used
+
         if matrix_ac.shape != matrix_bd.shape:
             matrix_bd = self.rel_shift(matrix_bd)
 
-        scores = (matrix_ac + matrix_bd) / math.sqrt(
-            self.d_k)  # (batch, head, time1, time2)
+        if not self.use_sdpa:
+            scores = (matrix_ac + matrix_bd) / math.sqrt(
+                self.d_k)  # (batch, head, time1, time2)
 
-        return self.forward_attention(v, scores, mask), new_cache
+            return self.forward_attention(value, scores, mask), key_cache, value_cache
+        else:
+            assert mask.dtype == torch.bool
+            mask = mask.unsqueeze(1) * -float('inf')
+
+            mask = matrix_bd / math.sqrt(self.d_k) + mask
+            output = torch.nn.functional.scaled_dot_product_attention(
+                q_with_bias_u,
+                key,
+                value,
+                attn_mask=mask,
+                dropout_p=self.dropout_rate,
+                scale=1 / math.sqrt(self.d_k),
+            )
+
+            output = (output.transpose(1, 2).contiguous().view(
+                query.size(0), -1, self.h * self.d_k))  # (batch, time1, d_model)
+            return self.linear_out(output), key_cache, value_cache

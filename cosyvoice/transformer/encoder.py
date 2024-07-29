@@ -104,6 +104,8 @@ class BaseEncoder(torch.nn.Module):
         self.use_dynamic_chunk = use_dynamic_chunk
         self.use_dynamic_left_chunk = use_dynamic_left_chunk
         self.gradient_checkpointing = gradient_checkpointing
+        self.attention_heads = attention_heads
+        self.head_dim = output_size // attention_heads
 
     def output_size(self) -> int:
         return self._output_size
@@ -185,7 +187,8 @@ class BaseEncoder(torch.nn.Module):
         xs: torch.Tensor,
         offset: int,
         required_cache_size: int,
-        att_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
+        att_cache: list,
+        cache_offset: int,
         cnn_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
         att_mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -200,11 +203,8 @@ class BaseEncoder(torch.nn.Module):
                 compuation
                 >=0: actual cache size
                 <0: means all history cache is required
-            att_cache (torch.Tensor): cache tensor for KEY & VALUE in
-                transformer/conformer attention, with shape
-                (elayers, head, cache_t1, d_k * 2), where
-                `head * d_k == hidden-dim` and
-                `cache_t1 == chunk_size * num_decoding_left_chunks`.
+            att_cache (list): cache tensor for KEY & VALUE in
+                transformer/conformer attention.
             cnn_cache (torch.Tensor): cache tensor for cnn_module in conformer,
                 (elayers, b=1, hidden-dim, cache_t2), where
                 `cache_t2 == cnn.lorder - 1`
@@ -231,10 +231,10 @@ class BaseEncoder(torch.nn.Module):
         # NOTE(xcsong): Before embed, shape(xs) is (b=1, time, mel-dim)
         xs, pos_emb, _ = self.embed(xs, tmp_masks, offset)
         # NOTE(xcsong): After  embed, shape(xs) is (b=1, chunk_size, hidden-dim)
-        elayers, cache_t1 = att_cache.size(0), att_cache.size(2)
+        elayers = len(self.encoders)
         chunk_size = xs.size(1)
-        attention_key_size = cache_t1 + chunk_size
-        pos_emb = self.embed.position_encoding(offset=offset - cache_t1,
+        attention_key_size = cache_offset + chunk_size
+        pos_emb = self.embed.position_encoding(offset=offset - cache_offset,
                                                size=attention_key_size)
         if required_cache_size < 0:
             next_cache_start = 0
@@ -246,30 +246,29 @@ class BaseEncoder(torch.nn.Module):
         r_cnn_cache = []
         for i, layer in enumerate(self.encoders):
             # NOTE(xcsong): Before layer.forward
-            #   shape(att_cache[i:i + 1]) is (1, head, cache_t1, d_k * 2),
+            #   att_cache[i]              is (k_cache, v_cache), where k_cache's and v_cache's shape is (batch, nheads, cache_offset, head_dim)
             #   shape(cnn_cache[i])       is (b=1, hidden-dim, cache_t2)
             xs, _, new_att_cache, new_cnn_cache = layer(
                 xs,
                 att_mask,
                 pos_emb,
-                att_cache=att_cache[i:i + 1] if elayers > 0 else att_cache,
+                att_cache=att_cache[i],
+                cache_offset=cache_offset,
                 cnn_cache=cnn_cache[i] if cnn_cache.size(0) > 0 else cnn_cache)
             # NOTE(xcsong): After layer.forward
-            #   shape(new_att_cache) is (1, head, attention_key_size, d_k * 2),
+            #   shape(new_att_cache) is (batch, head, attention_key_size, d_k * 2),
             #   shape(new_cnn_cache) is (b=1, hidden-dim, cache_t2)
-            r_att_cache.append(new_att_cache[:, :, next_cache_start:, :])
+            r_att_cache.append(new_att_cache)
             r_cnn_cache.append(new_cnn_cache.unsqueeze(0))
         if self.normalize_before:
             xs = self.after_norm(xs)
 
-        # NOTE(xcsong): shape(r_att_cache) is (elayers, head, ?, d_k * 2),
-        #   ? may be larger than cache_t1, it depends on required_cache_size
-        r_att_cache = torch.cat(r_att_cache, dim=0)
         # NOTE(xcsong): shape(r_cnn_cache) is (e, b=1, hidden-dim, cache_t2)
         r_cnn_cache = torch.cat(r_cnn_cache, dim=0)
 
         return (xs, r_att_cache, r_cnn_cache)
 
+    # TODO: need to fix kv cache.
     def forward_chunk_by_chunk(
         self,
         xs: torch.Tensor,

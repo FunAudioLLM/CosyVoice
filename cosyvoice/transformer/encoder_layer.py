@@ -61,7 +61,8 @@ class TransformerEncoderLayer(nn.Module):
         mask: torch.Tensor,
         pos_emb: torch.Tensor,
         mask_pad: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
-        att_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
+        att_cache: Tuple[torch.Tensor, torch.Tensor] = None,
+        cache_offset: int = 0,
         cnn_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Compute encoded features.
@@ -90,7 +91,7 @@ class TransformerEncoderLayer(nn.Module):
         residual = x
         if self.normalize_before:
             x = self.norm1(x)
-        x_att, new_att_cache = self.self_attn(x, x, x, mask, pos_emb=pos_emb, cache=att_cache)
+        x_att, new_att_cache = self.self_attn(x, x, x, mask, pos_emb=pos_emb, cache=att_cache, cache_offset=cache_offset)
         x = residual + self.dropout(x_att)
         if not self.normalize_before:
             x = self.norm1(x)
@@ -163,7 +164,8 @@ class ConformerEncoderLayer(nn.Module):
         mask: torch.Tensor,
         pos_emb: torch.Tensor,
         mask_pad: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
-        att_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
+        att_cache: Tuple[torch.Tensor, torch.Tensor] = None,
+        cache_offset: int = 0,
         cnn_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Compute encoded features.
@@ -203,7 +205,7 @@ class ConformerEncoderLayer(nn.Module):
         if self.normalize_before:
             x = self.norm_mha(x)
         x_att, new_att_cache = self.self_attn(x, x, x, mask, pos_emb,
-                                              att_cache)
+                                              att_cache, cache_offset)
         x = residual + self.dropout(x_att)
         if not self.normalize_before:
             x = self.norm_mha(x)

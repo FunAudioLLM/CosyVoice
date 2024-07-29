@@ -341,20 +341,21 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         # (batch, head, time1, d_k)
         q_with_bias_v = (q + self.pos_bias_v).transpose(1, 2)
 
-        # compute attention score
-        # first compute matrix a and matrix c
-        # as described in https://arxiv.org/abs/1901.02860 Section 3.3
-        # (batch, head, time1, time2)
-        matrix_ac = torch.matmul(q_with_bias_u, k.transpose(-2, -1))
-
         # compute matrix b and matrix d
         # (batch, head, time1, time2)
         matrix_bd = torch.matmul(q_with_bias_v, p.transpose(-2, -1))
         # NOTE(Xiang Lyu): Keep rel_shift since espnet rel_pos_emb is used
-        if matrix_ac.shape != matrix_bd.shape:
+        matrix_ac_shape = (q.size(0), q.size(1), q.size(2), k.size(2)) # (batch, nhead, time1, time2)
+        if matrix_ac_shape != matrix_bd.shape:
             matrix_bd = self.rel_shift(matrix_bd)
 
         if not self.use_sdpa:
+            # compute attention score
+            # first compute matrix a and matrix c
+            # as described in https://arxiv.org/abs/1901.02860 Section 3.3
+            # (batch, head, time1, time2)
+            matrix_ac = torch.matmul(q_with_bias_u, k.transpose(-2, -1))
+
             scores = (matrix_ac + matrix_bd) / math.sqrt(
                 self.d_k)  # (batch, head, time1, time2)
 

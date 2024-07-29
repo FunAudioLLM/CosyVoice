@@ -50,6 +50,7 @@ class MultiHeadedAttention(nn.Module):
         self.linear_v = nn.Linear(n_feat, n_feat)
         self.linear_out = nn.Linear(n_feat, n_feat)
         self.dropout = nn.Dropout(p=dropout_rate)
+        self.dropout_rate = dropout_rate
         self.use_sdpa = use_sdpa
 
     def forward_qkv(
@@ -207,6 +208,9 @@ class MultiHeadedAttention(nn.Module):
             scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_k)
             return self.forward_attention(v, scores, mask), new_cache
         else:
+            assert mask.dtype == torch.bool
+            mask = mask.to(dtype=q.dtype).unsqueeze(1).eq(False) * torch.finfo(q.dtype).min
+
             output = torch.nn.functional.scaled_dot_product_attention(
                 q,
                 k,
@@ -235,7 +239,7 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
                  n_feat: int,
                  dropout_rate: float,
                  key_bias: bool = True,
-                 use_sdpa: bool = False):
+                 use_sdpa: bool = True):
         """Construct an RelPositionMultiHeadedAttention object."""
         super().__init__(n_head, n_feat, dropout_rate, key_bias, use_sdpa)
         # linear transformation for positional encoding
@@ -362,7 +366,7 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
             return self.forward_attention(v, scores, mask), new_cache
         else:
             assert mask.dtype == torch.bool
-            mask = mask.unsqueeze(1) * -float('inf')
+            mask = mask.to(dtype=k.dtype).unsqueeze(1).eq(False) * torch.finfo(k.dtype).min
 
             mask = matrix_bd / math.sqrt(self.d_k) + mask
             output = torch.nn.functional.scaled_dot_product_attention(

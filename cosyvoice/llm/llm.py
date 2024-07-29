@@ -199,7 +199,7 @@ class TransformerLM(torch.nn.Module):
         cache_offset = 0
 
         for i in range(max_len):
-            y_pred, key_caches, value_caches, cnn_cache = self.llm.forward_chunk(
+            y_pred, att_cache, cnn_cache = self.llm.forward_chunk(
                                                                         lm_input, offset=0,
                                                                         required_cache_size=-1,
                                                                         att_cache=att_cache,

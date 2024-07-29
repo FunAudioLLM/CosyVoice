@@ -168,7 +168,7 @@ class BaseEncoder(torch.nn.Module):
                        pos_emb: torch.Tensor,
                        mask_pad: torch.Tensor) -> torch.Tensor:
         for layer in self.encoders:
-            xs, chunk_masks, _, _, _ = layer(xs, chunk_masks, pos_emb, mask_pad)
+            xs, chunk_masks, _, _ = layer(xs, chunk_masks, pos_emb, mask_pad)
         return xs
 
     @torch.jit.ignore(drop=True)

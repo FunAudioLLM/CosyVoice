@@ -132,8 +132,7 @@ class MultiHeadedAttention(nn.Module):
         value: torch.Tensor,
         mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
         pos_emb: torch.Tensor = torch.empty(0),
-        key_cache: torch.Tensor = None,
-        value_cache: torch.Tensor = None,
+        cache: Tuple[torch.Tensor, torch.Tensor] = None,
         cache_offset: int = 0,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute scaled dot product attention.
@@ -188,7 +187,10 @@ class MultiHeadedAttention(nn.Module):
         # >>> d = torch.split(a, 2, dim=-1)
         # >>> torch.equal(d[0], d[1])  # True
 
-        if key_cache is not None and value_cache is not None:
+        new_cache = None
+    
+        if cache is not None:
+            key_cache, value_cache = cache[0], cache[1]
             key_cache[:, :, cache_offset: cache_offset + k.size(2), :] = k[:, :, :, :]
             value_cache[:, :, cache_offset: cache_offset + v.size(2), :] = v[:, :, :, :]
             key_len, value_len = cache_offset + k.size(2), cache_offset + v.size(2)
@@ -197,11 +199,9 @@ class MultiHeadedAttention(nn.Module):
             # not change the memory values, only the stride, there is no need to create a new 
             # tensor using contiguous here, as the kv cache requires a large amount of space.
             # TODO: It is necessary to verify whether executing contiguous can bring performance benefits.
-            key = key_cache[:, :, :key_len, :]
-            value = value_cache[:, :, :value_len, :]
-        else:
-            key = k
-            value = v
+            k = key_cache[:, :, :key_len, :]
+            v = value_cache[:, :, :value_len, :]
+            new_cache = (key_cache, value_cache)
 
         if not self.use_sdpa:
             scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_k)
@@ -209,8 +209,8 @@ class MultiHeadedAttention(nn.Module):
         else:
             output = torch.nn.functional.scaled_dot_product_attention(
                 q,
-                key,
-                value,
+                k,
+                v,
                 attn_mask=mask.unsqueeze(1),
                 dropout_p=self.dropout_rate,
                 scale=1 / math.sqrt(self.d_k),
@@ -274,8 +274,7 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         value: torch.Tensor,
         mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
         pos_emb: torch.Tensor = torch.empty(0),
-        key_cache: torch.Tensor = None,
-        value_cache: torch.Tensor = None,
+        cache: Tuple[torch.Tensor, torch.Tensor] = None,
         cache_offset: int = 0,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute 'Scaled Dot Product Attention' with rel. positional encoding.
@@ -317,7 +316,10 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         # >>> d = torch.split(a, 2, dim=-1)
         # >>> torch.equal(d[0], d[1])  # True
 
-        if key_cache is not None and value_cache is not None:
+        new_cache = None
+    
+        if cache is not None:
+            key_cache, value_cache = cache[0], cache[1]
             key_cache[:, :, cache_offset: cache_offset + k.size(2), :] = k[:, :, :, :]
             value_cache[:, :, cache_offset: cache_offset + v.size(2), :] = v[:, :, :, :]
             key_len, value_len = cache_offset + k.size(2), cache_offset + v.size(2)
@@ -326,11 +328,9 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
             # not change the memory values, only the stride, there is no need to create a new 
             # tensor using contiguous here, as the kv cache requires a large amount of space.
             # TODO: It is necessary to verify whether executing contiguous can bring performance benefits.
-            key = key_cache[:, :, :key_len, :]
-            value = value_cache[:, :, :value_len, :]
-        else:
-            key = k
-            value = v
+            k = key_cache[:, :, :key_len, :]
+            v = value_cache[:, :, :value_len, :]
+            new_cache = (key_cache, value_cache)
 
         n_batch_pos = pos_emb.size(0)
         p = self.linear_pos(pos_emb).view(n_batch_pos, -1, self.h, self.d_k)
@@ -345,13 +345,12 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         # first compute matrix a and matrix c
         # as described in https://arxiv.org/abs/1901.02860 Section 3.3
         # (batch, head, time1, time2)
-        matrix_ac = torch.matmul(q_with_bias_u, key.transpose(-2, -1))
+        matrix_ac = torch.matmul(q_with_bias_u, k.transpose(-2, -1))
 
         # compute matrix b and matrix d
         # (batch, head, time1, time2)
         matrix_bd = torch.matmul(q_with_bias_v, p.transpose(-2, -1))
         # NOTE(Xiang Lyu): Keep rel_shift since espnet rel_pos_emb is used
-
         if matrix_ac.shape != matrix_bd.shape:
             matrix_bd = self.rel_shift(matrix_bd)
 
@@ -359,7 +358,7 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
             scores = (matrix_ac + matrix_bd) / math.sqrt(
                 self.d_k)  # (batch, head, time1, time2)
 
-            return self.forward_attention(value, scores, mask), key_cache, value_cache
+            return self.forward_attention(v, scores, mask), new_cache
         else:
             assert mask.dtype == torch.bool
             mask = mask.unsqueeze(1) * -float('inf')
@@ -367,8 +366,8 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
             mask = matrix_bd / math.sqrt(self.d_k) + mask
             output = torch.nn.functional.scaled_dot_product_attention(
                 q_with_bias_u,
-                key,
-                value,
+                k,
+                v,
                 attn_mask=mask,
                 dropout_p=self.dropout_rate,
                 scale=1 / math.sqrt(self.d_k),
@@ -376,4 +375,4 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
 
             output = (output.transpose(1, 2).contiguous().view(
                 query.size(0), -1, self.h * self.d_k))  # (batch, time1, d_model)
-            return self.linear_out(output), key_cache, value_cache
+            return self.linear_out(output), new_cache

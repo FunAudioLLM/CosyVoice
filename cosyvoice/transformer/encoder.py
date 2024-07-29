@@ -187,8 +187,7 @@ class BaseEncoder(torch.nn.Module):
         xs: torch.Tensor,
         offset: int,
         required_cache_size: int,
-        key_caches: list,
-        value_caches: list,
+        att_cache: list,
         cache_offset: int,
         cnn_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
         att_mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
@@ -204,11 +203,8 @@ class BaseEncoder(torch.nn.Module):
                 compuation
                 >=0: actual cache size
                 <0: means all history cache is required
-            att_cache (torch.Tensor): cache tensor for KEY & VALUE in
-                transformer/conformer attention, with shape
-                (elayers, head, cache_t1, d_k * 2), where
-                `head * d_k == hidden-dim` and
-                `cache_t1 == chunk_size * num_decoding_left_chunks`.
+            att_cache (list): cache tensor for KEY & VALUE in
+                transformer/conformer attention.
             cnn_cache (torch.Tensor): cache tensor for cnn_module in conformer,
                 (elayers, b=1, hidden-dim, cache_t2), where
                 `cache_t2 == cnn.lorder - 1`
@@ -246,33 +242,31 @@ class BaseEncoder(torch.nn.Module):
             next_cache_start = attention_key_size
         else:
             next_cache_start = max(attention_key_size - required_cache_size, 0)
-
+        r_att_cache = []
         r_cnn_cache = []
         for i, layer in enumerate(self.encoders):
             # NOTE(xcsong): Before layer.forward
-            #   shape(key_caches[i:i + 1]) is (1, head, cache_offset, d_k),
-            #   shape(value_caches[i:i + 1]) is (1, head, cache_offset, d_k),
+            #   att_cache[i]              is (k_cache, v_cache), where k_cache's and v_cache's shape is (batch, nheads, cache_offset, head_dim)
             #   shape(cnn_cache[i])       is (b=1, hidden-dim, cache_t2)
-            xs, _, key_caches[i], value_caches[i], new_cnn_cache = layer(
+            xs, _, new_att_cache, new_cnn_cache = layer(
                 xs,
                 att_mask,
                 pos_emb,
-                key_cache=key_caches[i],
-                value_cache=value_caches[i],
+                att_cache=att_cache[i],
                 cache_offset=cache_offset,
                 cnn_cache=cnn_cache[i] if cnn_cache.size(0) > 0 else cnn_cache)
             # NOTE(xcsong): After layer.forward
             #   shape(new_att_cache) is (batch, head, attention_key_size, d_k * 2),
             #   shape(new_cnn_cache) is (b=1, hidden-dim, cache_t2)
+            r_att_cache.append(new_att_cache)
             r_cnn_cache.append(new_cnn_cache.unsqueeze(0))
-
         if self.normalize_before:
             xs = self.after_norm(xs)
 
         # NOTE(xcsong): shape(r_cnn_cache) is (e, b=1, hidden-dim, cache_t2)
         r_cnn_cache = torch.cat(r_cnn_cache, dim=0)
 
-        return (xs, key_caches, value_caches, r_cnn_cache)
+        return (xs, r_att_cache, r_cnn_cache)
 
     # TODO: need to fix kv cache.
     def forward_chunk_by_chunk(

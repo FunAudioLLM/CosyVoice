@@ -194,8 +194,7 @@ class TransformerLM(torch.nn.Module):
         offset = 0
         # Note: key cache shape is (batch, nhead, max_seq, head_dim). Preallocate the entire tensor in advance,
         #  and for step-k, fill the key into key_cache[:, :, step_k, :]; the value cache follows the same logic.
-        key_caches = [torch.zeros((llm_input.size(0), self.llm.attention_heads, max_len, self.llm.head_dim), device=lm_input.device) for _ in range(len(self.llm.encoders))]
-        value_caches = [torch.zeros((llm_input.size(0), self.llm.attention_heads, max_len, self.llm.head_dim), device=lm_input.device) for _ in range(len(self.llm.encoders))]
+        att_cache = [self.init_kvcache(lm_input.size(0), self.llm.attention_heads, max_len, self.llm.head_dim, lm_input.device) for _ in range(len(self.llm.encoders))]
         cnn_cache = torch.zeros((0, 0, 0, 0), device=lm_input.device)
         cache_offset = 0
 
@@ -203,8 +202,7 @@ class TransformerLM(torch.nn.Module):
             y_pred, key_caches, value_caches, cnn_cache = self.llm.forward_chunk(
                                                                         lm_input, offset=0,
                                                                         required_cache_size=-1,
-                                                                        key_caches=key_caches,
-                                                                        value_caches=value_caches,
+                                                                        att_cache=att_cache,
                                                                         cnn_cache=cnn_cache,
                                                                         cache_offset=cache_offset,
                                                                         att_mask=torch.tril(torch.ones((1, lm_input.shape[1], lm_input.shape[1]), device=lm_input.device)).to(torch.bool)
@@ -225,3 +223,6 @@ class TransformerLM(torch.nn.Module):
         # in non-stream mode, yield all token
         if stream is False:
             yield torch.tensor([out_tokens], dtype=torch.int64, device=device)
+
+    def init_kvcache(self, batch, nheads, max_len, head_dim, device):
+        return (torch.zeros((batch, nheads, max_len, head_dim), device=device), torch.zeros((batch, nheads, max_len, head_dim), device=device),)

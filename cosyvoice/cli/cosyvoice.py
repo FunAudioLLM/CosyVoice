@@ -49,6 +49,7 @@ class CosyVoice:
         for i in self.frontend.text_normalize(tts_text, split=True):
             model_input = self.frontend.frontend_sft(i, spk_id)
             start_time = time.time()
+            logging.info('synthesis text {}'.format(i))
             for model_output in self.model.inference(**model_input, stream=stream):
                 speech_len = model_output['tts_speech'].shape[1] / 22050
                 logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
@@ -60,6 +61,7 @@ class CosyVoice:
         for i in self.frontend.text_normalize(tts_text, split=True):
             model_input = self.frontend.frontend_zero_shot(i, prompt_text, prompt_speech_16k)
             start_time = time.time()
+            logging.info('synthesis text {}'.format(i))
             for model_output in self.model.inference(**model_input, stream=stream):
                 speech_len = model_output['tts_speech'].shape[1] / 22050
                 logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
@@ -72,6 +74,7 @@ class CosyVoice:
         for i in self.frontend.text_normalize(tts_text, split=True):
             model_input = self.frontend.frontend_cross_lingual(i, prompt_speech_16k)
             start_time = time.time()
+            logging.info('synthesis text {}'.format(i))
             for model_output in self.model.inference(**model_input, stream=stream):
                 speech_len = model_output['tts_speech'].shape[1] / 22050
                 logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
@@ -85,6 +88,7 @@ class CosyVoice:
         for i in self.frontend.text_normalize(tts_text, split=True):
             model_input = self.frontend.frontend_instruct(i, spk_id, instruct_text)
             start_time = time.time()
+            logging.info('synthesis text {}'.format(i))
             for model_output in self.model.inference(**model_input, stream=stream):
                 speech_len = model_output['tts_speech'].shape[1] / 22050
                 logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))

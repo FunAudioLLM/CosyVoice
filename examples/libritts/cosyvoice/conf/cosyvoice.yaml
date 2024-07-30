@@ -54,6 +54,11 @@ llm: !new:cosyvoice.llm.llm.TransformerLM
         pos_enc_layer_type: 'rel_pos_espnet'
         selfattention_layer_type: 'rel_selfattn'
         static_chunk_size: 1
+    sampling: !name:cosyvoice.utils.common.ras_sampling
+        top_p: 0.8
+        top_k: 25
+        win_size: 10
+        tau_r: 0.1
 
 flow: !new:cosyvoice.flow.flow.MaskedDiffWithXvec
     input_size: 512

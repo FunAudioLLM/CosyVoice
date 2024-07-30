@@ -13,6 +13,7 @@
 # limitations under the License.
 from typing import Tuple
 import torch.nn as nn
+import torch
 from torch.nn import functional as F
 from cosyvoice.utils.mask import make_pad_mask
 
@@ -47,3 +48,21 @@ class InterpolateRegulator(nn.Module):
         out = self.model(x).transpose(1, 2).contiguous()
         olens = ylens
         return out * mask, olens
+
+    def inference(self, x1, x2, mel_len1, mel_len2):
+        # in inference mode, interploate prompt token and token(head/mid/tail) seprately, so we can get a clear separation point of mel
+        # x in (B, T, D)
+        if x2.shape[1] > 40:
+            x2_head = F.interpolate(x2[:, :20].transpose(1, 2).contiguous(), size=34, mode='linear')
+            x2_mid = F.interpolate(x2[:, 20:-20].transpose(1, 2).contiguous(), size=mel_len2 - 34 * 2, mode='linear')
+            x2_tail = F.interpolate(x2[:, -20:].transpose(1, 2).contiguous(), size=34, mode='linear')
+            x2 = torch.concat([x2_head, x2_mid, x2_tail], dim=2)
+        else:
+            x2 = F.interpolate(x2.transpose(1, 2).contiguous(), size=mel_len2, mode='linear')
+        if x1.shape[1] != 0:
+            x1 = F.interpolate(x1.transpose(1, 2).contiguous(), size=mel_len1, mode='linear')
+            x = torch.concat([x1, x2], dim=2)
+        else:
+            x = x2
+        out = self.model(x).transpose(1, 2).contiguous()
+        return out, mel_len1 + mel_len2

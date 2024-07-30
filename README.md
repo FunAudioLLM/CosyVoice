@@ -4,6 +4,36 @@
 
 For `SenseVoice`, visit [SenseVoice repo](https://github.com/FunAudioLLM/SenseVoice) and [SenseVoice space](https://www.modelscope.cn/studios/iic/SenseVoice).
 
+## Roadmap
+
+- [x] 2024/07
+
+    - [x] Flow matching training support
+    - [x] WeTextProcessing support when ttsfrd is not avaliable
+    - [x] Fastapi server and client
+
+- [ ] 2024/08
+
+    - [ ] Repetition Aware Sampling(RAS) inference for llm stability
+    - [ ] Streaming inference mode support, including kv cache and sdpa for rtf optimization
+
+- [ ] 2024/09
+
+    - [ ] 50hz llm model which supports 10 language
+
+- [ ] 2024/10
+
+    - [ ] 50hz llama based llm model which supports lora finetune
+
+- [ ] TBD
+
+    - [ ] Support more instruction mode
+    - [ ] Voice conversion
+    - [ ] Music generation
+    - [ ] Training script sample based on Mandarin
+    - [ ] CosyVoice-500M trained with more multi-lingual data
+    - [ ] More...
+
 ## Install
 
 **Clone and install**

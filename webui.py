@@ -42,12 +42,12 @@ def generate_seed():
 
 def set_all_random_seed(seed):
     random.seed(seed)
-    np.random.seed(seed)
+    np.random.seed(int(seed))
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
 max_val = 0.8
-def postprocess(speech, top_db=60, hop_length=220, win_length=440):
+def postprocess(speech, top_db=60, hop_length=220, win_length=440, target_sr=22050):
     speech, _ = librosa.effects.trim(
         speech, top_db=top_db,
         frame_length=win_length,
@@ -58,15 +58,17 @@ def postprocess(speech, top_db=60, hop_length=220, win_length=440):
     speech = torch.concat([speech, torch.zeros(1, int(target_sr * 0.2))], dim=1)
     return speech
 
-inference_mode_list = ['预训练音色', '3s极速复刻', '跨语种复刻', '自然语言控制']
+inference_mode_list = ['预训练音色', '3s极速复刻', '跨语种复刻', '自然语言控制', '音色迁移', '复刻&韵律控制']
 instruct_dict = {'预训练音色': '1. 选择预训练音色\n2. 点击生成音频按钮',
                  '3s极速复刻': '1. 选择prompt音频文件，或录入prompt音频，注意不超过30s，若同时提供，优先选择prompt音频文件\n2. 输入prompt文本\n3. 点击生成音频按钮',
                  '跨语种复刻': '1. 选择prompt音频文件，或录入prompt音频，注意不超过30s，若同时提供，优先选择prompt音频文件\n2. 点击生成音频按钮',
-                 '自然语言控制': '1. 选择预训练音色\n2. 输入instruct文本\n3. 点击生成音频按钮'}
+                 '自然语言控制': '1. 选择预训练音色\n2. 输入instruct文本\n3. 点击生成音频按钮',
+                 '音色迁移': '1. 选择音色prompt音频文件\n2. 选择待迁移内容rhythm音频文件\n3. 点击生成音频按钮',
+                 '复刻&韵律控制': '1. 选择音色prompt音频文件\n2. 选择韵律rhythm音频文件\n3. 输入rhythm对应文本\n4. 点击生成音频按钮'}
 def change_instruction(mode_checkbox_group):
     return instruct_dict[mode_checkbox_group]
 
-def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text, seed, speed_factor):
+def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, rhythm_text, rhythm_wav_upload, instruct_text, seed, speed_factor):
     if prompt_wav_upload is not None:
         prompt_wav = prompt_wav_upload
     elif prompt_wav_record is not None:
@@ -113,6 +115,23 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
             return (target_sr, default_data)
         if instruct_text != '':
             gr.Info('您正在使用3s极速复刻模式，预训练音色/instruct文本会被忽略！')
+    if mode_checkbox_group in ['音色迁移']:
+        if rhythm_wav_upload is None:
+            gr.Warning('正在使用音色迁移模式, 请提供目标rhythm音频')
+            return (target_sr, default_data)
+        if prompt_wav is None:
+            gr.Warning('正在使用音色迁移模式, 请提供音色prompt音频')
+            return (target_sr, default_data)
+    if mode_checkbox_group in ['复刻&韵律控制']:
+        if rhythm_wav_upload is None:
+            gr.Warning('韵律rhythm音频为空，您是否忘记输入rhythm音频？')
+            return (target_sr, default_data)
+        if rhythm_text == '':
+            gr.Warning('rhythm文本为空，您是否忘记输入rhythm文本？')
+            return (target_sr, default_data)
+        if prompt_wav is None:
+            gr.Warning('正在使用复刻模式, 请提供音色prompt音频')
+            return (target_sr, default_data)
 
     if mode_checkbox_group == '预训练音色':
         logging.info('get sft inference request')
@@ -128,11 +147,23 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
         prompt_speech_16k = postprocess(load_wav(prompt_wav, prompt_sr))
         set_all_random_seed(seed)
         output = cosyvoice.inference_cross_lingual(tts_text, prompt_speech_16k)
+    elif mode_checkbox_group == '音色迁移':
+        logging.info('get timbre transfer inference request')
+        prompt_speech_16k = postprocess(load_wav(prompt_wav, prompt_sr))
+        rhythm_speech_16k = postprocess(load_wav(rhythm_wav_upload, prompt_sr))
+        set_all_random_seed(seed)
+        output = cosyvoice.inference_voice_convert(prompt_speech_16k, rhythm_speech_16k)
+    elif mode_checkbox_group == '复刻&韵律控制':
+        logging.info('get zero_shot with rhythm-control inference request')
+        prompt_speech_16k = postprocess(load_wav(prompt_wav, prompt_sr))
+        rhythm_speech_16k = postprocess(load_wav(rhythm_wav_upload, prompt_sr))
+        set_all_random_seed(seed)
+        output = cosyvoice.inference_zero_shot_rhythm(tts_text, prompt_speech_16k, rhythm_text, rhythm_speech_16k)
     else:
         logging.info('get instruct inference request')
         set_all_random_seed(seed)
         output = cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text)
-    
+
     if speed_factor != 1.0:
         try:
             audio_data, sample_rate = speed_change(output["tts_speech"], target_sr, str(speed_factor))
@@ -162,7 +193,9 @@ def main():
         with gr.Row():
             prompt_wav_upload = gr.Audio(sources='upload', type='filepath', label='选择prompt音频文件，注意采样率不低于16khz')
             prompt_wav_record = gr.Audio(sources='microphone', type='filepath', label='录制prompt音频文件')
+            rhythm_wav_upload = gr.Audio(sources='upload', type='filepath', label='选择rhythm音频文件，注意采样率不低于16khz')
         prompt_text = gr.Textbox(label="输入prompt文本", lines=1, placeholder="请输入prompt文本，需与prompt音频内容一致，暂时不支持自动识别...", value='')
+        rhythm_text = gr.Textbox(label="输入rhythm文本", lines=1, placeholder="请输入rhythm文本，需与rhythm音频内容一致，暂时不支持自动识别...", value='')
         instruct_text = gr.Textbox(label="输入instruct文本", lines=1, placeholder="请输入instruct文本.", value='')
 
         generate_button = gr.Button("生成音频")
@@ -171,11 +204,15 @@ def main():
 
         seed_button.click(generate_seed, inputs=[], outputs=seed)
         generate_button.click(generate_audio,
-                              inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text, seed, speed_factor],
+                              inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, rhythm_text, rhythm_wav_upload, instruct_text, seed, speed_factor],
                               outputs=[audio_output])
         mode_checkbox_group.change(fn=change_instruction, inputs=[mode_checkbox_group], outputs=[instruction_text])
     demo.queue(max_size=4, default_concurrency_limit=2)
-    demo.launch(server_port=args.port)
+    server_name = "0.0.0.0"
+    server_port = args.port
+    demo.launch(server_port=args.port,
+                share=True, share_server_address=f"{server_name}:{server_port}", server_name=server_name, quiet=True,)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -184,7 +221,7 @@ if __name__ == '__main__':
                         default=8000)
     parser.add_argument('--model_dir',
                         type=str,
-                        default='iic/CosyVoice-300M',
+                        default='pretrained_models/CosyVoice-300M',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
     cosyvoice = CosyVoice(args.model_dir)

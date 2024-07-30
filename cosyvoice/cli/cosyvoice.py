@@ -81,3 +81,20 @@ class CosyVoice:
             model_output = self.model.inference(**model_input)
             tts_speeches.append(model_output['tts_speech'])
         return {'tts_speech': torch.concat(tts_speeches, dim=1)}
+
+    def inference_zero_shot_rhythm(self, tts_text, prompt_speech_16k, rhythm_text, rhythm_speech_16k):
+        rhythm_text = self.frontend.text_normalize(rhythm_text, split=False)
+        tts_speeches = []
+        for i in self.frontend.text_normalize(tts_text, split=True):
+            model_input = self.frontend.frontend_zero_shot_rhythm(i, prompt_speech_16k, rhythm_text, rhythm_speech_16k)
+            model_output = self.model.inference(**model_input)
+            tts_speeches.append(model_output['tts_speech'])
+        return {'tts_speech': torch.concat(tts_speeches, dim=1)}
+
+    def inference_voice_convert(self, prompt_speech_16k, source_speech_16k):
+        model_input = self.frontend.frontend_voice_convert(prompt_speech_16k, source_speech_16k)
+        model_output = self.model.voice_convert(**model_input)
+        return {'tts_speech': model_output['tts_speech']}
+
+
+

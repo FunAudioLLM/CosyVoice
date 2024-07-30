@@ -14,6 +14,7 @@
 from functools import partial
 import onnxruntime
 import torch
+import math
 import numpy as np
 import whisper
 from typing import Callable
@@ -165,4 +166,53 @@ class CosyVoiceFrontEnd:
         instruct_text_token, instruct_text_token_len = self._extract_text_token(instruct_text + '<endofprompt>')
         model_input['prompt_text'] = instruct_text_token
         model_input['prompt_text_len'] = instruct_text_token_len
+        return model_input
+
+    def frontend_zero_shot_rhythm(self, tts_text, prompt_speech_16k, rhythm_text, rhythm_speech_16k):
+        # 提取llm模块所需的ref-token，包含合成token的韵律特征
+        model_input = self.frontend_zero_shot(tts_text, rhythm_text, rhythm_speech_16k)
+
+        # 修改flow_match的prompt feature, 基于flow迁移目标音色
+        prompt_speech_22050 = torchaudio.transforms.Resample(orig_freq=16000, new_freq=22050)(prompt_speech_16k)
+        prompt_speech_feat, prompt_speech_feat_len = self._extract_speech_feat(prompt_speech_22050)
+        prompt_speech_token, prompt_speech_token_len = self._extract_speech_token(prompt_speech_16k)
+        prompt_embedding = self._extract_spk_embedding(prompt_speech_16k)
+
+        model_input["flow_prompt_speech_token"] = prompt_speech_token
+        model_input["flow_prompt_speech_token_len"] = prompt_speech_token_len
+        model_input["prompt_speech_feat"] = prompt_speech_feat
+        model_input["prompt_speech_feat_len"] = prompt_speech_feat_len
+        model_input["flow_embedding"] = prompt_embedding
+        # model_input["llm_embedding"] = prompt_embedding
+        return model_input
+
+    def frontend_voice_convert(self, prompt_speech_16k, source_speech_16k):
+        # prompt feature extraction
+        prompt_speech_22050 = torchaudio.transforms.Resample(orig_freq=16000, new_freq=22050)(prompt_speech_16k)
+        speech_feat, speech_feat_len = self._extract_speech_feat(prompt_speech_22050)
+        speech_token, speech_token_len = self._extract_speech_token(prompt_speech_16k)
+        embedding = self._extract_spk_embedding(prompt_speech_16k)
+        model_input = {'flow_embedding': embedding,
+                       'flow_prompt_speech_token': speech_token,
+                       'flow_prompt_speech_token_len': speech_token_len,
+                       'prompt_speech_feat': speech_feat,
+                       'prompt_speech_feat_len': speech_feat_len,
+                       }
+
+        # 提取待处理音频token
+        # rhythm_embedding = self._extract_spk_embedding(source_speech_16k)
+        max_speech_samples = 16000*29
+        fragment_num = math.ceil(source_speech_16k.size(1)/max_speech_samples)  # 按29秒切分，因为speech tokenizer最大支持30s
+        rhythm_speech_token = []
+        rhythm_speech_token_len = 0
+        for i in range(fragment_num):
+            speech_16k = source_speech_16k[:, i*max_speech_samples: (i+1)*max_speech_samples]
+            speech_token, speech_token_len = self._extract_speech_token(speech_16k)
+
+            rhythm_speech_token.append(speech_token)
+            rhythm_speech_token_len += speech_token_len
+
+        rhythm_speech_tokens = torch.concat(rhythm_speech_token, dim=1)
+        model_input["llm_prompt_speech_token"] = rhythm_speech_tokens
+        # model_input["llm_prompt_speech_token_len"] = rhythm_speech_token_len
         return model_input

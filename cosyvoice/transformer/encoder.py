@@ -297,7 +297,7 @@ class BaseEncoder(torch.nn.Module):
                rate.
             3. Currently, nn.Sequential is used to stack all the convolution
                layers in subsampling, we need to rewrite it to make it work
-               with cache, which is not prefered.
+               with cache, which is not preferred.
         Args:
             xs (torch.Tensor): (1, max_len, dim)
             chunk_size (int): decoding chunk size

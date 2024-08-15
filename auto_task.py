@@ -74,7 +74,7 @@ def process_text_line(index, texts, try_again, wav_list):
     """
     line = texts[index]
 
-    output = cosyvoice.inference_sft(line, "旁白")
+    output = cosyvoice.inference_sft(line, "旁白1")
 
     if torch.cuda.is_available():
         torch.cuda.empty_cache()

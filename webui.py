@@ -17,6 +17,12 @@ import sys
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append("{}/third_party/Matcha-TTS".format(ROOT_DIR))
 
+# 设置 PYTHONPATH 环境变量
+os.environ["PYTHONPATH"] = "third_party/Matcha-TTS"
+
+# 将 PYTHONPATH 添加到 sys.path
+sys.path.append("third_party/Matcha-TTS")
+
 import argparse
 import gradio as gr
 import numpy as np

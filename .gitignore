@@ -54,3 +54,5 @@ tmp/*
 original_data/*
 data/*
 examples/*
+
+model/*

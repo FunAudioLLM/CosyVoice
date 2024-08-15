@@ -210,7 +210,9 @@ def format_text(text, language="zh"):
         r"\n|\r": punct["newline"],  # 回车，换行符替换为句号
         r"[ 、]": punct["comma"],  # 一个空格替换为逗号
         r"[:：……—；]": punct["period"],  # 替换为句号
-        r"[\"\'‘’“”\[\]【】〖〗]": "",  # 删除特殊符号
+        # r"[\"\'‘’“”\[\]【】〖〗]": "",  # 删除特殊符号
+        r"[\'‘’\[\]【】〖〗]": "",
+        r"[“”]": '"',
     }
 
     for pattern, replacement in replacements.items():
@@ -388,6 +390,7 @@ def get_texts(text):
     sentences = tx.normalize(text)
     text = "".join(sentences)
     text = add_spaces_around_english(text)
+    print(text)
 
     # 切割文本
     text = split_text_by_punctuation(text, {"。", "？", "！", "～"})
@@ -464,7 +467,10 @@ if __name__ == "__main__":
 还有第二点，你老爸……”天一满不在乎地说道：“会不会畏罪自杀呢……你要不要赶回去看看？”
 伴随着身后让人不寒而栗的大笑，池田横冲直撞地奔出了书店的门口，再也不曾回来。
 """
-    texts = get_texts(file_content)
+    # texts = get_texts(file_content)
 
-    for text in texts:
-        print(text)
+    # for text in texts:
+    #     print(text)
+
+    text = format_text(file_content)
+    print(text)

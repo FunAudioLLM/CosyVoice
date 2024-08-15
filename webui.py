@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Alibaba Inc (authors: Xiang Lyu)
+# Copyright (c) 2024 Alibaba Inc (authors: Xiang Lyu, Liu Yue)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ import logging
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 from cosyvoice.cli.cosyvoice import CosyVoice
-from cosyvoice.utils.file_utils import load_wav
+from cosyvoice.utils.file_utils import load_wav, speed_change
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -88,26 +88,8 @@ def generate_audio(
     prompt_wav_record,
     instruct_text,
     seed,
+    speed_factor,
 ):
-    """
-    根据不同的模式生成音频。
-
-    参数:
-    tts_text: 待合成的文本。
-    mode_checkbox_group: 模式选择，决定后续处理流程。
-    sft_dropdown: 音色选择，用于预训练音色模式。
-    prompt_text: 提示文本，用于某些模式下的音频生成。
-    prompt_wav_upload: 上传的提示音频，用于某些模式下的音频生成。
-    prompt_wav_record: 录制的提示音频，用于某些模式下的音频生成。
-    instruct_text: 指令文本，用于自然语言控制模式。
-    seed: 随机种子，用于保持生成结果的一致性。
-
-    返回:
-    target_sr: 目标采样率。
-    audio_data: 生成的音频数据。
-    """
-
-    # 根据是否有上传或录制的提示音频，确定使用的prompt_wav
     if prompt_wav_upload is not None:
         prompt_wav = prompt_wav_upload
     elif prompt_wav_record is not None:
@@ -195,8 +177,17 @@ def generate_audio(
         set_all_random_seed(seed)
         output = cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text)
 
-    # 提取生成的音频数据并返回
-    audio_data = output["tts_speech"].numpy().flatten()
+    if speed_factor != 1.0:
+        try:
+            audio_data, sample_rate = speed_change(
+                output["tts_speech"], target_sr, str(speed_factor)
+            )
+            audio_data = audio_data.numpy().flatten()
+        except Exception as e:
+            print(f"Failed to change speed of audio: \n{e}")
+    else:
+        audio_data = output["tts_speech"].numpy().flatten()
+
     return (target_sr, audio_data)
 
 
@@ -212,7 +203,14 @@ def main():
             lines=1,
             value="我是通义实验室语音团队全新推出的生成式语音大模型，提供舒适自然的语音合成能力。",
         )
-
+        speed_factor = gr.Slider(
+            minimum=0.25,
+            maximum=4,
+            step=0.05,
+            label="语速调节",
+            value=1.0,
+            interactive=True,
+        )
         with gr.Row():
             mode_checkbox_group = gr.Radio(
                 choices=inference_mode_list,
@@ -267,6 +265,7 @@ def main():
                 prompt_wav_record,
                 instruct_text,
                 seed,
+                speed_factor,
             ],
             outputs=[audio_output],
         )
@@ -276,7 +275,7 @@ def main():
             outputs=[instruction_text],
         )
     demo.queue(max_size=4, default_concurrency_limit=2)
-    demo.launch(server_port=args.port)
+    demo.launch(server_name="0.0.0.0", server_port=args.port)
 
 
 if __name__ == "__main__":

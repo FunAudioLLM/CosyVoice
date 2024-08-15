@@ -65,9 +65,9 @@ flow: !new:cosyvoice.flow.flow.MaskedDiffWithXvec
     only_mask_loss: True
     encoder: !new:cosyvoice.transformer.encoder.ConformerEncoder
         output_size: 512
-        attention_heads: 8
-        linear_units: 2048
-        num_blocks: 6
+        attention_heads: 4
+        linear_units: 1024
+        num_blocks: 3
         dropout_rate: 0.1
         positional_dropout_rate: 0.1
         attention_dropout_rate: 0.1
@@ -100,7 +100,7 @@ flow: !new:cosyvoice.flow.flow.MaskedDiffWithXvec
             dropout: 0
             attention_head_dim: 64
             n_blocks: 4
-            num_mid_blocks: 12
+            num_mid_blocks: 8
             num_heads: 8
             act_fn: 'gelu'
 

@@ -29,9 +29,10 @@ class ConditionalCFM(BASECFM):
         in_channels = in_channels + (spk_emb_dim if n_spks > 0 else 0)
         # Just change the architecture of the estimator here
         self.estimator = estimator
+        self.export_ = None
 
     @torch.inference_mode()
-    def forward(self, mu, mask, n_timesteps, temperature=1.0, spks=None, cond=None):
+    def forward(self, mu, mask, n_timesteps=5, temperature=1.0, spks=None, cond=None):
         """Forward diffusion
 
         Args:
@@ -50,7 +51,7 @@ class ConditionalCFM(BASECFM):
                 shape: (batch_size, n_feats, mel_timesteps)
         """
         z = torch.randn_like(mu) * temperature
-        t_span = torch.linspace(0, 1, n_timesteps + 1, device=mu.device)
+        t_span = torch.linspace(0, 1, n_timesteps + 1, device=mu.device, dtype=mu.dtype)
         if self.t_scheduler == 'cosine':
             t_span = 1 - torch.cos(t_span * 0.5 * torch.pi)
         return self.solve_euler(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond)
@@ -76,18 +77,31 @@ class ConditionalCFM(BASECFM):
         # Or in future might add like a return_all_steps flag
         sol = []
 
+        # if self.export_ == None:
+        #     self.export_ = True
+
+        #     torch.onnx.export(
+        #         model=self.estimator,             # 要导出的模型实例
+        #         args=(x, mask, mu, t, spks, cond),  # 输入张量作为元组
+        #         f="estimator.onnx",          # 导出的 ONNX 模型文件名
+        #         export_params=True,                  # 导出时包含参数
+        #         opset_version=17,                    # 使用的 ONNX opset 版本
+        #         do_constant_folding=False,            # 启用常量折叠优化
+        #         input_names=['x', 'mask', 'mu', 't', 'spks', 'cond'],  # 定义每个输入的名称
+        #         output_names=['output'],             # 定义输出的名称
+        #     )
+
         for step in range(1, len(t_span)):
-            dphi_dt = self.estimator(x, mask, mu, t, spks, cond)
+            dphi_dt = self.estimator.inference(x, mask, mu, t, spks, cond)
             # Classifier-Free Guidance inference introduced in VoiceBox
             if self.inference_cfg_rate > 0:
-                cfg_dphi_dt = self.estimator(
+                cfg_dphi_dt = self.estimator.inference(
                     x, mask,
                     torch.zeros_like(mu), t,
                     torch.zeros_like(spks) if spks is not None else None,
                     torch.zeros_like(cond)
                 )
-                dphi_dt = ((1.0 + self.inference_cfg_rate) * dphi_dt -
-                           self.inference_cfg_rate * cfg_dphi_dt)
+                dphi_dt = ((1.0 + self.inference_cfg_rate) * dphi_dt - self.inference_cfg_rate * cfg_dphi_dt)
             x = x + dt * dphi_dt
             t = t + dt
             sol.append(x)

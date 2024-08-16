@@ -50,6 +50,7 @@ class ConditionalDecoder(nn.Module):
         self.down_blocks = nn.ModuleList([])
         self.mid_blocks = nn.ModuleList([])
         self.up_blocks = nn.ModuleList([])
+        self.compiled_infer = None
 
         output_channel = in_channels
         for i in range(len(channels)):  # pylint: disable=consider-using-enumerate
@@ -141,6 +142,12 @@ class ConditionalDecoder(nn.Module):
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
+    def inference(self, x, mask, mu, t, spks=None, cond=None):
+        if self.compiled_infer == None:
+            self.compiled_infer = torch.compile(self.forward, mode="reduce-overhead", fullgraph=True)
+        
+        return self.forward(x, mask, mu, t, spks, cond)
+
     def forward(self, x, mask, mu, t, spks=None, cond=None):
         """Forward pass of the UNet1DConditional model.
 
@@ -158,8 +165,7 @@ class ConditionalDecoder(nn.Module):
         Returns:
             _type_: _description_
         """
-
-        t = self.time_embeddings(t)
+        t = self.time_embeddings(t).to(t.dtype)
         t = self.time_mlp(t)
 
         x = pack([x, mu], "b * t")[0]

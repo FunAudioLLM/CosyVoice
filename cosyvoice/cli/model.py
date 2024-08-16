@@ -35,12 +35,16 @@ class CosyVoiceModel:
         self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device)) if torch.cuda.is_available() else nullcontext()
         self.flow_hift_context = torch.cuda.stream(torch.cuda.Stream(self.device)) if torch.cuda.is_available() else nullcontext()
         self.lock = threading.Lock()
+        self.dtype = torch.float16
+        self.max_seq = 256
+        self.max_batch = 1
 
     def load(self, llm_model, flow_model, hift_model):
         self.llm.load_state_dict(torch.load(llm_model, map_location=self.device))
-        self.llm.to(self.device).eval()
+        self.llm.to(self.device).eval().to(self.dtype)
+        self.llm.llm.setup_caches(self.max_batch, self.max_seq, self.dtype)
         self.flow.load_state_dict(torch.load(flow_model, map_location=self.device))
-        self.flow.to(self.device).eval()
+        self.flow.to(self.device).eval().to(self.dtype)
         self.hift.load_state_dict(torch.load(hift_model, map_location=self.device))
         self.hift.to(self.device).eval()
 
@@ -124,6 +128,8 @@ class CosyVoiceModel:
             p.join()
             torch.cuda.synchronize()
         else:
+            torch.cuda.synchronize()
+            start = time.perf_counter()
             tts_speech_token = []
             for i in self.llm.inference(text=text.to(self.device),
                                                 text_len=text_len.to(self.device),
@@ -131,22 +137,50 @@ class CosyVoiceModel:
                                                 prompt_text_len=prompt_text_len.to(self.device),
                                                 prompt_speech_token=llm_prompt_speech_token.to(self.device),
                                                 prompt_speech_token_len=llm_prompt_speech_token_len.to(self.device),
-                                                embedding=llm_embedding.to(self.device),
+                                                embedding=llm_embedding.to(self.device).to(self.dtype),
                                                 beam_size=1,
                                                 sampling=25,
                                                 max_token_text_ratio=30,
                                                 min_token_text_ratio=3,
-                                                stream=stream):
+                                                stream=stream,
+                                                dtype=self.dtype):
                 tts_speech_token.append(i)
             assert len(tts_speech_token) == 1, 'tts_speech_token len should be 1 when stream is {}'.format(stream)
+
+            torch.cuda.synchronize()
+            middle = time.perf_counter()
+
             tts_speech_token = torch.concat(tts_speech_token, dim=1)
-            tts_mel = self.flow.inference(token=tts_speech_token,
-                                        token_len=torch.tensor([tts_speech_token.size(1)], dtype=torch.int32).to(self.device),
-                                        prompt_token=flow_prompt_speech_token.to(self.device),
-                                        prompt_token_len=flow_prompt_speech_token_len.to(self.device),
-                                        prompt_feat=prompt_speech_feat.to(self.device),
-                                        prompt_feat_len=prompt_speech_feat_len.to(self.device),
-                                        embedding=flow_embedding.to(self.device))
+            token_len = torch.tensor([tts_speech_token.size(1)], dtype=torch.int32).to(self.device)
+            prompt_token = flow_prompt_speech_token.to(self.device)
+            prompt_token_len = flow_prompt_speech_token_len.to(self.device)
+            prompt_feat=prompt_speech_feat.to(self.device)
+            prompt_feat_len=prompt_speech_feat_len.to(self.device)
+            embedding=flow_embedding.to(self.device).to(self.dtype)
+
+            # torch.onnx.export(
+            #     model=self.flow,             # 要导出的模型实例
+            #     args=(tts_speech_token, token_len, prompt_token, prompt_token_len, prompt_feat, prompt_feat_len, embedding),  # 输入张量作为元组
+            #     f="flow.onnx",          # 导出的 ONNX 模型文件名
+            #     export_params=True,                  # 导出时包含参数
+            #     opset_version=11,                    # 使用的 ONNX opset 版本
+            #     do_constant_folding=False,            # 启用常量折叠优化
+            #     input_names=['tts_speech_token', 'token_len', 'prompt_token', 'prompt_token_len', 'prompt_feat', 'prompt_feat_len', 'embedding'],  # 定义每个输入的名称
+            #     output_names=['tts_mel'],             # 定义输出的名称
+            # )
+            
+
+            tts_mel = self.flow(token=tts_speech_token,
+                                        token_len=token_len,
+                                        prompt_token=prompt_token,
+                                        prompt_token_len=prompt_token_len,
+                                        prompt_feat=prompt_feat,
+                                        prompt_feat_len=prompt_feat_len,
+                                        embedding=embedding).float()
             tts_speech = self.hift.inference(mel=tts_mel).cpu()
             torch.cuda.empty_cache()
+
+            torch.cuda.synchronize()
+            end = time.perf_counter()
+            print("time cost: ", middle - start, end - middle)
             yield {'tts_speech': tts_speech}

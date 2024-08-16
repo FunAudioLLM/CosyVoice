@@ -50,48 +50,49 @@ class MaskedDiffWithXvec(torch.nn.Module):
         self.decoder = decoder
         self.length_regulator = length_regulator
         self.only_mask_loss = only_mask_loss
+        self.compiled_decoder = None
 
-    def forward(
-            self,
-            batch: dict,
-            device: torch.device,
-    ) -> Dict[str, Optional[torch.Tensor]]:
-        token = batch['speech_token'].to(device)
-        token_len = batch['speech_token_len'].to(device)
-        feat = batch['speech_feat'].to(device)
-        feat_len = batch['speech_feat_len'].to(device)
-        embedding = batch['embedding'].to(device)
+    # def forward(
+    #         self,
+    #         batch: dict,
+    #         device: torch.device,
+    # ) -> Dict[str, Optional[torch.Tensor]]:
+    #     token = batch['speech_token'].to(device)
+    #     token_len = batch['speech_token_len'].to(device)
+    #     feat = batch['speech_feat'].to(device)
+    #     feat_len = batch['speech_feat_len'].to(device)
+    #     embedding = batch['embedding'].to(device)
 
-        # xvec projection
-        embedding = F.normalize(embedding, dim=1)
-        embedding = self.spk_embed_affine_layer(embedding)
+    #     # xvec projection
+    #     embedding = F.normalize(embedding, dim=1)
+    #     embedding = self.spk_embed_affine_layer(embedding)
 
-        # concat text and prompt_text
-        mask = (~make_pad_mask(token_len)).float().unsqueeze(-1).to(device)
-        token = self.input_embedding(torch.clamp(token, min=0)) * mask
+    #     # concat text and prompt_text
+    #     mask = (~make_pad_mask(token_len)).float().unsqueeze(-1).to(device)
+    #     token = self.input_embedding(torch.clamp(token, min=0)) * mask
 
-        # text encode
-        h, h_lengths = self.encoder(token, token_len)
-        h = self.encoder_proj(h)
-        h, h_lengths = self.length_regulator(h, feat_len)
+    #     # text encode
+    #     h, h_lengths = self.encoder(token, token_len)
+    #     h = self.encoder_proj(h)
+    #     h, h_lengths = self.length_regulator(h, feat_len)
 
-        # get conditions
-        conds = torch.zeros(feat.shape, device=token.device)
-        conds = conds.transpose(1, 2)
+    #     # get conditions
+    #     conds = torch.zeros(feat.shape, device=token.device)
+    #     conds = conds.transpose(1, 2)
 
-        mask = (~make_pad_mask(feat_len)).to(h)
-        feat = F.interpolate(feat.unsqueeze(dim=1), size=h.shape[1:], mode="nearest").squeeze(dim=1)
-        loss, _ = self.decoder.compute_loss(
-            feat.transpose(1, 2).contiguous(),
-            mask.unsqueeze(1),
-            h.transpose(1, 2).contiguous(),
-            embedding,
-            cond=conds
-        )
-        return {'loss': loss}
+    #     mask = (~make_pad_mask(feat_len)).to(h)
+    #     feat = F.interpolate(feat.unsqueeze(dim=1), size=h.shape[1:], mode="nearest").squeeze(dim=1)
+    #     loss, _ = self.decoder.compute_loss(
+    #         feat.transpose(1, 2).contiguous(),
+    #         mask.unsqueeze(1),
+    #         h.transpose(1, 2).contiguous(),
+    #         embedding,
+    #         cond=conds
+    #     )
+    #     return {'loss': loss}
 
-    @torch.inference_mode()
-    def inference(self,
+    # @torch.inference_mode()
+    def forward(self,
                   token,
                   token_len,
                   prompt_token,
@@ -99,14 +100,14 @@ class MaskedDiffWithXvec(torch.nn.Module):
                   prompt_feat,
                   prompt_feat_len,
                   embedding):
-        assert token.shape[0] == 1
+        # assert token.shape[0] == 1
         # xvec projection
         embedding = F.normalize(embedding, dim=1)
         embedding = self.spk_embed_affine_layer(embedding)
 
         # concat text and prompt_text
         token, token_len = torch.concat([prompt_token, token], dim=1), prompt_token_len + token_len
-        mask = (~make_pad_mask(token_len)).float().unsqueeze(-1).to(embedding)
+        mask = (~make_pad_mask(token_len)).to(embedding.dtype).unsqueeze(-1).to(embedding)
         token = self.input_embedding(torch.clamp(token, min=0)) * mask
 
         # text encode
@@ -116,19 +117,21 @@ class MaskedDiffWithXvec(torch.nn.Module):
         h, h_lengths = self.length_regulator(h, feat_len)
 
         # get conditions
-        conds = torch.zeros([1, feat_len.max().item(), self.output_size], device=token.device)
+        conds = torch.zeros([1, feat_len.max().item(), self.output_size], device=token.device, dtype=embedding.dtype)
         if prompt_feat.shape[1] != 0:
             for i, j in enumerate(prompt_feat_len):
                 conds[i, :j] = prompt_feat[i]
         conds = conds.transpose(1, 2)
 
         mask = (~make_pad_mask(feat_len)).to(h)
-        feat = self.decoder(
+
+        
+        feat = self.decoder.forward(
             mu=h.transpose(1, 2).contiguous(),
             mask=mask.unsqueeze(1),
             spks=embedding,
             cond=conds,
-            n_timesteps=10
+            # n_timesteps=4
         )
         if prompt_feat.shape[1] != 0:
             feat = feat[:, :, prompt_feat.shape[1]:]

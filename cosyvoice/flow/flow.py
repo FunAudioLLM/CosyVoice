@@ -50,6 +50,7 @@ class MaskedDiffWithXvec(torch.nn.Module):
         self.decoder = decoder
         self.length_regulator = length_regulator
         self.only_mask_loss = only_mask_loss
+        self.compiled_decoder = None
 
     def forward(
             self,
@@ -106,7 +107,7 @@ class MaskedDiffWithXvec(torch.nn.Module):
 
         # concat text and prompt_text
         token, token_len = torch.concat([prompt_token, token], dim=1), prompt_token_len + token_len
-        mask = (~make_pad_mask(token_len)).float().unsqueeze(-1).to(embedding)
+        mask = (~make_pad_mask(token_len)).to(embedding.dtype).unsqueeze(-1).to(embedding)
         token = self.input_embedding(torch.clamp(token, min=0)) * mask
 
         # text encode
@@ -114,22 +115,29 @@ class MaskedDiffWithXvec(torch.nn.Module):
         h = self.encoder_proj(h)
         feat_len = (token_len / 50 * 22050 / 256).int()
         h, h_lengths = self.length_regulator(h, feat_len)
+        fix_max_len = 512
+        origin_len = h.size(1)
+        h = F.pad(h, (0, 0, 0, fix_max_len - h.size(1)))
 
         # get conditions
-        conds = torch.zeros([1, feat_len.max().item(), self.output_size], device=token.device)
+        conds = torch.zeros([1, fix_max_len, self.output_size], device=token.device, dtype=embedding.dtype)
         if prompt_feat.shape[1] != 0:
             for i, j in enumerate(prompt_feat_len):
                 conds[i, :j] = prompt_feat[i]
         conds = conds.transpose(1, 2)
 
-        mask = (~make_pad_mask(feat_len)).to(h)
-        feat = self.decoder(
+        mask = (~make_pad_mask(feat_len, fix_max_len)).to(h)
+
+        feat = self.decoder.forward(
             mu=h.transpose(1, 2).contiguous(),
             mask=mask.unsqueeze(1),
             spks=embedding,
             cond=conds,
-            n_timesteps=10
+            n_timesteps=4
         )
+
+        feat = feat[:, :, :origin_len]
+
         if prompt_feat.shape[1] != 0:
             feat = feat[:, :, prompt_feat.shape[1]:]
         return feat

@@ -44,6 +44,7 @@ compile_commands.json
 # train/inference files
 *.wav
 *.pt
-pretrained_models/*
+# pretrained_models/*
 *_pb2_grpc.py
 *_pb2.py
+*.nsys-rep

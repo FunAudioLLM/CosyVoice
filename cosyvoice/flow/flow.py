@@ -51,6 +51,8 @@ class MaskedDiffWithXvec(torch.nn.Module):
         self.length_regulator = length_regulator
         self.only_mask_loss = only_mask_loss
         self.compiled_decoder = None
+        self.max_seq_long = 2048
+        self.max_seq_short = 256
 
     def forward(
             self,
@@ -115,7 +117,12 @@ class MaskedDiffWithXvec(torch.nn.Module):
         h = self.encoder_proj(h)
         feat_len = (token_len / 50 * 22050 / 256).int()
         h, h_lengths = self.length_regulator(h, feat_len)
-        fix_max_len = 512
+        
+        if feat_len > self.max_seq_short:
+            fix_max_len = self.max_seq_long
+        else:
+            fix_max_len = self.max_seq_short
+
         origin_len = h.size(1)
         h = F.pad(h, (0, 0, 0, fix_max_len - h.size(1)))
 

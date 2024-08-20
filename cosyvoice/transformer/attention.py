@@ -37,8 +37,7 @@ class MultiHeadedAttention(nn.Module):
                  n_head: int,
                  n_feat: int,
                  dropout_rate: float,
-                 key_bias: bool = True,
-                 use_sdpa: bool = True):
+                 key_bias: bool = True):
         """Construct an MultiHeadedAttention object."""
         super().__init__()
         assert n_feat % n_head == 0
@@ -51,7 +50,6 @@ class MultiHeadedAttention(nn.Module):
         self.linear_out = nn.Linear(n_feat, n_feat)
         self.dropout = nn.Dropout(p=dropout_rate)
         self.dropout_rate = dropout_rate
-        self.use_sdpa = use_sdpa
         self.kv_cache = None
 
     def forward_qkv(
@@ -134,7 +132,78 @@ class MultiHeadedAttention(nn.Module):
         value: torch.Tensor,
         mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
         pos_emb: torch.Tensor = torch.empty(0),
+        cache: torch.Tensor = torch.zeros((0, 0, 0, 0))
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Compute scaled dot product attention.
+
+        Args:
+            query (torch.Tensor): Query tensor (#batch, time1, size).
+            key (torch.Tensor): Key tensor (#batch, time2, size).
+            value (torch.Tensor): Value tensor (#batch, time2, size).
+            mask (torch.Tensor): Mask tensor (#batch, 1, time2) or
+                (#batch, time1, time2).
+                1.When applying cross attention between decoder and encoder,
+                the batch padding mask for input is in (#batch, 1, T) shape.
+                2.When applying self attention of encoder,
+                the mask is in (#batch, T, T)  shape.
+                3.When applying self attention of decoder,
+                the mask is in (#batch, L, L)  shape.
+                4.If the different position in decoder see different block
+                of the encoder, such as Mocha, the passed in mask could be
+                in (#batch, L, T) shape. But there is no such case in current
+                CosyVoice.
+            cache (torch.Tensor): Cache tensor (1, head, cache_t, d_k * 2),
+                where `cache_t == chunk_size * num_decoding_left_chunks`
+                and `head * d_k == size`
+
+
+        Returns:
+            torch.Tensor: Output tensor (#batch, time1, d_model).
+            torch.Tensor: Cache tensor (1, head, cache_t + time1, d_k * 2)
+                where `cache_t == chunk_size * num_decoding_left_chunks`
+                and `head * d_k == size`
+
+        """
+        q, k, v = self.forward_qkv(query, key, value)
+
+        # NOTE(xcsong):
+        #   when export onnx model, for 1st chunk, we feed
+        #       cache(1, head, 0, d_k * 2) (16/-1, -1/-1, 16/0 mode)
+        #       or cache(1, head, real_cache_t, d_k * 2) (16/4 mode).
+        #       In all modes, `if cache.size(0) > 0` will alwayse be `True`
+        #       and we will always do splitting and
+        #       concatnation(this will simplify onnx export). Note that
+        #       it's OK to concat & split zero-shaped tensors(see code below).
+        #   when export jit  model, for 1st chunk, we always feed
+        #       cache(0, 0, 0, 0) since jit supports dynamic if-branch.
+        # >>> a = torch.ones((1, 2, 0, 4))
+        # >>> b = torch.ones((1, 2, 3, 4))
+        # >>> c = torch.cat((a, b), dim=2)
+        # >>> torch.equal(b, c)        # True
+        # >>> d = torch.split(a, 2, dim=-1)
+        # >>> torch.equal(d[0], d[1])  # True
+        if cache.size(0) > 0:
+            key_cache, value_cache = torch.split(cache,
+                                                 cache.size(-1) // 2,
+                                                 dim=-1)
+            k = torch.cat([key_cache, k], dim=2)
+            v = torch.cat([value_cache, v], dim=2)
+        # NOTE(xcsong): We do cache slicing in encoder.forward_chunk, since it's
+        #   non-trivial to calculate `next_cache_start` here.
+        new_cache = torch.cat((k, v), dim=-1)
+
+        scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_k)
+        return self.forward_attention(v, scores, mask), new_cache
+
+    def inference(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
+        pos_emb: torch.Tensor = torch.empty(0),
         cache_offset: torch.Tensor = None,
+        is_infer_short: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute scaled dot product attention.
 
@@ -172,7 +241,10 @@ class MultiHeadedAttention(nn.Module):
         v = v.transpose(1, 2)  # (batch, head, time2, d_k)
 
         if self.kv_cache is not None:
-            k, v = self.kv_cache.update(cache_offset, k, v)
+            if is_infer_short:
+                k, v = self.kv_cache.update_short(cache_offset, k, v)
+            else:
+                k, v = self.kv_cache.update_long(cache_offset, k, v)
 
         assert mask.dtype == torch.bool
         mask = mask.unsqueeze(1).eq(False) * torch.finfo(q.dtype).min
@@ -204,10 +276,9 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
                  n_head: int,
                  n_feat: int,
                  dropout_rate: float,
-                 key_bias: bool = True,
-                 use_sdpa: bool = True):
+                 key_bias: bool = True):
         """Construct an RelPositionMultiHeadedAttention object."""
-        super().__init__(n_head, n_feat, dropout_rate, key_bias, use_sdpa)
+        super().__init__(n_head, n_feat, dropout_rate, key_bias)
         # linear transformation for positional encoding
         self.linear_pos = nn.Linear(n_feat, n_feat, bias=False)
         # these two learnable bias are used in matrix c and matrix d
@@ -216,7 +287,6 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         self.pos_bias_v = nn.Parameter(torch.Tensor(self.h, self.d_k))
         torch.nn.init.xavier_uniform_(self.pos_bias_u)
         torch.nn.init.xavier_uniform_(self.pos_bias_v)
-        self.kv_cache = None
 
     def rel_shift(self, x):
         """Compute relative positional encoding.
@@ -245,7 +315,91 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         value: torch.Tensor,
         mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
         pos_emb: torch.Tensor = torch.empty(0),
+        cache: torch.Tensor = torch.zeros((0, 0, 0, 0))
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Compute 'Scaled Dot Product Attention' with rel. positional encoding.
+        Args:
+            query (torch.Tensor): Query tensor (#batch, time1, size).
+            key (torch.Tensor): Key tensor (#batch, time2, size).
+            value (torch.Tensor): Value tensor (#batch, time2, size).
+            mask (torch.Tensor): Mask tensor (#batch, 1, time2) or
+                (#batch, time1, time2), (0, 0, 0) means fake mask.
+            pos_emb (torch.Tensor): Positional embedding tensor
+                (#batch, time2, size).
+            cache (torch.Tensor): Cache tensor (1, head, cache_t, d_k * 2),
+                where `cache_t == chunk_size * num_decoding_left_chunks`
+                and `head * d_k == size`
+        Returns:
+            torch.Tensor: Output tensor (#batch, time1, d_model).
+            torch.Tensor: Cache tensor (1, head, cache_t + time1, d_k * 2)
+                where `cache_t == chunk_size * num_decoding_left_chunks`
+                and `head * d_k == size`
+        """
+        q, k, v = self.forward_qkv(query, key, value)
+        q = q.transpose(1, 2)  # (batch, time1, head, d_k)
+
+        # NOTE(xcsong):
+        #   when export onnx model, for 1st chunk, we feed
+        #       cache(1, head, 0, d_k * 2) (16/-1, -1/-1, 16/0 mode)
+        #       or cache(1, head, real_cache_t, d_k * 2) (16/4 mode).
+        #       In all modes, `if cache.size(0) > 0` will alwayse be `True`
+        #       and we will always do splitting and
+        #       concatnation(this will simplify onnx export). Note that
+        #       it's OK to concat & split zero-shaped tensors(see code below).
+        #   when export jit  model, for 1st chunk, we always feed
+        #       cache(0, 0, 0, 0) since jit supports dynamic if-branch.
+        # >>> a = torch.ones((1, 2, 0, 4))
+        # >>> b = torch.ones((1, 2, 3, 4))
+        # >>> c = torch.cat((a, b), dim=2)
+        # >>> torch.equal(b, c)        # True
+        # >>> d = torch.split(a, 2, dim=-1)
+        # >>> torch.equal(d[0], d[1])  # True
+        if cache.size(0) > 0:
+            key_cache, value_cache = torch.split(cache,
+                                                 cache.size(-1) // 2,
+                                                 dim=-1)
+            k = torch.cat([key_cache, k], dim=2)
+            v = torch.cat([value_cache, v], dim=2)
+        # NOTE(xcsong): We do cache slicing in encoder.forward_chunk, since it's
+        #   non-trivial to calculate `next_cache_start` here.
+        new_cache = torch.cat((k, v), dim=-1)
+
+        n_batch_pos = pos_emb.size(0)
+        p = self.linear_pos(pos_emb).view(n_batch_pos, -1, self.h, self.d_k)
+        p = p.transpose(1, 2)  # (batch, head, time1, d_k)
+
+        # (batch, head, time1, d_k)
+        q_with_bias_u = (q + self.pos_bias_u).transpose(1, 2)
+        # (batch, head, time1, d_k)
+        q_with_bias_v = (q + self.pos_bias_v).transpose(1, 2)
+
+        # compute attention score
+        # first compute matrix a and matrix c
+        # as described in https://arxiv.org/abs/1901.02860 Section 3.3
+        # (batch, head, time1, time2)
+        matrix_ac = torch.matmul(q_with_bias_u, k.transpose(-2, -1))
+
+        # compute matrix b and matrix d
+        # (batch, head, time1, time2)
+        matrix_bd = torch.matmul(q_with_bias_v, p.transpose(-2, -1))
+        # NOTE(Xiang Lyu): Keep rel_shift since espnet rel_pos_emb is used
+        if matrix_ac.shape != matrix_bd.shape:
+            matrix_bd = self.rel_shift(matrix_bd)
+
+        scores = (matrix_ac + matrix_bd) / math.sqrt(
+            self.d_k)  # (batch, head, time1, time2)
+
+        return self.forward_attention(v, scores, mask), new_cache
+
+    def inference(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
+        pos_emb: torch.Tensor = torch.empty(0),
         cache_offset: torch.Tensor = None,
+        is_infer_short: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute 'Scaled Dot Product Attention' with rel. positional encoding.
         Args:
@@ -270,7 +424,10 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         v = v.transpose(1, 2)  # (batch, head, time2, d_k)
     
         if self.kv_cache is not None:
-            k, v = self.kv_cache.update(cache_offset, k, v)
+            if is_infer_short:
+                k, v = self.kv_cache.update_short(cache_offset, k, v)
+            else:
+                k, v = self.kv_cache.update_long(cache_offset, k, v)
 
         n_batch_pos = pos_emb.size(0)
         p = self.linear_pos(pos_emb).view(n_batch_pos, -1, self.h, self.d_k)

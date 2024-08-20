@@ -36,13 +36,14 @@ class CosyVoiceModel:
         self.flow_hift_context = torch.cuda.stream(torch.cuda.Stream(self.device)) if torch.cuda.is_available() else nullcontext()
         self.lock = threading.Lock()
         self.dtype = torch.float16
-        self.max_seq = 256
+        self.max_seq_short = 256
+        self.max_seq_long = 2048
         self.max_batch = 1
 
     def load(self, llm_model, flow_model, hift_model):
         self.llm.load_state_dict(torch.load(llm_model, map_location=self.device))
         self.llm.to(self.device).eval().to(self.dtype)
-        self.llm.llm.setup_caches(self.max_batch, self.max_seq, self.dtype)
+        self.llm.llm.setup_caches(self.max_seq_short, self.max_seq_long, self.dtype)
         self.flow.load_state_dict(torch.load(flow_model, map_location=self.device))
         self.flow.to(self.device).eval().to(self.dtype)
         self.hift.load_state_dict(torch.load(hift_model, map_location=self.device))

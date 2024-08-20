@@ -294,25 +294,10 @@ class EspnetRelPositionalEncoding(torch.nn.Module):
 
     def fix_position_encoding(self,
                           offset: Union[int, torch.Tensor],
-                          size: int, 
-                          fix_shape: int) -> torch.Tensor:
-        """ For getting encoding in a streaming fashion
-
-        Attention!!!!!
-        we apply dropout only once at the whole utterance level in a none
-        streaming way, but will call this function several times with
-        increasing input size in a streaming scenario, so the dropout will
-        be applied several times.
-
-        Args:
-            offset (int or torch.tensor): start offset
-            size (int): required size of position encoding
-
-        Returns:
-            torch.Tensor: Corresponding encoding
-        """
+                          size: int,
+                          max_len: int) -> torch.Tensor:
         pos_emb = self.pe[
             :,
-            self.pe.size(1) // 2 - size + 1 : self.pe.size(1) // 2 - size + 1 + 1024 * 2 - 1,
+            self.pe.size(1) // 2 - size + 1 : self.pe.size(1) // 2 - size + 2 * max_len,
         ]
         return pos_emb

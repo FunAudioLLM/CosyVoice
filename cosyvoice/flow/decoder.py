@@ -142,12 +142,6 @@ class ConditionalDecoder(nn.Module):
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
-    def inference(self, x, mask, mu, t, spks=None, cond=None):
-        if self.compiled_infer == None:
-            self.compiled_infer = torch.compile(self.forward, mode="reduce-overhead", fullgraph=True)
-        
-        return self.forward(x, mask, mu, t, spks, cond)
-
     def forward(self, x, mask, mu, t, spks=None, cond=None):
         """Forward pass of the UNet1DConditional model.
 

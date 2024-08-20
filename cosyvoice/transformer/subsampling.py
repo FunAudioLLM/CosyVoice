@@ -31,6 +31,9 @@ class BaseSubsampling(torch.nn.Module):
                           size: int) -> torch.Tensor:
         return self.pos_enc.position_encoding(offset, size)
 
+    def fix_position_encoding(self, offset: Union[int, torch.Tensor],
+                          size: int, max_len: int) -> torch.Tensor:
+        return self.pos_enc.fix_position_encoding(offset, size, max_len)
 
 class EmbedinigNoSubsampling(BaseSubsampling):
     """Embedding input without subsampling

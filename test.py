@@ -4,30 +4,16 @@ import torchaudio
 import torch
 import logging
 
-cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M')
-# zero_shot usage, <|zh|><|en|><|jp|><|yue|><|ko|> for Chinese/English/Japanese/Cantonese/Korean
-prompt_speech_16k = load_wav('zero_shot_prompt.wav', 16000)
-torch.cuda.nvtx.range_push("cosyvoice inference")
-output = cosyvoice.inference_zero_shot('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐', '希望你以后能够做的比我还好呦。', prompt_speech_16k)
-for idx, itr in enumerate(output):
-    torchaudio.save(f"zero_shot_{idx}.wav", itr['tts_speech'], 22050)
-torch.cuda.synchronize()
-torch.cuda.nvtx.range_pop()
-logging.info("######################")
+cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-SFT')
 
+print("$$$$$$$$$$$$$$$$$$$$")
 
-torch.cuda.nvtx.range_push("cosyvoice inference")
-output = cosyvoice.inference_zero_shot('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐', '希望你以后能够做的比我还好呦。', prompt_speech_16k)
-for idx, itr in enumerate(output):
-    torchaudio.save(f"zero_shot_{idx}.wav", itr['tts_speech'], 22050)
-torch.cuda.synchronize()
-torch.cuda.nvtx.range_pop()
-logging.info("######################")
+test_sentences = ['欢迎使用蚂蚁集团语音合成服务', '欢迎使用蚂蚁集团语音合成服务', '欢迎使用蚂蚁集团语音合成服务', '欢迎使用蚂蚁集团语音合成服务', '欢迎使用蚂蚁集团语音合成服务', '欢迎使用蚂蚁集团语音合成服务', '欢迎使用蚂蚁集团语音合成服务', '欢迎使用蚂蚁集团语音合成服务', '欢迎使用蚂蚁集团语音合成服务']
 
+for idx, sent in enumerate(test_sentences):
+    output = cosyvoice.inference_sft(sent, '中文女')
+    for _, itr in enumerate(output):
+        torchaudio.save(f"zero_shot_3.5s_{idx}.wav", itr['tts_speech'], 22050)
+    torch.cuda.synchronize()
+    print("-------")
 
-torch.cuda.nvtx.range_push("cosyvoice inference")
-output = cosyvoice.inference_zero_shot('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐', '希望你以后能够做的比我还好呦。', prompt_speech_16k)
-for idx, itr in enumerate(output):
-    torchaudio.save(f"zero_shot_{idx}.wav", itr['tts_speech'], 22050)
-torch.cuda.synchronize()
-torch.cuda.nvtx.range_pop()

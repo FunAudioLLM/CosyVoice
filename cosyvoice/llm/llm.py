@@ -34,7 +34,8 @@ class TransformerLM(torch.nn.Module):
             length_normalized_loss: bool = True,
             lsm_weight: float = 0.0,
             spk_embed_dim: int = 192,
-            max_seq: int = 256,
+            max_seq_short: int = 256,
+            max_seq_long: int = 2048,
             device: str = 'cuda',
     ):
         super().__init__()
@@ -64,8 +65,9 @@ class TransformerLM(torch.nn.Module):
         # 3. [Optional] build speech token related modules
         self.speech_embedding = torch.nn.Embedding(speech_token_size, llm_input_size)
         self.spk_embed_affine_layer = torch.nn.Linear(spk_embed_dim, llm_input_size)
-        self.max_seq = max_seq
-        self.pre_attn_mask = torch.tril(torch.ones((self.max_seq, self.max_seq), device=device, dtype=torch.bool))
+        self.max_seq_short = max_seq_short
+        self.attn_mask_short = torch.tril(torch.ones((self.max_seq_short, self.max_seq_short), device=device, dtype=torch.bool))
+        self.attn_mask_long = torch.tril(torch.ones((self.max_seq_long, self.max_seq_long), device=device, dtype=torch.bool))
 
     def encode(
             self,
@@ -173,6 +175,9 @@ class TransformerLM(torch.nn.Module):
         # 1. encode text
         text, text_len = self.encode(text, text_len)
 
+        is_infer_short = False if text_len < 40 else True
+        max_seq = self.max_seq_short if is_infer_short else self.max_seq_long
+
         # 2. encode embedding
         if embedding.shape[0] != 0:
             embedding = F.normalize(embedding, dim=1)
@@ -193,7 +198,7 @@ class TransformerLM(torch.nn.Module):
         # 4. cal min/max_length
         min_len = int((text_len - prompt_text_len) * min_token_text_ratio)
         max_len = int((text_len - prompt_text_len) * max_token_text_ratio)
-        max_len = min(max_len, self.max_seq - lm_input.size(1)) # 生成token + prompt 总长度不超过 max_seq
+        max_len = min(max_len, max_seq - lm_input.size(1)) # 生成token + prompt 总长度不超过 max_seq
 
         # 5. step by step decode
         out_tokens = []
@@ -203,18 +208,18 @@ class TransformerLM(torch.nn.Module):
 
         for i in range(max_len):
             if i == 0:
-                y_pred = self.llm.forward_chunk(
+                y_pred = self.llm.inference_prefill(
                         lm_input, offset=0,
-                        required_cache_size=-1,
                         cache_offset=cache_offset,
-                        att_mask=torch.tril(torch.ones((1, lm_input.shape[1], self.max_seq), device=lm_input.device)).to(torch.bool),
+                        att_mask=torch.tril(torch.ones((1, lm_input.shape[1], max_seq), device=lm_input.device)).to(torch.bool),
                         fix_shape=True,
                     )
             else:
-                y_pred = self.llm.forward_chunk_one_step(
+                y_pred = self.llm.inference_decode_step(
                         lm_input, offset=0,
                         cache_offset=cache_offset,
-                        att_mask=self.pre_attn_mask[None, None, cache_offset+1]
+                        att_mask=self.pre_attn_mask[None, None, cache_offset+1],
+                        is_infer_short = is_infer_short,
                     )
 
             cache_offset = cache_offset + lm_input.size(1)

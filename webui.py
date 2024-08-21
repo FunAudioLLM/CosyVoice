@@ -129,8 +129,18 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
     else:
         logging.info('get instruct inference request')
         set_all_random_seed(seed)
-        for i in cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text, stream=stream):
-            yield (target_sr,  i['tts_speech'].numpy().flatten())
+        output = cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text)
+
+    if speed_factor != 1.0:
+        try:
+            audio_data, sample_rate = speed_change(output["tts_speech"], target_sr, str(speed_factor))
+            audio_data = audio_data.numpy().flatten()
+        except Exception as e:
+            print(f"Failed to change speed of audio: \n{e}")
+    else:
+        audio_data = output['tts_speech'].numpy().flatten()
+
+    return (target_sr, audio_data)
 
 def main():
     with gr.Blocks() as demo:
@@ -164,7 +174,7 @@ def main():
                               outputs=[audio_output])
         mode_checkbox_group.change(fn=change_instruction, inputs=[mode_checkbox_group], outputs=[instruction_text])
     demo.queue(max_size=4, default_concurrency_limit=2)
-    demo.launch(server_port=args.port)
+    demo.launch(server_name='0.0.0.0', server_port=args.port)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

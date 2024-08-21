@@ -129,8 +129,8 @@ class CosyVoiceModel:
             p.join()
             torch.cuda.synchronize()
         else:
-            torch.cuda.synchronize()
-            start = time.perf_counter()
+            # torch.cuda.synchronize()
+            # start = time.perf_counter()
             tts_speech_token = []
             for i in self.llm.inference(text=text.to(self.device),
                                                 text_len=text_len.to(self.device),
@@ -148,8 +148,8 @@ class CosyVoiceModel:
                 tts_speech_token.append(i)
             assert len(tts_speech_token) == 1, 'tts_speech_token len should be 1 when stream is {}'.format(stream)
 
-            torch.cuda.synchronize()
-            middle = time.perf_counter()
+            # torch.cuda.synchronize()
+            # middle = time.perf_counter()
 
             tts_speech_token = torch.concat(tts_speech_token, dim=1)
             token_len = torch.tensor([tts_speech_token.size(1)], dtype=torch.int32).to(self.device)
@@ -169,7 +169,7 @@ class CosyVoiceModel:
             tts_speech = self.hift.inference(mel=tts_mel).cpu()
             torch.cuda.empty_cache()
 
-            torch.cuda.synchronize()
-            end = time.perf_counter()
-            print("time cost: ", middle - start, end - middle)
+            # torch.cuda.synchronize()
+            # end = time.perf_counter()
+            # print("time cost: ", middle - start, end - middle)
             yield {'tts_speech': tts_speech}

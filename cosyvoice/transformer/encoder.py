@@ -39,12 +39,12 @@ class KVCache(torch.nn.Module):
     def __init__(self, max_batch_size, n_heads, max_seq_short, max_seq_long, head_dim, dtype=torch.float32):
         super().__init__()
         cache_shape_short = (max_batch_size, n_heads, max_seq_short, head_dim)
-        self.register_buffer('k_cache_short', torch.zeros(cache_shape, dtype=dtype, device='cuda'))
-        self.register_buffer('v_cache_short', torch.zeros(cache_shape, dtype=dtype, device='cuda'))
+        self.register_buffer('k_cache_short', torch.zeros(cache_shape_short, dtype=dtype, device='cuda'))
+        self.register_buffer('v_cache_short', torch.zeros(cache_shape_short, dtype=dtype, device='cuda'))
 
         cache_shape_long = (max_batch_size, n_heads, max_seq_long, head_dim)
-        self.register_buffer('k_cache_long', torch.zeros(cache_shape, dtype=dtype, device='cuda'))
-        self.register_buffer('v_cache_long', torch.zeros(cache_shape, dtype=dtype, device='cuda'))
+        self.register_buffer('k_cache_long', torch.zeros(cache_shape_long, dtype=dtype, device='cuda'))
+        self.register_buffer('v_cache_long', torch.zeros(cache_shape_long, dtype=dtype, device='cuda'))
 
         self.max_seq_short = max_seq_short
         self.max_seq_long = max_seq_long
@@ -143,7 +143,8 @@ class BaseEncoder(torch.nn.Module):
         self.max_seq_short = max_seq_short
         self.max_seq_long = max_seq_long
         
-    def setup_caches(self, dtype=torch.float32):
+    def setup_caches(self, max_seq_short, max_seq_long, dtype=torch.float32):
+        assert max_seq_short == self.max_seq_short and max_seq_long == self.max_seq_long
         for it in self.encoders:
             it.self_attn.kv_cache = KVCache(1, self.attention_heads, self.max_seq_short, self.max_seq_long, self.head_dim, dtype)
                
@@ -417,7 +418,7 @@ class BaseEncoder(torch.nn.Module):
                 att_mask,
                 pos_emb,
                 cache_offset=cache_offset,
-                True,
+                is_infer_short = True,
             )
         if self.normalize_before:
             xs = self.after_norm(xs)
@@ -436,7 +437,7 @@ class BaseEncoder(torch.nn.Module):
                 att_mask,
                 pos_emb,
                 cache_offset=cache_offset,
-                False,
+                is_infer_short=False,
             )
         if self.normalize_before:
             xs = self.after_norm(xs)
@@ -453,6 +454,8 @@ class BaseEncoder(torch.nn.Module):
 
         xs, pos_emb = self.prepare_for_decode(xs, offset, cache_offset, is_infer_short)
         cache_offset = torch.tensor([cache_offset], device=xs.device, dtype=torch.int32)
+
+        # print("xs, att_mask: ", xs.shape, att_mask.shape)
 
         if is_infer_short:
             if self.compiled_infer_short == None:

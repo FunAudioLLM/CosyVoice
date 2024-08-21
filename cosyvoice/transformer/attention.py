@@ -165,6 +165,9 @@ class MultiHeadedAttention(nn.Module):
 
         """
         q, k, v = self.forward_qkv(query, key, value)
+        q = q.transpose(1, 2)  # (batch, head, time1, d_k)
+        k = k.transpose(1, 2)  # (batch, head, time2, d_k)
+        v = v.transpose(1, 2)  # (batch, head, time2, d_k)
 
         # NOTE(xcsong):
         #   when export onnx model, for 1st chunk, we feed
@@ -241,10 +244,7 @@ class MultiHeadedAttention(nn.Module):
         v = v.transpose(1, 2)  # (batch, head, time2, d_k)
 
         if self.kv_cache is not None:
-            if is_infer_short:
-                k, v = self.kv_cache.update_short(cache_offset, k, v)
-            else:
-                k, v = self.kv_cache.update_long(cache_offset, k, v)
+            k, v = self.kv_cache.update(cache_offset, k, v, is_infer_short)
 
         assert mask.dtype == torch.bool
         mask = mask.unsqueeze(1).eq(False) * torch.finfo(q.dtype).min
@@ -336,7 +336,8 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
                 and `head * d_k == size`
         """
         q, k, v = self.forward_qkv(query, key, value)
-        q = q.transpose(1, 2)  # (batch, time1, head, d_k)
+        k = k.transpose(1, 2)  # (batch, head, time2, d_k)
+        v = v.transpose(1, 2)  # (batch, head, time2, d_k)
 
         # NOTE(xcsong):
         #   when export onnx model, for 1st chunk, we feed
@@ -424,10 +425,7 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         v = v.transpose(1, 2)  # (batch, head, time2, d_k)
     
         if self.kv_cache is not None:
-            if is_infer_short:
-                k, v = self.kv_cache.update_short(cache_offset, k, v)
-            else:
-                k, v = self.kv_cache.update_long(cache_offset, k, v)
+            k, v = self.kv_cache.update(cache_offset, k, v, is_infer_short)
 
         n_batch_pos = pos_emb.size(0)
         p = self.linear_pos(pos_emb).view(n_batch_pos, -1, self.h, self.d_k)

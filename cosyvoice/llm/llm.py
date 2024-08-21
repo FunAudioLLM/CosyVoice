@@ -66,6 +66,7 @@ class TransformerLM(torch.nn.Module):
         self.speech_embedding = torch.nn.Embedding(speech_token_size, llm_input_size)
         self.spk_embed_affine_layer = torch.nn.Linear(spk_embed_dim, llm_input_size)
         self.max_seq_short = max_seq_short
+        self.max_seq_long = max_seq_long
         self.attn_mask_short = torch.tril(torch.ones((self.max_seq_short, self.max_seq_short), device=device, dtype=torch.bool))
         self.attn_mask_long = torch.tril(torch.ones((self.max_seq_long, self.max_seq_long), device=device, dtype=torch.bool))
 
@@ -175,7 +176,7 @@ class TransformerLM(torch.nn.Module):
         # 1. encode text
         text, text_len = self.encode(text, text_len)
 
-        is_infer_short = False if text_len < 40 else True
+        is_infer_short = True if text_len < 40 else False
         max_seq = self.max_seq_short if is_infer_short else self.max_seq_long
 
         # 2. encode embedding
@@ -213,12 +214,13 @@ class TransformerLM(torch.nn.Module):
                         cache_offset=cache_offset,
                         att_mask=torch.tril(torch.ones((1, lm_input.shape[1], max_seq), device=lm_input.device)).to(torch.bool),
                         fix_shape=True,
+                        is_infer_short=is_infer_short,
                     )
             else:
                 y_pred = self.llm.inference_decode_step(
                         lm_input, offset=0,
                         cache_offset=cache_offset,
-                        att_mask=self.pre_attn_mask[None, None, cache_offset+1],
+                        att_mask=self.attn_mask_short[None, None, cache_offset+1] if is_infer_short else self.attn_mask_long[None, None, cache_offset+1],
                         is_infer_short = is_infer_short,
                     )
 

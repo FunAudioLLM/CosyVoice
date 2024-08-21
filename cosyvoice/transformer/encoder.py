@@ -228,8 +228,7 @@ class BaseEncoder(torch.nn.Module):
         xs: torch.Tensor,
         offset: int,
         required_cache_size: int,
-        key_caches: list,
-        value_caches: list,
+        att_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
         cnn_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
         att_mask: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -286,30 +285,33 @@ class BaseEncoder(torch.nn.Module):
             next_cache_start = attention_key_size
         else:
             next_cache_start = max(attention_key_size - required_cache_size, 0)
+        r_att_cache = []
         r_cnn_cache = []
         for i, layer in enumerate(self.encoders):
             # NOTE(xcsong): Before layer.forward
             #   shape(att_cache[i:i + 1]) is (1, head, cache_t1, d_k * 2),
             #   shape(cnn_cache[i])       is (b=1, hidden-dim, cache_t2)
-            xs, _, key_caches[i], value_cache[i], new_cnn_cache = layer(
+            xs, _, new_att_cache, new_cnn_cache = layer(
                 xs,
                 att_mask,
                 pos_emb,
-                key_cache=key_caches[i],
-                value_cache=value_cache[i],
+                att_cache=att_cache[i:i + 1] if elayers > 0 else att_cache,
                 cnn_cache=cnn_cache[i] if cnn_cache.size(0) > 0 else cnn_cache)
             # NOTE(xcsong): After layer.forward
-            #   shape(new_att_cache) is (batch, head, attention_key_size, d_k * 2),
+            #   shape(new_att_cache) is (1, head, attention_key_size, d_k * 2),
             #   shape(new_cnn_cache) is (b=1, hidden-dim, cache_t2)
+            r_att_cache.append(new_att_cache[:, :, next_cache_start:, :])
             r_cnn_cache.append(new_cnn_cache.unsqueeze(0))
-        
         if self.normalize_before:
             xs = self.after_norm(xs)
 
+        # NOTE(xcsong): shape(r_att_cache) is (elayers, head, ?, d_k * 2),
+        #   ? may be larger than cache_t1, it depends on required_cache_size
+        r_att_cache = torch.cat(r_att_cache, dim=0)
         # NOTE(xcsong): shape(r_cnn_cache) is (e, b=1, hidden-dim, cache_t2)
         r_cnn_cache = torch.cat(r_cnn_cache, dim=0)
 
-        return (xs, key_caches, value_caches, r_cnn_cache)
+        return (xs, r_att_cache, r_cnn_cache)
 
     def inference_layers(self, xs: torch.Tensor, chunk_masks: torch.Tensor,
                        pos_emb: torch.Tensor,
@@ -493,7 +495,7 @@ class BaseEncoder(torch.nn.Module):
                rate.
             3. Currently, nn.Sequential is used to stack all the convolution
                layers in subsampling, we need to rewrite it to make it work
-               with cache, which is not preferred.
+               with cache, which is not prefered.
         Args:
             xs (torch.Tensor): (1, max_len, dim)
             chunk_size (int): decoding chunk size

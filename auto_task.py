@@ -1,5 +1,7 @@
-﻿import os
+﻿import json
+import os
 import sys
+
 
 # 设置 PYTHONPATH 环境变量
 os.environ["PYTHONPATH"] = "third_party/Matcha-TTS"
@@ -8,7 +10,12 @@ os.environ["PYTHONPATH"] = "third_party/Matcha-TTS"
 sys.path.append("third_party/Matcha-TTS")
 
 
-from tools.auto_task_help import get_texts, has_omission
+from tools.auto_task_help import (
+    get_texts,
+    has_omission,
+    format_line,
+    get_texts_with_line,
+)
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -63,7 +70,63 @@ def prepare_audio(audio):
     return _norm_loudness(audio, 22050)
 
 
-def process_text_line(index, texts, try_again, wav_list):
+def process_text(text, wav_list, spk):
+    """
+    处理文本
+    :param text: 文本
+    :param wav_list: 音频列表
+    :param spk: 角色
+    :return: 处理后的文本
+    """
+    texts = get_texts_with_line(text)
+    for text in texts:
+        try_again = 0
+        line = text
+
+        while True:
+            output = cosyvoice.inference_sft(line, spk)
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+            is_continu, pinyin_similarity, gen_text_clean, text_clean = has_omission(
+                output["tts_speech"], line
+            )
+            logger.info(f"""
+=========
+原始文本：{line}
+try_again: {try_again}
+speaker: {spk}
+生成文本：{gen_text_clean}
+输入文本：{text_clean}
+相似度：{pinyin_similarity}
+=========
+            """)
+            pinyin_similarity_map[pinyin_similarity] = output["tts_speech"]
+
+            if is_continu:
+                try_again += 1
+                if try_again >= 5:
+                    best_similarity = max(pinyin_similarity_map.keys())
+                    best_audio = pinyin_similarity_map[best_similarity]
+                    pinyin_similarity_map.clear()
+                    try_again = 0
+                    best_audio = prepare_audio(best_audio)
+                    wav_list.append(best_audio)
+                    wav_list.append(generate_silence(line))
+                    break
+            else:
+                pinyin_similarity_map.clear()
+                try_again = 0
+                tts_speech = prepare_audio(output["tts_speech"])
+                wav_list.append(tts_speech)
+                wav_list.append(generate_silence(line))
+                break
+
+        return wav_list
+
+
+def process_text_line(index, texts, try_again, wav_list, spk):
     """
     处理单行文本
     :param index: 当前处理的文本行索引
@@ -72,9 +135,9 @@ def process_text_line(index, texts, try_again, wav_list):
     :param wav_list: 音频列表
     :return: 更新后的索引和重试次数
     """
-    line = texts[index]
+    line = format_line(texts[index])
 
-    output = cosyvoice.inference_sft(line, "旁白1")
+    output = cosyvoice.inference_sft(line, spk)
 
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -149,11 +212,18 @@ def process_chapter(book_name, idx):
 
     texts = get_texts(file_content)
 
+    with open(f"./tmp/{book_name}/bookname2role.json", "r", encoding="utf-8") as f:
+        bookname2role = json.load(f)
+
+    with open(f"./tmp/{book_name}/role/chapter_{idx}.json", "r", encoding="utf-8") as f:
+        line_map_list = json.load(f)
+    line_map = {}
+    for item in line_map_list:
+        line_map.update(item)
+
     wav_list = []
     total_texts = len(texts)
     index = 0
-    try_again = 0
-    last_idx = index
 
     with tqdm(
         total=total_texts,
@@ -161,10 +231,33 @@ def process_chapter(book_name, idx):
         leave=True,  # 确保进度条在完成后不会被清除
     ) as pbar:
         while index < total_texts:
-            index, try_again = process_text_line(index, texts, try_again, wav_list)
-            if last_idx != index:
-                last_idx = index
-                pbar.update(1)
+            line = texts[index]
+            content_to_process = []
+
+            if "“" in line and "”" in line:
+                # 获取所有 ”“ 之间的内容并按照顺序处理
+                segments = line.split("“")
+                for segment in segments:
+                    if "”" in segment:
+                        quote, rest = segment.split("”", 1)
+                        content_to_process.append((quote, True))
+                        if rest.strip():
+                            content_to_process.append((rest.strip(), False))
+                    else:
+                        if segment.strip():
+                            content_to_process.append((segment.strip(), False))
+            else:
+                content_to_process.append((line.strip(), False))
+
+            for content, is_quote in content_to_process:
+                skp = "旁白1"
+                if is_quote:
+                    bookname = line_map.get(content, {}).get("role", "")
+                    skp = bookname2role.get(bookname, "旁白1")
+
+                wav_list = process_text(content, wav_list, skp)
+            index += 1
+            pbar.update(1)
 
     wav_list = [wav if wav.ndim == 2 else wav.unsqueeze(0) for wav in wav_list]
     wav_list = torch.concat(wav_list, dim=1)
@@ -185,11 +278,13 @@ def main():
     parser = argparse.ArgumentParser(
         description="Process book chapters to generate audio files."
     )
-    parser.add_argument("--book_name", type=str, help="Name of the book", default="aa")
+    parser.add_argument(
+        "--book_name", type=str, help="Name of the book", default="诡秘之主"
+    )
     parser.add_argument(
         "--start_idx", type=int, help="Starting chapter index", default=1
     )
-    parser.add_argument("--end_idx", type=int, help="Ending chapter index", default=1)
+    parser.add_argument("--end_idx", type=int, help="Ending chapter index", default=10)
 
     args = parser.parse_args()
 

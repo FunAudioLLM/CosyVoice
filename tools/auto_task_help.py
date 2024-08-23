@@ -1,5 +1,7 @@
 ﻿import sys
 import os
+import traceback
+import uuid
 
 
 # 将项目根目录添加到系统路径
@@ -10,38 +12,68 @@ from pypinyin import pinyin, Style
 from difflib import SequenceMatcher
 from tools.zh_normalization.text_normlization import TextNormalizer
 
-from tools.model import SenseVoiceSmall
+from funasr import AutoModel
 
 """
 auto_task 辅助函数
 """
+# 初始化全局变量
+model = None
+kwargs = {}
 
-# 加载 SenseVoiceSmall 模型
-model_dir = "iic/SenseVoiceSmall"
-m, kwargs = SenseVoiceSmall.from_pretrained(model=model_dir)
 
+def transcribe_and_clean(input_audio, language="zn", use_itn=False):
+    import torch
+    import soundfile as sf
 
-def transcribe_and_clean(data_in, language="auto", use_itn=False):
-    # 调用模型的inference方法
-    res = m.inference(
-        data_in=data_in,
-        language=language,
-        use_itn=use_itn,
-        **kwargs,
-    )
+    global model
+    if model is None:
+        model = AutoModel(
+            model="iic/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+            vad_model="iic/speech_fsmn_vad_zh-cn-16k-common-pytorch",
+            vad_kwargs={"max_single_segment_time": 60000},
+            # punc_model="iic/punc_ct-transformer_cn-en-common-vocab471067-large",
+            # spk_model="iic/speech_campplus_sv_zh-cn_16k-common",
+            device="cuda:0",
+        )
 
-    # 从结果中提取文本
-    raw_text = res[0][0]["text"] if res and res[0] else ""
+    try:
+        # 检查输入是否是文件路径或 tensor
+        if isinstance(input_audio, str):
+            text = model.generate(
+                input=input_audio,
+                batch_size_s=60,
+                language=language,  # "zn", "en", "yue", "ja", "ko", "nospeech"
+                cache={},
+                use_itn=use_itn,
+                merge_vad=True,
+                merge_length_s=60,
+            )[0]["text"]
+        else:
+            # 确保输入是 torch.Tensor 并且是 1 维
+            if isinstance(input_audio, torch.Tensor) and len(input_audio.shape) == 2:
+                input_audio = input_audio.squeeze(0)
 
-    cleaned_text = re.sub(r"<\|.*?\|>", "", raw_text)
+            # 将 tensor 保存为临时 wav 文件
+            tmp_name = str(uuid.uuid4())
+            temp_wav_path = f"./tmp/gen_temp/{tmp_name}.wav"
+            sf.write(temp_wav_path, input_audio, 32768)
 
-    # 去除空白字符
-    cleaned_text = re.sub(r"\s+", "", cleaned_text)
-
-    # 去除多余标点符号（只保留常用标点）
-    cleaned_text = re.sub(r"[^\w\s，。！？]", "", cleaned_text)
-
-    return cleaned_text
+            # 使用临时文件进行推理
+            text = model.generate(
+                input=input_audio,
+                batch_size_s=60,
+                language=language,  # "zn", "en", "yue", "ja", "ko", "nospeech"
+                cache={},
+                use_itn=use_itn,
+                merge_vad=True,
+                merge_length_s=60,
+            )[0]["text"]
+        os.remove(temp_wav_path)
+    except:
+        text = ""
+        print(traceback.format_exc())
+    return text
 
 
 # 定义语言对应的符号
@@ -272,6 +304,26 @@ def format_text(text, language="zh"):
     return text
 
 
+def remove_invalid_quotes(text):
+    # 定义常见的中文标点符号
+    chinese_punctuation = "。！？；：，、……"
+
+    def replace_func(match):
+        # 获取匹配到的文本
+        quoted_text = match.group(1)
+        # 检查最后一个字符是否为中文标点符号
+        if quoted_text and quoted_text[-1] in chinese_punctuation:
+            return f"“{quoted_text}”"  # 保留双引号
+        else:
+            return quoted_text  # 移除双引号
+
+    # 使用正则表达式匹配中文双引号内的内容
+    pattern = r"“(.*?)”"
+    result = re.sub(pattern, replace_func, text)
+
+    return result
+
+
 def has_omission(gen_data, text):
     gen_text = transcribe_and_clean(gen_data)
     tx = TextNormalizer()
@@ -383,15 +435,122 @@ def replace_punctuations(sentence):
     return re.sub(r"[。！？]", replacer, sentence)
 
 
+def format_line(text):
+    tx = TextNormalizer()
+    sentences = tx.normalize(text)
+    text = "".join(sentences)
+    return text
+
+
+def get_texts_v2(text):
+    text = remove_invalid_quotes(text)
+
+    texts = text.split("\n")
+    text_list = []
+
+    for line in texts:
+        # 拆分成 ["“你好，我是小明。”", "小明说到，",  "“很高兴见到您。”","小明高兴的和小红握手。"]
+        parts = []
+        buffer = ""
+
+        for char in line:
+            if char == "“":
+                if buffer:
+                    parts.append(buffer.strip())
+                    buffer = ""
+                buffer += char
+            elif char == "”":
+                buffer += char
+                if not buffer.endswith(("。", "，", "！", "？", "；", "：", "”")):
+                    # 如果引号内没有标点符号，则删除引号
+                    buffer = buffer.replace("“", "").replace("”", "").strip()
+                parts.append(buffer.strip())
+                buffer = ""
+            else:
+                buffer += char
+
+        if buffer:
+            parts.append(buffer.strip())
+
+        text_list.extend(parts)
+
+    return text_list
+
+
+def split_text(text, max_length=30):
+    chunks = []
+    curr_idx = 0
+    curr_text = ""
+    last_end_idx = -1
+
+    while curr_idx < len(text):
+        ch = text[curr_idx]
+        if ch == "“":
+            # 保存之前所有文本到chunks
+            if curr_text:
+                tmp_text = curr_text
+                if tmp_text[0] in "。？！，":
+                    tmp_text = tmp_text[1:]
+                if tmp_text:
+                    chunks.append(tmp_text)
+            curr_text = ""
+            tmp_text = ""
+            while curr_idx < len(text):
+                temp_ch = text[curr_idx]
+                tmp_text += temp_ch
+                if temp_ch == "”":
+                    chunks.append(tmp_text)
+                    last_end_idx = curr_idx
+                    break
+                curr_idx += 1
+            curr_idx += 1
+            continue
+        if ch in "。？！～，":
+            last_end_idx = len(curr_text)
+        curr_text += ch
+
+        if len(curr_text) > max_length:
+            if last_end_idx != -1:
+                cut_point = last_end_idx + 1
+                tmp_text = curr_text[:cut_point]
+                if tmp_text[0] in "。？！，":
+                    tmp_text = tmp_text[1:]
+                chunks.append(tmp_text)
+                curr_text = curr_text[cut_point:]
+            else:
+                tmp_text = curr_text[:cut_point]
+                if tmp_text[0] in "。？！，":
+                    tmp_text = tmp_text[1:]
+                chunks.append(tmp_text)
+                curr_text = ""
+            last_end_idx = -1
+
+        curr_idx += 1
+
+    if curr_text:
+        chunks.append(curr_text)
+
+    return chunks
+
+
 def get_texts(text):
+    text = text.replace("……", "。")
+    text = text.replace("。。", "。")
+    text = text.replace("、", "，")
+
+    text = remove_invalid_quotes(text)
     # 文本格式化
-    text = format_text(text)
     tx = TextNormalizer()
     sentences = tx.normalize(text)
     text = "".join(sentences)
     text = add_spaces_around_english(text)
-    print(text)
 
+    texts = split_text(text)
+
+    return texts
+
+
+def get_texts_with_line(text):
     # 切割文本
     text = split_text_by_punctuation(text, {"。", "？", "！", "～"})
     texts = text.split("\n")
@@ -405,72 +564,72 @@ def get_texts(text):
 
     # 替换标点符号
     texts = [replace_punctuations(sentence) for sentence in texts]
-
     return texts
 
 
+def remove_punctuation_only_paragraphs(text):
+    # 按段落分割文本
+    paragraphs = text.split("\n")
+    # 定义常见的中文标点符号
+    chinese_punctuation = "。！？；：，、"
+    # 过滤掉只包含标点符号的段落
+    filtered_paragraphs = [
+        p for p in paragraphs if not all(char in chinese_punctuation for char in p)
+    ]
+    # 将段落重新拼接成文本
+    return "\n".join(filtered_paragraphs)
+
+
+def remove_punctuation_only_quotes(text):
+    # 定义常见的中文标点符号
+    chinese_punctuation = "。！？；：，、……"
+
+    def replace_func(match):
+        # 获取匹配到的文本
+        quoted_text = match.group(1)
+        # 判断引号中的内容是否全部为标点符号
+        if all(char in chinese_punctuation for char in quoted_text):
+            return ""  # 移除双引号及其中间内容
+        else:
+            return f"“{quoted_text}”"  # 保留双引号及其中间内容
+
+    # 使用正则表达式匹配中文双引号内的内容
+    pattern = r"“(.*?)”"
+    result = re.sub(pattern, replace_func, text)
+
+    return result
+
+
+def format_text_v2(text):
+    # 1. 将中文省略号替换为中文句号
+    text = text.replace("……", "。")
+    text = text.replace("“。”", "")
+    text = text.replace("“！”", "")
+    text = text.replace("“？”", "")
+    text = text.replace("“～”", "")
+    text = text.replace("“”", "")
+
+    # 2. 移除每段文本中只包含标点符号的段落
+    text = remove_punctuation_only_paragraphs(text)
+
+    # 3. 移除双引号中仅包含标点符号的内容
+    text = remove_punctuation_only_quotes(text)
+
+    # 4. 移除连续的空段落
+    text = re.sub(r"\n+", "\n", text).strip()
+
+    # 5. 移除无效的引号
+    text = remove_invalid_quotes(text)
+
+    return text
+
+
 if __name__ == "__main__":
-    file_content = """
-第十三章 棋子
-十二月十二日，池田精神失常前一小时。
-当“九月四日”这几个字从天一口中说出的刹那，池田惊慌失色，他觉得自己又一次陷入彀中，却又不知这圈套的全貌。
-天一冷笑道：“我每次看到你这种嘴脸都会觉得非常厌烦，简直是可悲到了极点，你是所有这些交易者当中最让我不快的一个。”
-“所有交易者？！”池田惊呼：“你还和别人交易过！”
-到了这时，他似乎才明白了一些事情，可惜太晚了。
-天一道：“对，就是你这种反应，多年来我都看过多少回了，你们每一个人，都忽略了还有其他交易者的可能性。说实话，我并不吃惊，基本上人类的反应九成都如此，所以你们这些人考虑任何问题，得出来的答案除了愚蠢，还是愚蠢。”
-池田问道：“你还和谁交易过？难道……三浦？！松尾！”
-天一叹气：“哎，和你这蠢货交流实在太辛苦，够了，这游戏到此为止吧，我已经不想和你玩下去了，反正线索条件差不多也凑齐了……”
-他喝上一口咖啡，不紧不慢地道：“早在事情还未发生的时候，我已推测了你们可能做出的举动，交易只是一种引导，看你们的表现会不会超出我的预期，可惜，没有任何在我的计算范围之外的事情发生。
-嗯……先来说说你的父亲吧，多年来你一直认为他是个不负责任的酒鬼，这个判断并没有错，但池田猛这个男人是有一条底线的，那就是你。
-虽然你总觉得自己的人生不怎么样，但请睁大眼睛好好看看，纵然生活拮据，他还是送你去优秀的升学高中念书，打骂让你成为一个正派的人，小时候把你丢在动物园的男人，不也正是后来拼了命地四处找你的人吗？
-在你把自己当成悲剧主角，抱怨着生活没有给你足够的条件时，却从未想过要靠自己去改变什么，你这种人的眼前看到的当然只有绝望。
-你从未站在别人的角度上考虑过，今年也已经十七岁了，你知道父亲的生日吗？知道他的过去吗？了解他的想法吗？你什么都不知道，你和每一个凡人一样，只去考虑自己的感受，嫉妒那些天生就比自己优越的人，比如藤田、三浦那样的家伙。
-但如果把你放到他们的位置上，你就不会是池田了，你便是另一个三浦而已。
-你的父亲造就了你，可你不知感恩。你的心中填满了嫉妒和哀怨，但你懦弱怕事，能力又差，最终，你父亲为你买了单，他帮你杀了三浦。”
-“什么！”池田颤抖，摇头，目光呆滞，口中念道：“不可能……不可能的……老爸为什么要杀三浦？！他们根本就……”
-“所以我刚才就问你，要不要改变交易的内容，听听是谁杀了三浦，但你的选择跟第一次交易完成时一样的自私和愚蠢。”天一打断了池田的话道：“前天晚上，你目睹了松尾的死亡后回家，那时你的父亲其实并没有睡着，他只是为了完成我的交易而‘不和你说话’，因此他只能假装睡着。”
-…………
-“半夜回到家发现儿子不在，竟还满不在乎地睡了。”
-…………
-“昨天上午，你在学校时，他来到我的店里完成交易，接着便问我有关你昨晚究竟去哪儿了的问题。因为是我让他在特定的时间对你保持沉默的，他理所当然会认为我知道些什么。
-我就告诉他，你儿子半夜去了学校，发现了尸体，并留下了线索，但没有提到任何细节。
-于是，后来我们就有了一笔新的交易，我让你父亲帮我传达一个信息给你，想看看你是否能够得到启发。你应该还记得，你父亲突然心血来潮去搜电视新闻吧？”
-…………
-“新年将至，今年北海道的治安状况在年底依然呈下滑趋势，和全府各地区相比再次是倒数第一，除了频发的入室盗窃以外，暴力犯罪也有增加，警方发言人拒绝对此数据作出回应，今天由本台记者和我们请来的几位专家一同来……”
-…………
-天一慵懒地活动了两下脖子：“从你此刻的表情来看，记性不算太差嘛。其实我本人倒也不怎么看媒体报道的，我习惯直接去翻别人的想法，所以能提前知道电视上会播什么新闻。”
-“你到底和多少人做过交易？”池田惊愕地问道。
-天一回道：“你认识的，你不认识的，你认识的人所认识的，哈！人与人之间的联系就像错综复杂的线，只要找对了方法，像北海道这么个小地方，用极少的交易次数，就能达到牵一发而动全身的效果。”他转过头，望着身侧角落里的一个柜子：“这几天真是烧书烧得手酸啊……”
-杯中的咖啡又见底了，天一添了些，继续道：“可惜你这总是幻想自己能成英雄人物的家伙，实际上太缺乏社会使命感了。实话实说，我认为你所憧憬的梦想，并不是当个英雄，而是享受英雄的待遇，却不承担英雄的代价，仅此而已。
-所以你在看了新闻后完全没有反应，没有质疑，没有情绪，可悲啊，这也就是为什么，在我告诉你有‘其他交易者’之前，你根本想不到的原因。”
-天一从抽屉拿出一本书，翻到了末尾，转向池田：“这是三浦最后的一些想法。”
-池田看着那些文字：“杀了他……杀了他……混蛋……那个混蛋……一定要杀了他……”
-“湿蚊香那家伙住得很偏僻，就在他放学的路上……无论如何也要宰了他……”
-“该死，这里怎么有个酒鬼，得把他赶走。”
-“这家伙！究竟……”
-文字到此终止了。
-天一道：“你昨天跑来我这里，其实你父亲一直在后面跟着，不过他要赶在你之前回家继续装睡，因此就没能进来找我。
-今天上午你在学校跟三浦闹腾的时候，鲸鸟去了你的家，问了你父亲很多问题，让他变得越发不安起来。于是到了下午，你父亲来我这里寻求答案，我就给他看了三浦的书，当时的文字正到三浦企图杀你的内容，你爸看完以后，就回家去拿了把刀。
-本来他是想打个埋伏，吓吓三浦，可那死胖子天生好斗，和你爸缠斗起来，最终，你爸就一不做二不休，把人杀了。”
-池田扑向前，抓住天一的领口：“是你！都是你操纵的！这些都怪你！”
-天一随手就将他推开：“有其父必有其子啊，真是一个德行。”他整理了一下衣物：“亏我还好心好意地帮你爸清理了现场，把尸体切片后转移到别的地方去了。那个大叔啊……杀完人扔了刀就跑怎么行呢，又不是随地大小便。”
-“你为什么要做这些！为什么！”池田吼出声来。
-天一淡然地说道：“八号晚上，松尾送完录像带回来，也问了我这个问题，我告诉他，‘因为我想看看你的贪婪’，后来在我的提点下，他放弃了自己的心之书，而和我交易了一个别人的秘密，可以让他发财的秘密。前天早上你搞错了，他不是在对你冷笑，而是在看坐在你后排的三浦。
-而三浦，在九号也来问过我这个问题，我告诉他，‘因为我想看看你的暴戾’，于是他也和我做了笔交易，我承诺他，会永远守口如瓶，而条件只是让他第二天早晨揍你一顿。虽然半信半疑，但打你是家常便饭，他没理由拒绝这买卖。
-十号，也就是前天，当你怀着满腹的怨恨走进我店里时，又有没有想过，今时今日，我会对你说，我只是想看看你的妒恨罢了。”
-“你是疯子……疯子！”池田后退着。
-“哈哈哈哈……”天一笑得确实像个疯子：“行了，快滚吧。你这种废物，我连留下‘逆十字’的兴趣都没有。不过你好歹也在我的游戏中发挥了一些作用，我最后再告诉你两件事好了。
-第一，鲸鸟从最初就不曾怀疑过你，他有一种异能，像指纹、脚印、血迹等等这些，鲸鸟用肉眼就能立即看到，那天现场发生的每一件事他都能还原出来。
-松尾的脖子上有两条勒痕，虽然中间部分是重合的，但当他在梁上吊久了以后，颈两侧的痕迹深浅会和中间的不一样，随便哪个警察最终都能判断出这是伪装自杀；而你在地上留下的指纹，不会成为什么证据的，因为那天的夜班保安和你做了完全一样的事情，他也在看到尸体后坐到地上倒退着爬行了。凶手是不会留下这种痕迹的，没有人会被自己刚刚布置好的现场给吓到。
-昨天我只是用三浦刺激你一下，你就顺着我的意愿行事了，其实三浦也并没有如此高明，他的杀人手法是我提供的，但他执行的时候依然有瑕疵，这就是为什么我说他‘完成了一次还算不错的谋杀’，不错和完美，还差得远呢。
-所以说，你在我这里所做的每笔交易，都未得到任何实质的利益，只是你那狭隘的意识在逼迫着自己成为我的棋子罢了。
-还有第二点，你老爸……”天一满不在乎地说道：“会不会畏罪自杀呢……你要不要赶回去看看？”
-伴随着身后让人不寒而栗的大笑，池田横冲直撞地奔出了书店的门口，再也不曾回来。
-"""
-    # texts = get_texts(file_content)
+    text = "第十三章，棋子十二月十二日，池田精神失常前一小时。当九月四日这几个字从天一口中说出的刹那，池田惊慌失色，他觉得自己又一次陷入彀中，却又不知这圈套的全貌。天一冷笑道：“我每次看到你这种嘴脸都会觉得非常厌烦，简直是可悲到了极点，你是所有这些交易者当中最让我不快的一个。”“所有交易者？！”池田惊呼：“你还和别人交易过！”到了这时，他似乎才明白了一些事情，可惜太晚了。"
 
-    # for text in texts:
-    #     print(text)
+    texts = get_texts(text)
 
-    text = format_text(file_content)
-    print(text)
+    for text in texts:
+        print(text)
+
+    # print(text)

@@ -1,9 +1,15 @@
 ﻿import argparse
+import sys
 import os
+
+
+# 将项目根目录添加到系统路径
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import re
 import shutil
 import cn2an
 import logging
+from tools.auto_task_help import format_text_v2
 
 logging.basicConfig(level=logging.INFO)
 
@@ -93,6 +99,7 @@ def split_novel(novel_name, content):
             with open(
                 f"{chapters_path}/chapter_{i+1}.txt", "w", encoding="utf-8"
             ) as file:
+                chapter_content = format_text_v2(chapter_content)
                 file.write(chapter_content)
 
 

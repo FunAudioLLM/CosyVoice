@@ -67,9 +67,9 @@ class TextNormalizer:
         """
         # Only for pure Chinese here
         if lang == "zh":
-            text = text.replace(" ", "")
+            text = text.replace(" ", "，")
             # 过滤掉特殊字符
-            text = re.sub(r"[——《》【】<>{}()（）#&@“”^_|\\]", "", text)
+            text = re.sub(r"[——《》【】<>{}()（）#&@^_|\\]", "", text)
         text = self.SENTENCE_SPLITOR.sub(r"\1\n", text)
         text = text.strip()
         sentences = [sentence.strip() for sentence in re.split(r"\n+", text)]
@@ -118,7 +118,8 @@ class TextNormalizer:
         sentence = sentence.replace("ψ", "普赛").replace("Ψ", "普赛")
         sentence = sentence.replace("ω", "欧米伽").replace("Ω", "欧米伽")
         # re filter special characters, have one more character "-" than line 68
-        sentence = re.sub(r"[-——《》【】<=>{}()（）#&@“”^_|\\]", "", sentence)
+        # sentence = re.sub(r"[-——《》【】<=>{}()（）#&@“”^_|\\]", "", sentence)
+        sentence = re.sub(r"[-——《》【】<=>{}()（）#&@^_|\\]", "", sentence)
         return sentence
 
     def normalize_sentence(self, sentence: str) -> str:

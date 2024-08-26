@@ -124,29 +124,21 @@ class MaskedDiffWithXvec(torch.nn.Module):
         feat_len = (token_len / 50 * 22050 / 256).int()
         h, h_lengths = self.length_regulator(h, feat_len)
         
-        if feat_len > self.max_seq_short:
-            fix_max_len = self.max_seq_long
-        else:
-            fix_max_len = self.max_seq_short
-
-        origin_len = h.size(1)
-        h = F.pad(h, (0, 0, 0, fix_max_len - h.size(1)))
-
         # get conditions
-        conds = torch.zeros([1, fix_max_len, self.output_size], device=token.device, dtype=embedding.dtype)
+        conds = torch.zeros([1, feat_len.max().item(), self.output_size], device=token.device, dtype=embedding.dtype)
         if prompt_feat.shape[1] != 0:
             for i, j in enumerate(prompt_feat_len):
                 conds[i, :j] = prompt_feat[i]
         conds = conds.transpose(1, 2)
 
-        mask = (~make_pad_mask(feat_len, fix_max_len)).to(h)
+        mask = (~make_pad_mask(feat_len)).to(h)
 
         feat = self.decoder.forward(
             mu=h.transpose(1, 2).contiguous(),
             mask=mask.unsqueeze(1),
             spks=embedding,
             cond=conds,
-            n_timesteps=4
+            n_timesteps=10
         )
 
         feat = feat[:, :, :origin_len]

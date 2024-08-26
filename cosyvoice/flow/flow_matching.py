@@ -15,8 +15,15 @@ import torch
 import torch.nn.functional as F
 from matcha.models.components.flow_matching import BASECFM
 
+try:
+    import tensorrt as trt
+except ImportError:
+    import warnings
+    warnings.warn("Failed to import TensorRT. Make sure TensorRT is installed and available in your environment.", ImportWarning)
+
+
 class ConditionalCFM(BASECFM):
-    def __init__(self, in_channels, cfm_params, n_spks=1, spk_emb_dim=64, estimator: torch.nn.Module = None):
+    def __init__(self, in_channels, cfm_params, n_spks=1, spk_emb_dim=64, tensorrt_model_path=None, estimator: torch.nn.Module = None):
         super().__init__(
             n_feats=in_channels,
             cfm_params=cfm_params,
@@ -29,7 +36,40 @@ class ConditionalCFM(BASECFM):
         in_channels = in_channels + (spk_emb_dim if n_spks > 0 else 0)
         # Just change the architecture of the estimator here
         self.estimator = estimator
-        self.compiled_estimator = None
+	
+        self.use_export_onnx = False
+        self.use_tensorrt = False
+        if tensorrt_model_path is not None:
+            trt.init_libnvinfer_plugins(None, "")
+            logger = trt.Logger(trt.Logger.WARNING)
+            runtime = trt.Runtime(logger)
+            with open(tensorrt_model_path, 'rb') as f:
+                serialized_engine = f.read()
+            self.engine = runtime.deserialize_cuda_engine(serialized_engine)
+            self._context = self.engine.create_execution_context()
+            self.use_tensorrt = True
+
+    def estimator_infer(self, x, mask, mu, t, spks, cond):
+        if self.use_tensorrt:
+            bs = x.shape[0]
+            hs = x.shape[1]
+            seq_len = x.shape[2]
+            # assert bs == 1 and hs == 80
+            ret = torch.empty_like(x)
+            self._context.set_input_shape("x", x.shape)
+            self._context.set_input_shape("mask", mask.shape)
+            self._context.set_input_shape("mu", mu.shape)
+            self._context.set_input_shape("t", t.shape)
+            self._context.set_input_shape("spks", spks.shape)
+            self._context.set_input_shape("cond", cond.shape)
+            bindings = [x.data_ptr(), mask.data_ptr(), mu.data_ptr(), t.data_ptr(), spks.data_ptr(), cond.data_ptr(), ret.data_ptr()]
+            for i in range(len(bindings)):
+                self._context.set_tensor_address(self.engine.get_tensor_name(i), bindings[i])
+            handle = torch.cuda.current_stream().cuda_stream
+            self._context.execute_async_v3(stream_handle=handle)
+            return ret
+        else:
+            return self.estimator.forward(x, mask, mu, t, spks, cond)
 
     @torch.inference_mode()
     def forward(self, mu, mask, n_timesteps, temperature=1.0, spks=None, cond=None):
@@ -72,24 +112,25 @@ class ConditionalCFM(BASECFM):
             cond: Not used but kept for future purposes
         """
         t, _, dt = t_span[0], t_span[-1], t_span[1] - t_span[0]
+        t = t.unsqueeze(dim=0)
+
+        if self.use_export_onnx:
+            self.export_onnx(x, mask, mu, t, spks, cond)
 
         # I am storing this because I can later plot it by putting a debugger here and saving it to a file
         # Or in future might add like a return_all_steps flag
         sol = []
 
-        if self.compiled_estimator == None:
-            self.compiled_estimator = torch.compile(self.estimator.forward, mode="reduce-overhead", fullgraph=True)
-
         for step in range(1, len(t_span)):
-            dphi_dt = self.compiled_estimator(x, mask, mu, t, spks, cond).clone()
+            dphi_dt = self.estimator_infer(x, mask, mu, t, spks, cond)
             # Classifier-Free Guidance inference introduced in VoiceBox
             if self.inference_cfg_rate > 0:
-                cfg_dphi_dt = self.compiled_estimator(
+                cfg_dphi_dt = self.estimator_infer(
                     x, mask,
                     torch.zeros_like(mu), t,
                     torch.zeros_like(spks) if spks is not None else None,
                     torch.zeros_like(cond)
-                ).clone()
+                )
                 dphi_dt = ((1.0 + self.inference_cfg_rate) * dphi_dt - self.inference_cfg_rate * cfg_dphi_dt)
             x = x + dt * dphi_dt
             t = t + dt
@@ -139,3 +180,32 @@ class ConditionalCFM(BASECFM):
         pred = self.estimator(y, mask, mu, t.squeeze(), spks, cond)
         loss = F.mse_loss(pred * mask, u * mask, reduction="sum") / (torch.sum(mask) * u.shape[1])
         return loss, y
+
+    def export_onnx(self, x, mask, mu, t, spks, cond):
+
+        dummy_input = (x, mask, mu, t, spks, cond)
+        torch.onnx.export(
+            self.estimator,
+            dummy_input,
+            "estimator_fp16.onnx",
+            export_params=True,
+            opset_version=18,
+            do_constant_folding=True,
+            input_names=['x', 'mask', 'mu', 't', 'spks', 'cond'],
+            output_names=['output'],
+            dynamic_axes={
+                'x': {2: 'seq_len'}, 
+                'mask': {2: 'seq_len'},
+                'mu': {2: 'seq_len'}, 
+                'cond': {2: 'seq_len'},
+                'output': {2: 'seq_len'},
+            }
+        )
+        """
+        ${TensorRT-10.2.0.19}/bin/trtexec --onnx=estimator_fp16.onnx --saveEngine=estimator_fp16.plan \
+            --minShapes=x:1x80x1,mask:1x1x1,mu:1x80x1,t:1,spks:1x80,cond:1x80x1 \
+            --maxShapes=x:1x80x4096,mask:1x1x4096,mu:1x80x4096,t:1,spks:1x80,cond:1x80x4096 \
+            --fp16 --verbose
+        
+        """
+        

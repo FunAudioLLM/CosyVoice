@@ -236,8 +236,6 @@ class TransformerLM(torch.nn.Module):
             offset += lm_input.size(1)
             lm_input = self.speech_embedding.weight[top_ids].reshape(1, 1, -1)
 
-        print("output_tokens.shape", torch.tensor([out_tokens], dtype=torch.int64, device=device).shape)
-
         # in non-stream mode, yield all token
         if stream is False:
             yield torch.tensor([out_tokens], dtype=torch.int64, device=device)

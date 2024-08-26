@@ -141,8 +141,6 @@ class MaskedDiffWithXvec(torch.nn.Module):
             n_timesteps=10
         )
 
-        feat = feat[:, :, :origin_len]
-
         if prompt_feat.shape[1] != 0:
             feat = feat[:, :, prompt_feat.shape[1]:]
         return feat

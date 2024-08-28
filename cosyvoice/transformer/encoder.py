@@ -169,7 +169,7 @@ class BaseEncoder(torch.nn.Module):
             xs, chunk_masks, _, _ = layer(xs, chunk_masks, pos_emb, mask_pad)
         return xs
 
-    @torch.jit.ignore(drop=True)
+    @torch.jit.unused
     def forward_layers_checkpointed(self, xs: torch.Tensor,
                                     chunk_masks: torch.Tensor,
                                     pos_emb: torch.Tensor,
@@ -180,6 +180,7 @@ class BaseEncoder(torch.nn.Module):
                                                     mask_pad)
         return xs
 
+    @torch.jit.export
     def forward_chunk(
         self,
         xs: torch.Tensor,
@@ -270,6 +271,7 @@ class BaseEncoder(torch.nn.Module):
 
         return (xs, r_att_cache, r_cnn_cache)
 
+    @torch.jit.unused
     def forward_chunk_by_chunk(
         self,
         xs: torch.Tensor,

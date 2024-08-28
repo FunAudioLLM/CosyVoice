@@ -21,7 +21,7 @@ from cosyvoice.utils.file_utils import logging
 
 class CosyVoice:
 
-    def __init__(self, model_dir):
+    def __init__(self, model_dir, load_script=True):
         instruct = True if '-Instruct' in model_dir else False
         self.model_dir = model_dir
         if not os.path.exists(model_dir):
@@ -39,6 +39,9 @@ class CosyVoice:
         self.model.load('{}/llm.pt'.format(model_dir),
                         '{}/flow.pt'.format(model_dir),
                         '{}/hift.pt'.format(model_dir))
+        if load_script:
+            self.model.load_script('{}/llm.text_encoder.fp16.zip'.format(model_dir),
+                                    '{}/llm.llm.fp16.zip'.format(model_dir))
         del configs
 
     def list_avaliable_spks(self):

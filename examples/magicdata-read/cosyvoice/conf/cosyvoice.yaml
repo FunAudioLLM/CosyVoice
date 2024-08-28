@@ -31,7 +31,7 @@ llm: !new:cosyvoice.llm.llm.TransformerLM
         num_blocks: 6
         dropout_rate: 0.1
         positional_dropout_rate: 0.1
-        attention_dropout_rate: 0
+        attention_dropout_rate: 0.0
         normalize_before: True
         input_layer: 'linear'
         pos_enc_layer_type: 'rel_pos_espnet'
@@ -49,7 +49,7 @@ llm: !new:cosyvoice.llm.llm.TransformerLM
         num_blocks: 14
         dropout_rate: 0.1
         positional_dropout_rate: 0.1
-        attention_dropout_rate: 0
+        attention_dropout_rate: 0.0
         input_layer: 'linear_legacy'
         pos_enc_layer_type: 'rel_pos_espnet'
         selfattention_layer_type: 'rel_selfattn'
@@ -97,7 +97,7 @@ flow: !new:cosyvoice.flow.flow.MaskedDiffWithXvec
             in_channels: 320
             out_channels: 80
             channels: [256, 256]
-            dropout: 0
+            dropout: 0.0
             attention_head_dim: 64
             n_blocks: 4
             num_mid_blocks: 12

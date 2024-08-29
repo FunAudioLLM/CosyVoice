@@ -131,7 +131,9 @@ def random_sampling(weighted_scores, decoded_tokens, sampling):
     top_ids = weighted_scores.softmax(dim=0).multinomial(1, replacement=True)
     return top_ids
 
-def fade_in_out(fade_in_speech, fade_out_speech, window):
-    speech_overlap_len = int(window.shape[0] / 2)
-    fade_in_speech[:, :speech_overlap_len] = fade_in_speech[:, :speech_overlap_len] * window[:speech_overlap_len] + fade_out_speech[:, -speech_overlap_len:] * window[speech_overlap_len:]
-    return fade_in_speech
+def fade_in_out(fade_in_mel, fade_out_mel, window):
+    device = fade_in_mel.device
+    fade_in_mel, fade_out_mel = fade_in_mel.cpu(), fade_out_mel.cpu()
+    mel_overlap_len = int(window.shape[0] / 2)
+    fade_in_mel[:, :, :mel_overlap_len] = fade_in_mel[:, :, :mel_overlap_len] * window[:mel_overlap_len] + fade_out_mel[:, :, -mel_overlap_len:] * window[mel_overlap_len:]
+    return fade_in_mel.to(device)

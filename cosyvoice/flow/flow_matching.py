@@ -32,6 +32,7 @@ class ConditionalCFM(BASECFM):
 
         self.estimator_context = None
         self.estimator_engine = None
+        self.is_saved = None
 
     @torch.inference_mode()
     def forward(self, mu, mask, n_timesteps, temperature=1.0, spks=None, cond=None):
@@ -123,6 +124,41 @@ class ConditionalCFM(BASECFM):
             self.estimator_context.execute_async_v3(stream_handle=handle)
             return ret
         else:
+
+            if self.is_saved == None:
+                self.is_saved = True
+                output = self.estimator.forward(x, mask, mu, t, spks, cond)
+                torch.save(x, "x.pt")
+                torch.save(mask, "mask.pt")
+                torch.save(mu, "mu.pt")
+                torch.save(t, "t.pt")
+                torch.save(spks, "spks.pt")
+                torch.save(cond, "cond.pt")
+                torch.save(output, "output.pt")
+                dummy_input = (x, mask, mu, t, spks, cond)
+                torch.onnx.export(
+                    self.estimator,
+                    dummy_input,
+                    "estimator_fp32.onnx",
+                    export_params=True,
+                    opset_version=17,
+                    do_constant_folding=True,
+                    input_names=['x', 'mask', 'mu', 't', 'spks', 'cond'],
+                    output_names=['output'],
+                    dynamic_axes={
+                        'x': {2: 'seq_len'},
+                        'mask': {2: 'seq_len'},
+                        'mu': {2: 'seq_len'},
+                        'cond': {2: 'seq_len'},
+                        'output': {2: 'seq_len'},
+                    }
+                )
+            # print("x, x.shape", x, x.shape)
+            # print("mask, mask.shape", mask, mask.shape)
+            # print("mu, mu.shape", mu, mu.shape)
+            # print("t, t.shape", t, t.shape)
+            # print("spks, spks.shape", spks, spks.shape)
+            # print("cond, cond.shape", cond, cond.shape)
             return self.estimator.forward(x, mask, mu, t, spks, cond)
 
     def compute_loss(self, x1, mask, mu, spks=None, cond=None):

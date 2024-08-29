@@ -220,7 +220,7 @@ class TransformerLM(torch.nn.Module):
                 y_pred = self.llm.inference_decode_step(
                         lm_input, offset=0,
                         cache_offset=cache_offset,
-                        att_mask=self.attn_mask_short[None, None, cache_offset+1] if is_infer_short else self.attn_mask_long[None, None, cache_offset+1],
+                        att_mask=self.attn_mask_short[None, None, cache_offset] if is_infer_short else self.attn_mask_long[None, None, cache_offset],
                         is_infer_short = is_infer_short,
                     )
 

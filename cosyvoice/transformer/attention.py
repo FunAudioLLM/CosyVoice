@@ -442,9 +442,10 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         matrix_bd = self.rel_shift(matrix_bd) 
 
         assert mask.dtype == torch.bool
-        mask = (mask.unsqueeze(1).eq(False) * torch.finfo(k.dtype).min).to(matrix_bd.dtype)
+        
+        mask = mask.unsqueeze(1).eq(False)
+        mask = (matrix_bd / math.sqrt(self.d_k)).masked_fill(mask, torch.tensor(-float('inf'), dtype=matrix_bd.dtype))
 
-        mask = matrix_bd / math.sqrt(self.d_k) + mask 
         output = torch.nn.functional.scaled_dot_product_attention(
             q_with_bias_u,
             k,

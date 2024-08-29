@@ -61,8 +61,11 @@ def main():
             request.instruct_request.CopyFrom(instruct_request)
 
         response = stub.Inference(request)
+        tts_audio = b''
+        for r in response:
+            tts_audio += r.tts_audio
+        tts_speech = torch.from_numpy(np.array(np.frombuffer(tts_audio, dtype=np.int16))).unsqueeze(dim=0)
         logging.info('save response to {}'.format(args.tts_wav))
-        tts_speech = torch.from_numpy(np.array(np.frombuffer(response.tts_audio, dtype=np.int16))).unsqueeze(dim=0)
         torchaudio.save(args.tts_wav, tts_speech, target_sr)
         logging.info('get response')
 

@@ -100,10 +100,13 @@ def main():
                                'flow_prompt_speech_token': speech_token, 'flow_prompt_speech_token_len': speech_token_len,
                                'prompt_speech_feat': speech_feat, 'prompt_speech_feat_len': speech_feat_len,
                                'llm_embedding': utt_embedding, 'flow_embedding': utt_embedding}
-            model_output = model.inference(**model_input)
+            tts_speeches = []
+            for model_output in model.inference(**model_input):
+                tts_speeches.append(model_output['tts_speech'])
+            tts_speeches = torch.concat(tts_speeches, dim=1)
             tts_key = '{}_{}'.format(utts[0], tts_index[0])
             tts_fn = os.path.join(args.result_dir, '{}.wav'.format(tts_key))
-            torchaudio.save(tts_fn, model_output['tts_speech'], sample_rate=22050)
+            torchaudio.save(tts_fn, tts_speeches, sample_rate=22050)
             f.write('{} {}\n'.format(tts_key, tts_fn))
             f.flush()
     f.close()

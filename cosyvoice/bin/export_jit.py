@@ -44,7 +44,7 @@ def main():
     torch._C._jit_set_profiling_mode(False)
     torch._C._jit_set_profiling_executor(False)
 
-    cosyvoice = CosyVoice(args.model_dir, load_script=False)
+    cosyvoice = CosyVoice(args.model_dir, load_jit=False, load_trt=False)
 
     # 1. export llm text_encoder
     llm_text_encoder = cosyvoice.model.llm.text_encoder.half()

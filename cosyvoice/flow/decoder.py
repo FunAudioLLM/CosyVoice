@@ -159,7 +159,7 @@ class ConditionalDecoder(nn.Module):
             _type_: _description_
         """
 
-        t = self.time_embeddings(t)
+        t = self.time_embeddings(t).to(t.dtype)
         t = self.time_mlp(t)
 
         x = pack([x, mu], "b * t")[0]

@@ -83,7 +83,8 @@ class CosyVoiceModel:
         with open(trt_file_path, 'rb') as f:
             serialized_engine = f.read()
         engine = runtime.deserialize_cuda_engine(serialized_engine)
-        self.flow.decoder.estimator = engine.create_execution_context()
+        self.flow.decoder.estimator_context = engine.create_execution_context()
+        self.flow.decoder.estimator = None
 
     def llm_job(self, text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):
         with self.llm_context:

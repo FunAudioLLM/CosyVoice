@@ -11,7 +11,7 @@ except ImportError:
     error_msg_zh = [
         "step.1 下载 tensorrt .tar.gz 压缩包并解压，下载地址: https://developer.nvidia.com/tensorrt/download/10x",
         "step.2 使用 tensorrt whl 包进行安装根据 python 版本对应进行安装，如 pip install ${TensorRT-Path}/python/tensorrt-10.2.0-cp38-none-linux_x86_64.whl",
-        "step.3 将 tensorrt 的 lib 路径添加进环境变量中，export LD_LIBRARY_PATH=${TensorRT-Path}/lib/"
+        "step.3 将 tensorrt 的 lib 路径添加进环境变量中，export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${TensorRT-Path}/lib/"
     ]
     print("\n".join(error_msg_zh))
     sys.exit(1)
@@ -23,7 +23,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='Export your model for deployment')
     parser.add_argument('--model_dir',
                         type=str,
-                        default='pretrained_models/CosyVoice-300M',
+                        default='pretrained_models/CosyVoice-300M-SFT',
                         help='Local path to the model directory')
 
     parser.add_argument('--export_half',
@@ -91,7 +91,8 @@ def main():
     trt_file_name = 'estimator_fp32.plan' if not args.export_half else 'estimator_fp16.plan'
     trt_file_path = os.path.join(args.model_dir, trt_file_name)
 
-    trtexec_cmd = f"{tensorrt_path}/bin/trtexec --onnx={onnx_file_path} --saveEngine={trt_file_path} " \
+    trtexec_bin = os.path.join(tensorrt_path, 'bin/trtexec')
+    trtexec_cmd = f"{trtexec_bin} --onnx={onnx_file_path} --saveEngine={trt_file_path} " \
                   "--minShapes=x:1x80x1,mask:1x1x1,mu:1x80x1,t:1,spks:1x80,cond:1x80x1 " \
                   "--maxShapes=x:1x80x4096,mask:1x1x4096,mu:1x80x4096,t:1,spks:1x80,cond:1x80x4096 --verbose " + \
                   ("--fp16" if args.export_half else "")
@@ -100,12 +101,12 @@ def main():
 
     os.system(trtexec_cmd)
 
-    print("x.shape", x.shape)
-    print("mask.shape", mask.shape)
-    print("mu.shape", mu.shape)
-    print("t.shape", t.shape)
-    print("spks.shape", spks.shape)
-    print("cond.shape", cond.shape)
+    # print("x.shape", x.shape)
+    # print("mask.shape", mask.shape)
+    # print("mu.shape", mu.shape)
+    # print("t.shape", t.shape)
+    # print("spks.shape", spks.shape)
+    # print("cond.shape", cond.shape)
 
 if __name__ == "__main__":
     main()

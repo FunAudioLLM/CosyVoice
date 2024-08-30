@@ -43,7 +43,6 @@ class CosyVoice:
         if load_jit:
             self.model.load_jit('{}/llm.text_encoder.fp16.zip'.format(model_dir),
                                     '{}/llm.llm.fp16.zip'.format(model_dir))
-
         if load_trt:
             self.model.load_trt(model_dir, use_fp16)
             

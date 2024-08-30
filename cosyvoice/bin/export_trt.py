@@ -66,13 +66,13 @@ def main():
         opset_version=18,
         do_constant_folding=True,
         input_names=['x', 'mask', 'mu', 't', 'spks', 'cond'],
-        output_names=['output'],
+        output_names=['estimator_out'],
         dynamic_axes={
             'x': {2: 'seq_len'},
             'mask': {2: 'seq_len'},
             'mu': {2: 'seq_len'},
             'cond': {2: 'seq_len'},
-            'output': {2: 'seq_len'},
+            'estimator_out': {2: 'seq_len'},
         }
     )
 
@@ -95,7 +95,7 @@ def main():
                   "--minShapes=x:1x80x1,mask:1x1x1,mu:1x80x1,t:1,spks:1x80,cond:1x80x1 " \
                   "--maxShapes=x:1x80x4096,mask:1x1x4096,mu:1x80x4096,t:1,spks:1x80,cond:1x80x4096 --verbose " + \
                   ("--fp16" if args.export_half else "")
-# /ossfs/workspace/TensorRT-10.2.0.19/bin/trtexec --onnx=estimator_fp32.onnx --saveEngine=estimator_fp32.plan --minShapes=x:1x80x1,mask:1x1x1,mu:1x80x1,t:1,spks:1x80,cond:1x80x1 --maxShapes=x:1x80x4096,mask:1x1x4096,mu:1x80x4096,t:1,spks:1x80,cond:1x80x4096 --verbose
+    
     print("execute ", trtexec_cmd)
 
     os.system(trtexec_cmd)

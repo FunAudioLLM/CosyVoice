@@ -102,7 +102,6 @@ class ConditionalCFM(BASECFM):
         if self.estimator is not None:
             return self.estimator.forward(x, mask, mu, t, spks, cond)
         else:
-            print("-----------")
             assert self.training is False, 'tensorrt cannot be used in training'
             bs = x.shape[0]
             hs = x.shape[1]

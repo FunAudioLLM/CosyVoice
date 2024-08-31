@@ -126,9 +126,9 @@ class MaskedDiffWithXvec(torch.nn.Module):
         
         # get conditions
         conds = torch.zeros([1, feat_len.max().item(), self.output_size], device=token.device, dtype=embedding.dtype)
-        if prompt_feat.shape[1] != 0:
-            for i, j in enumerate(prompt_feat_len):
-                conds[i, :j] = prompt_feat[i]
+        # if prompt_feat.shape[1] != 0:
+        #     for i, j in enumerate(prompt_feat_len):
+        #         conds[i, :j] = prompt_feat[i]
         conds = conds.transpose(1, 2)
 
         mask = (~make_pad_mask(feat_len)).to(h)

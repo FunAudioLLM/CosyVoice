@@ -23,6 +23,7 @@ import torch
 import torchaudio
 import random
 import librosa
+from distutils.util import strtobool
 
 from cosyvoice.cli.cosyvoice import CosyVoice
 from cosyvoice.utils.file_utils import load_wav, speed_change, logging
@@ -175,8 +176,11 @@ if __name__ == '__main__':
                         type=str,
                         default='pretrained_models/CosyVoice-300M',
                         help='local path or modelscope repo id')
+    parser.add_argument('--load_jit', 
+                        type=lambda x: bool(strtobool(str(x))),
+                        default=True)
     args = parser.parse_args()
-    cosyvoice = CosyVoice(args.model_dir)
+    cosyvoice = CosyVoice(args.model_dir, args.load_jit)
     sft_spk = cosyvoice.list_avaliable_spks()
     prompt_sr, target_sr = 16000, 22050
     default_data = np.zeros(target_sr)

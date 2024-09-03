@@ -68,14 +68,28 @@ def buildResponse(output):
     )
 
 
+def create_gap_audio(duration_ms=1200):
+    sample_rate = 16000  # 16kHz
+    num_samples = int(sample_rate * (duration_ms / 1000.0))
+    silence_tensor = torch.zeros(1, num_samples)
+    return silence_tensor
+
+
+def concat_tensors(tenser_gen):
+    tts_speech_list = []
+    for i in tenser_gen:
+        tts_speech_list.append(i["tts_speech"])
+        tts_speech_list.append(create_gap_audio())
+    return torch.cat(tts_speech_list, dim=1)
+
+
 @app.post("/api/inference/sft")
-@app.get("/api/inference/sft")
 async def sft(tts: str = Form(), role: str = Form()):
     start = time.process_time()
-    output = next(app.cosyvoice.inference_sft(tts, role))
+    output = concat_tensors(app.cosyvoice.inference_sft(tts, role))
     end = time.process_time()
     logging.info("infer time is {} seconds".format(end - start))
-    return buildResponse(output["tts_speech"])
+    return buildResponse(output)
 
 
 @app.post("/api/inference/zero-shot")
@@ -88,10 +102,12 @@ async def zeroShot(tts: str = Form(), prompt: str = Form(), audio: UploadFile = 
     ).unsqueeze(dim=0)
     prompt_speech_16k = prompt_speech_16k.float() / (2**15)
 
-    output = next(app.cosyvoice.inference_zero_shot(tts, prompt, prompt_speech_16k))
+    output = concat_tensors(
+        app.cosyvoice.inference_zero_shot(tts, prompt, prompt_speech_16k)
+    )
     end = time.process_time()
     logging.info("infer time is {} seconds".format(end - start))
-    return buildResponse(output["tts_speech"])
+    return buildResponse(output)
 
 
 @app.post("/api/inference/cross-lingual")
@@ -104,20 +120,21 @@ async def crossLingual(tts: str = Form(), audio: UploadFile = File()):
     ).unsqueeze(dim=0)
     prompt_speech_16k = prompt_speech_16k.float() / (2**15)
 
-    output = next(app.cosyvoice.inference_cross_lingual(tts, prompt_speech_16k))
+    output = concat_tensors(
+        app.cosyvoice.inference_cross_lingual(tts, prompt_speech_16k)
+    )
     end = time.process_time()
     logging.info("infer time is {} seconds".format(end - start))
-    return buildResponse(output["tts_speech"])
+    return buildResponse(output)
 
 
 @app.post("/api/inference/instruct")
-@app.get("/api/inference/instruct")
 async def instruct(tts: str = Form(), role: str = Form(), instruct: str = Form()):
     start = time.process_time()
-    output = next(app.cosyvoice.inference_instruct(tts, role, instruct))
+    output = concat_tensors(app.cosyvoice.inference_instruct(tts, role, instruct))
     end = time.process_time()
     logging.info("infer time is {} seconds".format(end - start))
-    return buildResponse(output["tts_speech"])
+    return buildResponse(output)
 
 
 @app.get("/api/roles")

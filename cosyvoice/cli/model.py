@@ -22,11 +22,6 @@ from cosyvoice.utils.common import fade_in_out
 import numpy as np
 import onnxruntime as ort
 
-# try:
-#     import tensorrt as trt
-# except ImportError:
-#     ...
-
 class CosyVoiceModel:
 
     def __init__(self,
@@ -74,6 +69,7 @@ class CosyVoiceModel:
         self.llm.llm = llm_llm
 
     # def load_trt(self, model_dir, use_fp16):
+    #     import tensorrt as trt
     #     trt_file_name = 'estimator_fp16.plan' if use_fp16 else 'estimator_fp32.plan'
     #     trt_file_path = os.path.join(model_dir, trt_file_name)
     #     if not os.path.isfile(trt_file_path):

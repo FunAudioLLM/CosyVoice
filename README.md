@@ -14,12 +14,13 @@ For `SenseVoice`, visit [SenseVoice repo](https://github.com/FunAudioLLM/SenseVo
 
 - [ ] 2024/08
 
-    - [ ] Repetition Aware Sampling(RAS) inference for llm stability
-    - [ ] Streaming inference mode support, including kv cache and sdpa for rtf optimization
+    - [x] Repetition Aware Sampling(RAS) inference for llm stability
+    - [x] Streaming inference mode support, including kv cache and sdpa for rtf optimization
 
 - [ ] 2024/09
 
-    - [ ] 50hz llm model which supports 10 language
+    - [ ] 25hz cosyvoice base model
+    - [ ] 25hz cosyvoice voice conversion model
 
 - [ ] 2024/10
 

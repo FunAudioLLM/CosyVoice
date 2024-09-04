@@ -21,7 +21,7 @@ from cosyvoice.utils.file_utils import logging
 
 class CosyVoice:
 
-    def __init__(self, model_dir, load_jit=True, load_trt=False, load_onnx=True, use_fp16=False):
+    def __init__(self, model_dir, load_jit=True, load_onnx=True):
         instruct = True if '-Instruct' in model_dir else False
         self.model_dir = model_dir
         if not os.path.exists(model_dir):
@@ -39,17 +39,12 @@ class CosyVoice:
         self.model.load('{}/llm.pt'.format(model_dir),
                         '{}/flow.pt'.format(model_dir),
                         '{}/hift.pt'.format(model_dir))
-
         if load_jit:
             self.model.load_jit('{}/llm.text_encoder.fp16.zip'.format(model_dir),
-                                    '{}/llm.llm.fp16.zip'.format(model_dir))
-
-        # if load_trt:
-        #     self.model.load_trt(model_dir, use_fp16)
-        
+                                    '{}/llm.llm.fp16.zip'.format(model_dir),
+                                    '{}/flow.encoder.fp32.zip'.format(model_dir))
         if load_onnx:
-            self.model.load_onnx(model_dir, use_fp16)
-            
+            self.model.load_onnx('{}/flow.decoder.estimator.fp32.onnx'.format(model_dir))
         del configs
 
     def list_avaliable_spks(self):

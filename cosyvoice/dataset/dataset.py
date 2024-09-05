@@ -148,7 +148,7 @@ def Dataset(data_list_file,
             tts_data = json.load(f)
         utt2lists = read_json_lists(prompt_utt2data)
         # filter unnecessary file in inference mode
-        lists = list(set([utt2lists[utt] for utt in tts_data.keys() if utt2lists[utt] in lists]))
+        lists = list({utt2lists[utt] for utt in tts_data.keys() if utt2lists[utt] in lists})
     dataset = DataList(lists,
                        shuffle=shuffle,
                        partition=partition)

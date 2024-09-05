@@ -96,7 +96,8 @@ if __name__ == "__main__":
                         default='../../../zero_shot_prompt.wav')
     parser.add_argument('--instruct_text',
                         type=str,
-                        default='Theo \'Crimson\', is a fiery, passionate rebel leader. Fights with fervor for justice, but struggles with impulsiveness.')
+                        default='Theo \'Crimson\', is a fiery, passionate rebel leader. \
+                                 Fights with fervor for justice, but struggles with impulsiveness.')
     parser.add_argument('--tts_wav',
                         type=str,
                         default='demo.wav')

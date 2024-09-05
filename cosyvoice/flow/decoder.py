@@ -74,7 +74,7 @@ class ConditionalDecoder(nn.Module):
             )
             self.down_blocks.append(nn.ModuleList([resnet, transformer_blocks, downsample]))
 
-        for i in range(num_mid_blocks):
+        for _ in range(num_mid_blocks):
             input_channel = channels[-1]
             out_channels = channels[-1]
             resnet = ResnetBlock1D(dim=input_channel, dim_out=output_channel, time_emb_dim=time_embed_dim)
@@ -125,7 +125,6 @@ class ConditionalDecoder(nn.Module):
         self.final_block = Block1D(channels[-1], channels[-1])
         self.final_proj = nn.Conv1d(channels[-1], self.out_channels, 1)
         self.initialize_weights()
-
 
     def initialize_weights(self):
         for m in self.modules():

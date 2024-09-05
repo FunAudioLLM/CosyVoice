@@ -20,13 +20,13 @@ import logging
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 import os
 import sys
-ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append('{}/../..'.format(ROOT_DIR))
-sys.path.append('{}/../../third_party/Matcha-TTS'.format(ROOT_DIR))
 import onnxruntime
 import random
 import torch
 from tqdm import tqdm
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append('{}/../..'.format(ROOT_DIR))
+sys.path.append('{}/../../third_party/Matcha-TTS'.format(ROOT_DIR))
 from cosyvoice.cli.cosyvoice import CosyVoice
 
 
@@ -49,6 +49,7 @@ def get_args():
     args = parser.parse_args()
     print(args)
     return args
+
 
 def main():
     args = get_args()
@@ -89,7 +90,8 @@ def main():
     option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
     option.intra_op_num_threads = 1
     providers = ['CUDAExecutionProvider' if torch.cuda.is_available() else 'CPUExecutionProvider']
-    estimator_onnx = onnxruntime.InferenceSession('{}/flow.decoder.estimator.fp32.onnx'.format(args.model_dir), sess_options=option, providers=providers)
+    estimator_onnx = onnxruntime.InferenceSession('{}/flow.decoder.estimator.fp32.onnx'.format(args.model_dir),
+                                                  sess_options=option, providers=providers)
 
     for _ in tqdm(range(10)):
         x, mask, mu, t, spks, cond = get_dummy_input(random.randint(1, 6), random.randint(16, 512), out_channels, device)
@@ -104,6 +106,7 @@ def main():
         }
         output_onnx = estimator_onnx.run(None, ort_inputs)[0]
         torch.testing.assert_allclose(output_pytorch, torch.from_numpy(output_onnx).to(device), rtol=1e-2, atol=1e-4)
+
 
 if __name__ == "__main__":
     main()

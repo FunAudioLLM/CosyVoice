@@ -18,15 +18,14 @@ import argparse
 import logging
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 import os
-
 import torch
 from torch.utils.data import DataLoader
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from tqdm import tqdm
 from cosyvoice.cli.model import CosyVoiceModel
-
 from cosyvoice.dataset.dataset import Dataset
+
 
 def get_args():
     parser = argparse.ArgumentParser(description='inference with your model')
@@ -66,7 +65,8 @@ def main():
     model = CosyVoiceModel(configs['llm'], configs['flow'], configs['hift'])
     model.load(args.llm_model, args.flow_model, args.hifigan_model)
 
-    test_dataset = Dataset(args.prompt_data, data_pipeline=configs['data_pipeline'], mode='inference', shuffle=False, partition=False, tts_file=args.tts_text, prompt_utt2data=args.prompt_utt2data)
+    test_dataset = Dataset(args.prompt_data, data_pipeline=configs['data_pipeline'], mode='inference', shuffle=False, partition=False,
+                           tts_file=args.tts_text, prompt_utt2data=args.prompt_utt2data)
     test_data_loader = DataLoader(test_dataset, batch_size=None, num_workers=0)
 
     del configs
@@ -74,13 +74,11 @@ def main():
     fn = os.path.join(args.result_dir, 'wav.scp')
     f = open(fn, 'w')
     with torch.no_grad():
-        for batch_idx, batch in tqdm(enumerate(test_data_loader)):
+        for _, batch in tqdm(enumerate(test_data_loader)):
             utts = batch["utts"]
             assert len(utts) == 1, "inference mode only support batchsize 1"
-            text = batch["text"]
             text_token = batch["text_token"].to(device)
             text_token_len = batch["text_token_len"].to(device)
-            tts_text = batch["tts_text"]
             tts_index = batch["tts_index"]
             tts_text_token = batch["tts_text_token"].to(device)
             tts_text_token_len = batch["tts_text_token_len"].to(device)

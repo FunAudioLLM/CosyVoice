@@ -12,7 +12,7 @@ For `SenseVoice`, visit [SenseVoice repo](https://github.com/FunAudioLLM/SenseVo
     - [x] WeTextProcessing support when ttsfrd is not avaliable
     - [x] Fastapi server and client
 
-- [ ] 2024/08
+- [x] 2024/08
 
     - [x] Repetition Aware Sampling(RAS) inference for llm stability
     - [x] Streaming inference mode support, including kv cache and sdpa for rtf optimization

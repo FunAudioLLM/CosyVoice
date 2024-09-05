@@ -28,6 +28,7 @@ def read_lists(list_file):
             lists.append(line.strip())
     return lists
 
+
 def read_json_lists(list_file):
     lists = read_lists(list_file)
     results = {}
@@ -36,6 +37,7 @@ def read_json_lists(list_file):
             results.update(json.load(fin))
     return results
 
+
 def load_wav(wav, target_sr):
     speech, sample_rate = torchaudio.load(wav)
     speech = speech.mean(dim=0, keepdim=True)
@@ -43,6 +45,7 @@ def load_wav(wav, target_sr):
         assert sample_rate > target_sr, 'wav sample rate {} must be greater than {}'.format(sample_rate, target_sr)
         speech = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=target_sr)(speech)
     return speech
+
 
 def speed_change(waveform, sample_rate, speed_factor: str):
     effects = [

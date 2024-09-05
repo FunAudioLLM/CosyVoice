@@ -20,6 +20,7 @@ from cosyvoice.cli.frontend import CosyVoiceFrontEnd
 from cosyvoice.cli.model import CosyVoiceModel
 from cosyvoice.utils.file_utils import logging
 
+
 class CosyVoice:
 
     def __init__(self, model_dir, load_jit=True, load_onnx=True):
@@ -42,8 +43,8 @@ class CosyVoice:
                         '{}/hift.pt'.format(model_dir))
         if load_jit:
             self.model.load_jit('{}/llm.text_encoder.fp16.zip'.format(model_dir),
-                                    '{}/llm.llm.fp16.zip'.format(model_dir),
-                                    '{}/flow.encoder.fp32.zip'.format(model_dir))
+                                '{}/llm.llm.fp16.zip'.format(model_dir),
+                                '{}/flow.encoder.fp32.zip'.format(model_dir))
         if load_onnx:
             self.model.load_onnx('{}/flow.decoder.estimator.fp32.onnx'.format(model_dir))
         del configs

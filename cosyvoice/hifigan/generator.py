@@ -340,7 +340,7 @@ class HiFTGenerator(nn.Module):
         s = self._f02source(f0)
 
         # use cache_source to avoid glitch
-        if cache_source.shape[2] == 0:
+        if cache_source.shape[2] != 0:
             s[:, :, :cache_source.shape[2]] = cache_source
 
         s_stft_real, s_stft_imag = self._stft(s.squeeze(1))

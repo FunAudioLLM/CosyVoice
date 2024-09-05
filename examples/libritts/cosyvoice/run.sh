@@ -103,3 +103,9 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
       --deepspeed.save_states model+optimizer
   done
 fi
+
+if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
+  echo "Export your model for inference speedup. Remember copy your llm or flow model to model_dir"
+  python cosyvoice/bin/export_jit.py --model_dir $pretrained_model_dir
+  python cosyvoice/bin/export_onnx.py --model_dir $pretrained_model_dir
+fi

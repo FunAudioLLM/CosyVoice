@@ -26,6 +26,7 @@ soundfile==0.12.1
 tensorboard==2.14.0
 torch==2.0.1
 torchaudio==2.0.2
+uvicorn==0.30.0
 wget==3.2
 fastapi==0.111.0
 fastapi-cli==0.0.4

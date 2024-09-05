@@ -15,6 +15,7 @@ import torch
 import torch.nn.functional as F
 from matcha.models.components.flow_matching import BASECFM
 
+
 class ConditionalCFM(BASECFM):
     def __init__(self, in_channels, cfm_params, n_spks=1, spk_emb_dim=64, estimator: torch.nn.Module = None):
         super().__init__(

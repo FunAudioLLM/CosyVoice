@@ -83,7 +83,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
   fi
   cp data/train/parquet/data.list data/train.data.list
   cp data/dev/parquet/data.list data/dev.data.list
-  for model in llm; do
+  for model in llm flow; do
     torchrun --nnodes=1 --nproc_per_node=$num_gpus \
         --rdzv_id=$job_id --rdzv_backend="c10d" --rdzv_endpoint="localhost:0" \
       cosyvoice/bin/train.py \

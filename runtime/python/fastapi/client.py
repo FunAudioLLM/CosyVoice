@@ -38,7 +38,7 @@ def main():
         payload = {
             'tts_text': args.tts_text,
         }
-        files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav,'rb'), 'application/octet-stream'))]
+        files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav, 'rb'), 'application/octet-stream'))]
         response = requests.request("GET", url, data=payload, files=files, stream=True)
     else:
         payload = {
@@ -54,6 +54,7 @@ def main():
     logging.info('save response to {}'.format(args.tts_wav))
     torchaudio.save(args.tts_wav, tts_speech, target_sr)
     logging.info('get response')
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -81,7 +82,8 @@ if __name__ == "__main__":
                         default='../../../zero_shot_prompt.wav')
     parser.add_argument('--instruct_text',
                         type=str,
-                        default='Theo \'Crimson\', is a fiery, passionate rebel leader. Fights with fervor for justice, but struggles with impulsiveness.')
+                        default='Theo \'Crimson\', is a fiery, passionate rebel leader. \
+                                 Fights with fervor for justice, but struggles with impulsiveness.')
     parser.add_argument('--tts_wav',
                         type=str,
                         default='demo.wav')

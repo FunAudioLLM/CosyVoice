@@ -69,7 +69,6 @@ def init_dataset_and_dataloader(args, configs):
     return train_dataset, cv_dataset, train_data_loader, cv_data_loader
 
 
-
 def check_modify_and_save_config(args, configs):
     if args.train_engine == "torch_ddp":
         configs['train_conf']["dtype"] = 'fp32'
@@ -84,7 +83,8 @@ def check_modify_and_save_config(args, configs):
             configs['train_conf']["dtype"] = "fp32"
         assert ds_configs["train_micro_batch_size_per_gpu"] == 1
         # if use deepspeed, override ddp config
-        configs['train_conf']['save_per_step'] = int(configs['train_conf']['save_per_step'] * configs['train_conf']['accum_grad'] / ds_configs["gradient_accumulation_steps"])
+        configs['train_conf']['save_per_step'] = int(configs['train_conf']['save_per_step'] *
+                                                     configs['train_conf']['accum_grad'] / ds_configs["gradient_accumulation_steps"])
         configs['train_conf']['accum_grad'] = ds_configs["gradient_accumulation_steps"]
         configs['train_conf']['grad_clip'] = ds_configs["gradient_clipping"]
         configs['train_conf']['log_interval'] = ds_configs["steps_per_print"]

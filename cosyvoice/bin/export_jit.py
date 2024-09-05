@@ -19,11 +19,12 @@ import logging
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 import os
 import sys
+import torch
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/../..'.format(ROOT_DIR))
 sys.path.append('{}/../../third_party/Matcha-TTS'.format(ROOT_DIR))
-import torch
 from cosyvoice.cli.cosyvoice import CosyVoice
+
 
 def get_args():
     parser = argparse.ArgumentParser(description='export your model for deployment')
@@ -34,6 +35,7 @@ def get_args():
     args = parser.parse_args()
     print(args)
     return args
+
 
 def main():
     args = get_args()
@@ -66,6 +68,7 @@ def main():
     script = torch.jit.freeze(script)
     script = torch.jit.optimize_for_inference(script)
     script.save('{}/flow.encoder.fp32.zip'.format(args.model_dir))
+
 
 if __name__ == '__main__':
     main()

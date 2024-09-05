@@ -7,6 +7,7 @@ from tqdm import tqdm
 
 logger = logging.getLogger()
 
+
 def main():
     wavs = list(glob.glob('{}/*/*/*wav'.format(args.src_dir)))
 
@@ -40,6 +41,7 @@ def main():
         for k, v in spk2utt.items():
             f.write('{} {}\n'.format(k, ' '.join(v)))
     return
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

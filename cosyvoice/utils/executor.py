@@ -70,7 +70,8 @@ class Executor:
                 info_dict = update_parameter_and_lr(model, optimizer, scheduler, info_dict)
                 log_per_step(writer, info_dict)
                 # NOTE specify save_per_step in cosyvoice.yaml if you want to enable step save
-                if info_dict['save_per_step'] > 0 and (self.step + 1) % info_dict['save_per_step'] == 0 and (batch_idx + 1) % info_dict["accum_grad"] == 0:
+                if info_dict['save_per_step'] > 0 and (self.step + 1) % info_dict['save_per_step'] == 0 and \
+                   (batch_idx + 1) % info_dict["accum_grad"] == 0:
                     dist.barrier()
                     self.cv(model, cv_data_loader, writer, info_dict, on_batch_end=False)
                     model.train()

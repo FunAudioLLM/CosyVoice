@@ -23,7 +23,7 @@ import torch.nn.functional as F
 
 torchaudio.set_audio_backend('soundfile')
 
-AUDIO_FORMAT_SETS = set(['flac', 'mp3', 'm4a', 'ogg', 'opus', 'wav', 'wma'])
+AUDIO_FORMAT_SETS = {'flac', 'mp3', 'm4a', 'ogg', 'opus', 'wav', 'wma'}
 
 
 def parquet_opener(data, mode='train', tts_data={}):
@@ -53,6 +53,7 @@ def parquet_opener(data, mode='train', tts_data={}):
                         yield {**sample, 'tts_index': index, 'tts_text': text}
         except Exception as ex:
             logging.warning('Failed to open {}, ex info {}'.format(url, ex))
+
 
 def filter(data,
            max_length=10240,

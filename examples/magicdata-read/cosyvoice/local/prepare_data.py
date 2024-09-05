@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 logger = logging.getLogger()
 
+
 def main():
     utt2wav, utt2text, utt2spk, spk2utt = {}, {}, {}, {}
     with open(os.path.join(args.src_dir, "TRANS.txt"), "r") as f:
@@ -39,6 +40,7 @@ def main():
         for k, v in spk2utt.items():
             f.write('{} {}\n'.format(k, ' '.join(v)))
     return
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -1,56 +1,68 @@
+# Copyright (c) 2024 Alibaba Inc (authors: Xiang Lyu)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import argparse
 import logging
 import requests
+import torch
+import torchaudio
+import numpy as np
 
-def saveResponse(path, response):
-    # 以二进制写入模式打开文件
-    with open(path, 'wb') as file:
-        # 将响应的二进制内容写入文件
-        file.write(response.content)
 
 def main():
-    api = args.api_base
+    url = "http://{}:{}/inference_{}".format(args.host, args.port, args.mode)
     if args.mode == 'sft':
-        url = api + "/api/inference/sft"
-        payload={
-            'tts': args.tts_text,
-            'role': args.spk_id
-        }
-        response = requests.request("POST", url, data=payload)
-        saveResponse(args.tts_wav, response)
-    elif args.mode == 'zero_shot':
-        url = api + "/api/inference/zero-shot"
-        payload={
-            'tts': args.tts_text,
-            'prompt': args.prompt_text
-        }
-        files=[('audio', ('prompt_audio.wav', open(args.prompt_wav,'rb'), 'application/octet-stream'))]
-        response = requests.request("POST", url, data=payload, files=files)
-        saveResponse(args.tts_wav, response)
-    elif args.mode == 'cross_lingual':
-        url = api + "/api/inference/cross-lingual"
-        payload={
-            'tts': args.tts_text,
-        }
-        files=[('audio', ('prompt_audio.wav', open(args.prompt_wav,'rb'), 'application/octet-stream'))]
-        response = requests.request("POST", url, data=payload, files=files)
-        saveResponse(args.tts_wav, response)
-    else:
-        url = api + "/api/inference/instruct"
         payload = {
-            'tts': args.tts_text,
-            'role': args.spk_id,
-            'instruct': args.instruct_text
+            'tts_text': args.tts_text,
+            'spk_id': args.spk_id
         }
-        response = requests.request("POST", url, data=payload)
-        saveResponse(args.tts_wav, response)
-    logging.info("Response save to {}", args.tts_wav)
+        response = requests.request("GET", url, data=payload, stream=True)
+    elif args.mode == 'zero_shot':
+        payload = {
+            'tts_text': args.tts_text,
+            'prompt_text': args.prompt_text
+        }
+        files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav, 'rb'), 'application/octet-stream'))]
+        response = requests.request("GET", url, data=payload, files=files, stream=True)
+    elif args.mode == 'cross_lingual':
+        payload = {
+            'tts_text': args.tts_text,
+        }
+        files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav,'rb'), 'application/octet-stream'))]
+        response = requests.request("GET", url, data=payload, files=files, stream=True)
+    else:
+        payload = {
+            'tts_text': args.tts_text,
+            'spk_id': args.spk_id,
+            'instruct_text': args.instruct_text
+        }
+        response = requests.request("GET", url, data=payload, stream=True)
+    tts_audio = b''
+    for r in response.iter_content(chunk_size=16000):
+        tts_audio += r
+    tts_speech = torch.from_numpy(np.array(np.frombuffer(tts_audio, dtype=np.int16))).unsqueeze(dim=0)
+    logging.info('save response to {}'.format(args.tts_wav))
+    torchaudio.save(args.tts_wav, tts_speech, target_sr)
+    logging.info('get response')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--api_base',
+    parser.add_argument('--host',
                         type=str,
-                        default='http://127.0.0.1:6006')
+                        default='0.0.0.0')
+    parser.add_argument('--port',
+                        type=int,
+                        default='50000')
     parser.add_argument('--mode',
                         default='sft',
                         choices=['sft', 'zero_shot', 'cross_lingual', 'instruct'],

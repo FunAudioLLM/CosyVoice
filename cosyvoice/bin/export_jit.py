@@ -44,7 +44,7 @@ def main():
     torch._C._jit_set_profiling_mode(False)
     torch._C._jit_set_profiling_executor(False)
 
-    cosyvoice = CosyVoice(args.model_dir, load_jit=False, load_trt=False)
+    cosyvoice = CosyVoice(args.model_dir, load_jit=False, load_onnx=False)
 
     # 1. export llm text_encoder
     llm_text_encoder = cosyvoice.model.llm.text_encoder.half()
@@ -59,6 +59,13 @@ def main():
     script = torch.jit.freeze(script, preserved_attrs=['forward_chunk'])
     script = torch.jit.optimize_for_inference(script)
     script.save('{}/llm.llm.fp16.zip'.format(args.model_dir))
+
+    # 3. export flow encoder
+    flow_encoder = cosyvoice.model.flow.encoder
+    script = torch.jit.script(flow_encoder)
+    script = torch.jit.freeze(script)
+    script = torch.jit.optimize_for_inference(script)
+    script.save('{}/flow.encoder.fp32.zip'.format(args.model_dir))
 
 if __name__ == '__main__':
     main()

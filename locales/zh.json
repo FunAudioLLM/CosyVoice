@@ -1,0 +1,61 @@
+{
+    "zh": {
+        "inference_mode_list": {
+            "pretrained_voice": "预训练音色", 
+            "3s_fast_replication": "3s极速复刻", 
+            "crosslingual": "跨语种复刻", 
+            "natural_language_control": "自然语言控制"
+        },
+        "instruct_dict": {
+            "pretrained_voice": "1. 选择预训练音色\n2. 点击生成音频按钮", 
+            "3s_fast_replication": "1. 选择prompt音频文件，或录入prompt音频，注意不超过30s，若同时提供，优先选择prompt音频文件\n2. 输入prompt文本\n3. 点击生成音频按钮", 
+            "crosslingual": "1. 选择prompt音频文件，或录入prompt音频，注意不超过30s，若同时提供，优先选择prompt音频文件\n2. 点击生成音频按钮", 
+            "natural_language_control": "1. 选择预训练音色\n2. 输入instruct文本\n3. 点击生成音频按钮"
+        },
+        "boolean": {
+            "true": "是",
+            "false": "否"
+        },
+        "warnings": {
+            "nlp_model_warn": "您正在使用自然语言控制模式, {}模型不支持此模式, 请使用iic/CosyVoice-300M-Instruct模型",
+            "instruct_text": "您正在使用自然语言控制模式, 请输入instruct文本",
+            "no_crosslingual_support": "您正在使用跨语种复刻模式, {}模型不支持此模式, 请使用iic/CosyVoice-300M模型",
+            "crosslingual_instruct_ignored": "您正在使用跨语种复刻模式, instruct文本会被忽略",
+            "crosslingual_prompt_audio_required": "您正在使用跨语种复刻模式, 请提供prompt音频",
+            "prompt_audio_empty": "prompt音频为空，您是否忘记输入prompt音频？",
+            "sample_rate_error": "prompt音频采样率{}低于{}",
+            "prompt_text_empty": "prompt文本为空，您是否忘记输入prompt文本？",
+            "instruct_text_empty": "您正在使用3s极速复刻模式，预训练音色/instruct文本会被忽略！"
+        },
+        "info": {
+            "prompt_wav": "您正在使用自然语言控制模式, prompt音频/prompt文本会被忽略",
+            "crosslingual_language_reminder": "您正在使用跨语种复刻模式, 请确保合成文本和prompt文本为不同语言",
+            "pretrained_voice_warning": "您正在使用预训练音色模式，prompt文本/prompt音频/instruct文本会被忽略！"
+        },
+        "markdown": {
+            "code_reference": "Welcome",
+            "output_text_prompt": "#### 请输入需要合成的文本，选择推理模式，并按照提示步骤进行操作"
+        },
+        "input_label": {
+            "enter_synthesis_text" : "输入合成文本",
+            "speed_adjustment": "语速调节",
+            "select_inference_mode_radio": "选择推理模式",
+            "instruction_text": "操作步骤",
+            "sft_dropdown": "选择预训练音色",
+            "stream": "是否流式推理",
+            "seed_number": "随机推理种子",
+            "prompt_wav_upload": "选择prompt音频文件，注意采样率不低于16khz",
+            "prompt_wav_record": "录制prompt音频文件",
+            "prompt_text": "输入prompt文本",
+            "instruct_text": "输入instruct文本",
+            "generate_button": "生成音频",
+            "audio_output": "合成音频"
+        },
+        "placeholders": {
+            "enter_synthesis_text": "我是通义实验室语音团队全新推出的生成式语音大模型，提供舒适自然的语音合成能力。",
+            "prompt_text": "请输入prompt文本，需与prompt音频内容一致，暂时不支持自动识别...",
+            "instruct_text": "请输入instruct文本."
+        }
+    }
+
+}

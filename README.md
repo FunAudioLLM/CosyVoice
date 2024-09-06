@@ -146,7 +146,7 @@ Please see the demo website for details.
 
 ``` python
 # change iic/CosyVoice-300M-SFT for sft inference, or iic/CosyVoice-300M-Instruct for instruct inference
-python3 webui.py --port 50000 --model_dir pretrained_models/CosyVoice-300M
+python3 webui.py --port 50000 --model_dir pretrained_models/CosyVoice-300M --locale zh
 ```
 
 **Advanced Usage**

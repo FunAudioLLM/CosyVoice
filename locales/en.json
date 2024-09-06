@@ -1,0 +1,60 @@
+{
+    "en" : {
+        "inference_mode_list": {
+            "pretrained_voice": "PretrainedVoice", 
+            "3s_fast_replication": "3s Fast Replication", 
+            "crosslingual": "Crosslingual Replication", 
+            "natural_language_control": "Natural Language Control"
+        },
+        "instruct_dict": {
+            "pretrained_voice": "1. Select pretrained voice\n2. Click the generate audio button", 
+            "3s_fast_replication": "1. Select prompt audio file or record prompt audio (not exceeding 30s). If both are provided, prompt audio file will be prioritized.\n2. Enter prompt text\n3. Click the generate audio button", 
+            "crosslingual": "1. Select prompt audio file or record prompt audio (not exceeding 30s). If both are provided, prompt audio file will be prioritized.\n2. Click the generate audio button", 
+            "natural_language_control": "1. Select pretrained voice\n2. Enter instruct text\n3. Click the generate audio button"
+        },
+        "boolean": {
+            "true": "Yes",
+            "false": "No"
+        },
+        "warnings": {
+            "nlp_model_warn": "You are using the natural language control mode, {} model does not support this mode, please use the iic/CosyVoice-300M-Instruct model",
+            "instruct_text": "You are using the natural language control mode, please enter instruct text",
+            "no_crosslingual_support": "You are using the cross-lingual replication mode, {} model does not support this mode, please use the iic/CosyVoice-300M model",
+            "crosslingual_instruct_ignored": "You are using the cross-lingual replication mode, instruct text will be ignored",
+            "crosslingual_prompt_audio_required": "You are using the cross-lingual replication mode, please provide prompt audio",
+            "prompt_audio_empty": "Prompt audio is empty, did you forget to input prompt audio?",
+            "sample_rate_error": "Prompt audio sample rate {} is lower than {}",
+            "prompt_text_empty": "Prompt text is empty, did you forget to input prompt text?",
+            "instruct_text_empty": "You are using the 3s fast replication mode, pretrained voice/instruct text will be ignored!"
+        },
+        "info": {
+            "prompt_wav": "You are using the natural language control mode, prompt audio/prompt text will be ignored",
+            "crosslingual_language_reminder": "You are using the cross-lingual replication mode, please ensure that the synthesis text and prompt text are in different languages",
+            "pretrained_voice_warning": "You are using the pretrained voice mode, prompt text/prompt audio/instruct text will be ignored!"
+        },
+        "markdown": {
+            "code_reference": "### Code repository [CosyVoice](https://github.com/FunAudioLLM/CosyVoice) Pretrained models [CosyVoice-300M](https://www.modelscope.cn/models/iic/CosyVoice-300M) [CosyVoice-300M-Instruct](https://www.modelscope.cn/models/iic/CosyVoice-300M-Instruct) [CosyVoice-300M-SFT](https://www.modelscope.cn/models/iic/CosyVoice-300M-SFT)",
+            "output_text_prompt": "#### Please enter the text to be synthesized, select the inference mode, and follow the prompts to proceed"
+        },
+        "input_label": {
+            "enter_synthesis_text" : "Enter synthesis text",
+            "speed_adjustment": "Speed adjustment",
+            "select_inference_mode_radio": "Select inference mode",
+            "instruction_text": "Instructions",
+            "sft_dropdown": "Select pre-trained voice",
+            "stream": "Enable streaming",
+            "seed_number": "Random seed for inference",
+            "prompt_wav_upload": "Select prompt audio file, with a minimum sample rate of 16kHz",
+            "prompt_wav_record": "Record prompt audio file",
+            "prompt_text": "Enter prompt text",
+            "instruct_text": "Enter instruct text",
+            "generate_button": "Generate Audio",
+            "audio_output": "Synthesized Audio"
+        },
+        "placeholders": {
+            "enter_synthesis_text": "I am a state-of-the-art generative speech model developed by the CosyVoice team, providing comfortable and natural speech synthesis capabilities.",
+            "prompt_text": "Please enter prompt text, it should match the content of the prompt audio and automatic recognition is not supported at the moment...",
+            "instruct_text": "Please enter instruct text."
+        }
+    }
+}

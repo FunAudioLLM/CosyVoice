@@ -40,7 +40,7 @@ class TransformerLM(torch.nn.Module):
         self.llm_input_size = llm_input_size
         self.speech_token_size = speech_token_size
         # 1. build text token inputs related modules
-        self.text_embedding = torch.nn.Embedding(text_token_size, text_encoder_input_size)
+        self.text_embedding = torch.nn.Embedding(text_token_size, text_encoder_input_size, dtype=torch.float16)
         self.text_encoder = text_encoder
         self.text_encoder_affine_layer = nn.Linear(
             self.text_encoder.output_size(),

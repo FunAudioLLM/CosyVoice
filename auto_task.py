@@ -1,6 +1,21 @@
 ﻿import json
 import os
 import sys
+
+
+# 设置 PYTHONPATH 环境变量
+os.environ["PYTHONPATH"] = "third_party/Matcha-TTS"
+
+# 将 PYTHONPATH 添加到 sys.path
+sys.path.append("third_party/Matcha-TTS")
+
+
+from tools.auto_task_help import (
+    get_texts,
+    has_omission,
+    format_line,
+    get_texts_with_line,
+)
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -232,6 +247,15 @@ def process_chapter(book_name, idx):
     bookname2role = load_json_or_empty(bookname2role_path)
     line_map_list = load_json_or_empty(line_map_list_path)
 
+    line_map = {}
+    for item in line_map_list:
+        line_map.update(item)
+
+    with open(f"./tmp/{book_name}/bookname2role.json", "r", encoding="utf-8") as f:
+        bookname2role = json.load(f)
+
+    with open(f"./tmp/{book_name}/role/chapter_{idx}.json", "r", encoding="utf-8") as f:
+        line_map_list = json.load(f)
     line_map = {}
     for item in line_map_list:
         line_map.update(item)

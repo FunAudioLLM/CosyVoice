@@ -174,7 +174,7 @@ class TransformerDecoder(torch.nn.Module):
                                                      memory_mask)
         return x
 
-    @torch.jit.ignore(drop=True)
+    @torch.jit.unused
     def forward_layers_checkpointed(self, x: torch.Tensor,
                                     tgt_mask: torch.Tensor,
                                     memory: torch.Tensor,

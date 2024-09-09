@@ -33,8 +33,13 @@ class MaskedDiffWithXvec(torch.nn.Module):
                  encoder: torch.nn.Module = None,
                  length_regulator: torch.nn.Module = None,
                  decoder: torch.nn.Module = None,
-                 decoder_conf: Dict = {'in_channels': 240, 'out_channel': 80, 'spk_emb_dim': 80, 'n_spks': 1, 'cfm_params': DictConfig({'sigma_min': 1e-06, 'solver': 'euler', 't_scheduler': 'cosine', 'training_cfg_rate': 0.2, 'inference_cfg_rate': 0.7, 'reg_loss_type': 'l1'}), 'decoder_params': {'channels': [256, 256], 'dropout': 0.0, 'attention_head_dim': 64, 'n_blocks': 4, 'num_mid_blocks': 12, 'num_heads': 8, 'act_fn': 'gelu'}},
-                 mel_feat_conf: Dict = {'n_fft': 1024, 'num_mels': 80, 'sampling_rate': 22050, 'hop_size': 256, 'win_size': 1024, 'fmin': 0, 'fmax': 8000}):
+                 decoder_conf: Dict = {'in_channels': 240, 'out_channel': 80, 'spk_emb_dim': 80, 'n_spks': 1,
+                                       'cfm_params': DictConfig({'sigma_min': 1e-06, 'solver': 'euler', 't_scheduler': 'cosine',
+                                                                 'training_cfg_rate': 0.2, 'inference_cfg_rate': 0.7, 'reg_loss_type': 'l1'}),
+                                       'decoder_params': {'channels': [256, 256], 'dropout': 0.0, 'attention_head_dim': 64,
+                                                          'n_blocks': 4, 'num_mid_blocks': 12, 'num_heads': 8, 'act_fn': 'gelu'}},
+                 mel_feat_conf: Dict = {'n_fft': 1024, 'num_mels': 80, 'sampling_rate': 22050,
+                                        'hop_size': 256, 'win_size': 1024, 'fmin': 0, 'fmax': 8000}):
         super().__init__()
         self.input_size = input_size
         self.output_size = output_size
@@ -111,24 +116,24 @@ class MaskedDiffWithXvec(torch.nn.Module):
         embedding = self.spk_embed_affine_layer(embedding)
 
         # concat text and prompt_text
+        token_len1, token_len2 = prompt_token.shape[1], token.shape[1]
         token, token_len = torch.concat([prompt_token, token], dim=1), prompt_token_len + token_len
-        mask = (~make_pad_mask(token_len)).float().unsqueeze(-1).to(embedding)
+        mask = (~make_pad_mask(token_len)).unsqueeze(-1).to(embedding)
         token = self.input_embedding(torch.clamp(token, min=0)) * mask
 
         # text encode
         h, h_lengths = self.encoder(token, token_len)
         h = self.encoder_proj(h)
-        feat_len = (token_len / 50 * 22050 / 256).int()
-        h, h_lengths = self.length_regulator(h, feat_len)
+        mel_len1, mel_len2 = prompt_feat.shape[1], int(token_len2 / 50 * 22050 / 256)
+        h, h_lengths = self.length_regulator.inference(h[:, :token_len1], h[:, token_len1:], mel_len1, mel_len2)
 
         # get conditions
-        conds = torch.zeros([1, feat_len.max().item(), self.output_size], device=token.device)
-        if prompt_feat.shape[1] != 0:
-            for i, j in enumerate(prompt_feat_len):
-                conds[i, :j] = prompt_feat[i]
+        conds = torch.zeros([1, mel_len1 + mel_len2, self.output_size], device=token.device)
+        conds[:, :mel_len1] = prompt_feat
         conds = conds.transpose(1, 2)
 
-        mask = (~make_pad_mask(feat_len)).to(h)
+        # mask = (~make_pad_mask(feat_len)).to(h)
+        mask = (~make_pad_mask(torch.tensor([mel_len1 + mel_len2]))).to(h)
         feat = self.decoder(
             mu=h.transpose(1, 2).contiguous(),
             mask=mask.unsqueeze(1),
@@ -136,6 +141,6 @@ class MaskedDiffWithXvec(torch.nn.Module):
             cond=conds,
             n_timesteps=10
         )
-        if prompt_feat.shape[1] != 0:
-            feat = feat[:, :, prompt_feat.shape[1]:]
+        feat = feat[:, :, mel_len1:]
+        assert feat.shape[2] == mel_len2
         return feat

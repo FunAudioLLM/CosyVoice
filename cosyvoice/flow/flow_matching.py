@@ -15,6 +15,7 @@ import torch
 import torch.nn.functional as F
 from matcha.models.components.flow_matching import BASECFM
 
+
 class ConditionalCFM(BASECFM):
     def __init__(self, in_channels, cfm_params, n_spks=1, spk_emb_dim=64, estimator: torch.nn.Module = None):
         super().__init__(
@@ -50,7 +51,7 @@ class ConditionalCFM(BASECFM):
                 shape: (batch_size, n_feats, mel_timesteps)
         """
         z = torch.randn_like(mu) * temperature
-        t_span = torch.linspace(0, 1, n_timesteps + 1, device=mu.device)
+        t_span = torch.linspace(0, 1, n_timesteps + 1, device=mu.device, dtype=mu.dtype)
         if self.t_scheduler == 'cosine':
             t_span = 1 - torch.cos(t_span * 0.5 * torch.pi)
         return self.solve_euler(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond)
@@ -71,16 +72,17 @@ class ConditionalCFM(BASECFM):
             cond: Not used but kept for future purposes
         """
         t, _, dt = t_span[0], t_span[-1], t_span[1] - t_span[0]
+        t = t.unsqueeze(dim=0)
 
         # I am storing this because I can later plot it by putting a debugger here and saving it to a file
         # Or in future might add like a return_all_steps flag
         sol = []
 
         for step in range(1, len(t_span)):
-            dphi_dt = self.estimator(x, mask, mu, t, spks, cond)
+            dphi_dt = self.forward_estimator(x, mask, mu, t, spks, cond)
             # Classifier-Free Guidance inference introduced in VoiceBox
             if self.inference_cfg_rate > 0:
-                cfg_dphi_dt = self.estimator(
+                cfg_dphi_dt = self.forward_estimator(
                     x, mask,
                     torch.zeros_like(mu), t,
                     torch.zeros_like(spks) if spks is not None else None,
@@ -95,6 +97,21 @@ class ConditionalCFM(BASECFM):
                 dt = t_span[step + 1] - t
 
         return sol[-1]
+
+    def forward_estimator(self, x, mask, mu, t, spks, cond):
+        if isinstance(self.estimator, torch.nn.Module):
+            return self.estimator.forward(x, mask, mu, t, spks, cond)
+        else:
+            ort_inputs = {
+                'x': x.cpu().numpy(),
+                'mask': mask.cpu().numpy(),
+                'mu': mu.cpu().numpy(),
+                't': t.cpu().numpy(),
+                'spks': spks.cpu().numpy(),
+                'cond': cond.cpu().numpy()
+            }
+            output = self.estimator.run(None, ort_inputs)[0]
+            return torch.tensor(output, dtype=x.dtype, device=x.device)
 
     def compute_loss(self, x1, mask, mu, spks=None, cond=None):
         """Computes diffusion loss

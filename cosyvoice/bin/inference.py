@@ -18,15 +18,14 @@ import argparse
 import logging
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 import os
-
 import torch
 from torch.utils.data import DataLoader
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from tqdm import tqdm
 from cosyvoice.cli.model import CosyVoiceModel
-
 from cosyvoice.dataset.dataset import Dataset
+
 
 def get_args():
     parser = argparse.ArgumentParser(description='inference with your model')
@@ -66,7 +65,8 @@ def main():
     model = CosyVoiceModel(configs['llm'], configs['flow'], configs['hift'])
     model.load(args.llm_model, args.flow_model, args.hifigan_model)
 
-    test_dataset = Dataset(args.prompt_data, data_pipeline=configs['data_pipeline'], mode='inference', shuffle=False, partition=False, tts_file=args.tts_text, prompt_utt2data=args.prompt_utt2data)
+    test_dataset = Dataset(args.prompt_data, data_pipeline=configs['data_pipeline'], mode='inference', shuffle=False, partition=False,
+                           tts_file=args.tts_text, prompt_utt2data=args.prompt_utt2data)
     test_data_loader = DataLoader(test_dataset, batch_size=None, num_workers=0)
 
     del configs
@@ -74,13 +74,11 @@ def main():
     fn = os.path.join(args.result_dir, 'wav.scp')
     f = open(fn, 'w')
     with torch.no_grad():
-        for batch_idx, batch in tqdm(enumerate(test_data_loader)):
+        for _, batch in tqdm(enumerate(test_data_loader)):
             utts = batch["utts"]
             assert len(utts) == 1, "inference mode only support batchsize 1"
-            text = batch["text"]
             text_token = batch["text_token"].to(device)
             text_token_len = batch["text_token_len"].to(device)
-            tts_text = batch["tts_text"]
             tts_index = batch["tts_index"]
             tts_text_token = batch["tts_text_token"].to(device)
             tts_text_token_len = batch["tts_text_token_len"].to(device)
@@ -100,10 +98,13 @@ def main():
                                'flow_prompt_speech_token': speech_token, 'flow_prompt_speech_token_len': speech_token_len,
                                'prompt_speech_feat': speech_feat, 'prompt_speech_feat_len': speech_feat_len,
                                'llm_embedding': utt_embedding, 'flow_embedding': utt_embedding}
-            model_output = model.inference(**model_input)
+            tts_speeches = []
+            for model_output in model.inference(**model_input):
+                tts_speeches.append(model_output['tts_speech'])
+            tts_speeches = torch.concat(tts_speeches, dim=1)
             tts_key = '{}_{}'.format(utts[0], tts_index[0])
             tts_fn = os.path.join(args.result_dir, '{}.wav'.format(tts_key))
-            torchaudio.save(tts_fn, model_output['tts_speech'], sample_rate=22050)
+            torchaudio.save(tts_fn, tts_speeches, sample_rate=22050)
             f.write('{} {}\n'.format(tts_key, tts_fn))
             f.flush()
     f.close()

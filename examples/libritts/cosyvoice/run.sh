@@ -88,9 +88,9 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 3 ]; then
   if [ $train_engine == 'deepspeed' ]; then
     echo "注意 deepspeed 有自己的优化器配置。如有必要，请修改 conf/ds_stage2.json"
   fi
-  cat data/train/parquet/data.list > data/train.data.list
-  cat data/test/parquet/data.list > data/dev.data.list
-  for model in llm; do
+  cat data/{train-clean-100,train-clean-360,train-other-500}/parquet/data.list > data/train.data.list
+  cat data/{dev-clean,dev-other}/parquet/data.list > data/dev.data.list
+  for model in llm flow; do
     torchrun --nnodes=1 --nproc_per_node=$num_gpus \
         --rdzv_id=$job_id --rdzv_backend="c10d" --rdzv_endpoint="localhost:0" \
       cosyvoice/bin/train.py \
@@ -109,4 +109,10 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 3 ]; then
       --deepspeed_config ./conf/ds_stage2.json \
       --deepspeed.save_states model+optimizer
   done
+fi
+
+if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
+  echo "Export your model for inference speedup. Remember copy your llm or flow model to model_dir"
+  python cosyvoice/bin/export_jit.py --model_dir $pretrained_model_dir
+  python cosyvoice/bin/export_onnx.py --model_dir $pretrained_model_dir
 fi

@@ -53,6 +53,7 @@ def job(utt_list, parquet_file, utt2parquet_file, spk2parquet_file):
         json.dump({k: parquet_file for k in list(set(spk_list))}, f, ensure_ascii=False, indent=2)
     logging.info('spend time {}'.format(time.time() - start_time))
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_utts_per_parquet',

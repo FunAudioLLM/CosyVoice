@@ -38,6 +38,8 @@ This code is modified from https://github.com/jik876/hifi-gan
  https://github.com/NVIDIA/BigVGAN
 
 """
+
+
 class ResBlock(torch.nn.Module):
     """Residual block module in HiFiGAN/BigVGAN."""
     def __init__(
@@ -99,6 +101,7 @@ class ResBlock(torch.nn.Module):
         for idx in range(len(self.convs1)):
             remove_weight_norm(self.convs1[idx])
             remove_weight_norm(self.convs2[idx])
+
 
 class SineGen(torch.nn.Module):
     """ Definition of sine generator
@@ -286,8 +289,7 @@ class HiFTGenerator(nn.Module):
         self.source_resblocks = nn.ModuleList()
         downsample_rates = [1] + upsample_rates[::-1][:-1]
         downsample_cum_rates = np.cumprod(downsample_rates)
-        for i, (u, k, d) in enumerate(zip(downsample_cum_rates[::-1], source_resblock_kernel_sizes,
-                                          source_resblock_dilation_sizes)):
+        for i, (u, k, d) in enumerate(zip(downsample_cum_rates[::-1], source_resblock_kernel_sizes, source_resblock_dilation_sizes)):
             if u == 1:
                 self.source_downs.append(
                     Conv1d(istft_params["n_fft"] + 2, base_channels // (2 ** (i + 1)), 1, 1)
@@ -304,7 +306,7 @@ class HiFTGenerator(nn.Module):
         self.resblocks = nn.ModuleList()
         for i in range(len(self.ups)):
             ch = base_channels // (2**(i + 1))
-            for j, (k, d) in enumerate(zip(resblock_kernel_sizes, resblock_dilation_sizes)):
+            for _, (k, d) in enumerate(zip(resblock_kernel_sizes, resblock_dilation_sizes)):
                 self.resblocks.append(ResBlock(ch, k, d))
 
         self.conv_post = weight_norm(Conv1d(ch, istft_params["n_fft"] + 2, 7, 1, padding=3))
@@ -332,12 +334,17 @@ class HiFTGenerator(nn.Module):
         magnitude = torch.clip(magnitude, max=1e2)
         real = magnitude * torch.cos(phase)
         img = magnitude * torch.sin(phase)
-        inverse_transform = torch.istft(torch.complex(real, img), self.istft_params["n_fft"], self.istft_params["hop_len"], self.istft_params["n_fft"], window=self.stft_window.to(magnitude.device))
+        inverse_transform = torch.istft(torch.complex(real, img), self.istft_params["n_fft"], self.istft_params["hop_len"],
+                                        self.istft_params["n_fft"], window=self.stft_window.to(magnitude.device))
         return inverse_transform
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, cache_source: torch.Tensor = torch.zeros(1, 1, 0)) -> torch.Tensor:
         f0 = self.f0_predictor(x)
         s = self._f02source(f0)
+
+        # use cache_source to avoid glitch
+        if cache_source.shape[2] != 0:
+            s[:, :, :cache_source.shape[2]] = cache_source
 
         s_stft_real, s_stft_imag = self._stft(s.squeeze(1))
         s_stft = torch.cat([s_stft_real, s_stft_imag], dim=1)
@@ -370,7 +377,7 @@ class HiFTGenerator(nn.Module):
 
         x = self._istft(magnitude, phase)
         x = torch.clamp(x, -self.audio_limit, self.audio_limit)
-        return x
+        return x, s
 
     def remove_weight_norm(self):
         print('Removing weight norm...')
@@ -387,5 +394,5 @@ class HiFTGenerator(nn.Module):
             l.remove_weight_norm()
 
     @torch.inference_mode()
-    def inference(self, mel: torch.Tensor) -> torch.Tensor:
-        return self.forward(x=mel)
+    def inference(self, mel: torch.Tensor, cache_source: torch.Tensor = torch.zeros(1, 1, 0)) -> torch.Tensor:
+        return self.forward(x=mel, cache_source=cache_source)

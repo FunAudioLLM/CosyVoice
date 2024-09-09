@@ -1,14 +1,18 @@
 ﻿import json
 import os
 import sys
-
+import numpy as np
+import torch
+from tqdm import tqdm
+import torchaudio
+import argparse
+import pyloudnorm as pyln
+import warnings
+from loguru import logger
 
 # 设置 PYTHONPATH 环境变量
-os.environ["PYTHONPATH"] = "third_party/Matcha-TTS"
-
-# 将 PYTHONPATH 添加到 sys.path
+os.environ["PYTHONPATH"] = "third_party/Matcha-TTS-old"
 sys.path.append("third_party/Matcha-TTS")
-
 
 from tools.auto_task_help import (
     get_texts,
@@ -16,30 +20,21 @@ from tools.auto_task_help import (
     format_line,
     get_texts_with_line,
 )
-import numpy as np
-import torch
-from tqdm import tqdm
 from cosyvoice.cli.cosyvoice import CosyVoice
-import torchaudio
-import os
-import argparse
-import pyloudnorm as pyln
-
-import warnings
-from loguru import logger
-
 
 # 抑制 pyloudnorm 中的 UserWarning 警告
 warnings.filterwarnings("ignore", category=UserWarning, module="pyloudnorm")
 logger.info(f"CUDA available: {torch.cuda.is_available()}")
 
-
 # 初始化 CosyVoice 实例
-cosyvoice = CosyVoice("./pretrained_models/CosyVoice-300M-SFT")
+cosyvoice = CosyVoice("pretrained_models/CosyVoice-300M-SFT-old")
 sft_spk = cosyvoice.list_avaliable_spks()
 
 # 用于存储相似度与音频的映射
 pinyin_similarity_map = {}
+
+
+rate = 22050
 
 
 def _norm_loudness(audio, rate):
@@ -53,7 +48,15 @@ def _norm_loudness(audio, rate):
         audio = audio.numpy()
     if audio.ndim == 2:
         audio = audio.squeeze()
+
+    # 创建响度计
     meter = pyln.Meter(rate)
+
+    # 检查音频长度是否大于块大小
+    block_size = 0.4 * rate  # 假设块大小为 400ms
+    if len(audio) < block_size:
+        return torch.from_numpy(audio)
+
     loudness = meter.integrated_loudness(audio)
     normalized_audio = pyln.normalize.loudness(audio, loudness, -16.0)
     return torch.from_numpy(normalized_audio)
@@ -67,7 +70,7 @@ def prepare_audio(audio):
     """
     if audio.ndim == 1:
         audio = audio.unsqueeze(0)
-    return _norm_loudness(audio, 22050)
+    return _norm_loudness(audio, rate)
 
 
 def process_text(text, wav_list, spk):
@@ -80,6 +83,8 @@ def process_text(text, wav_list, spk):
     """
     texts = get_texts_with_line(text)
     for text in texts:
+        logger.info(f"正在处理文本：{text}")
+
         try_again = 0
         line = text
 
@@ -123,7 +128,7 @@ speaker: {spk}
                 wav_list.append(generate_silence(line))
                 break
 
-        return wav_list
+    return wav_list
 
 
 def process_text_line(index, texts, try_again, wav_list, spk):
@@ -186,12 +191,19 @@ def generate_silence(line):
     :return: 停顿音频数据
     """
     random_duration = (
-        np.random.uniform(0.05, 0.08)
+        np.random.uniform(0.10, 0.13)
         if line[-1] == "，"
-        else np.random.uniform(0.09, 0.13)
+        else np.random.uniform(0.13, 0.16)
     )
-    zero_wav = np.zeros(int(22050 * random_duration), dtype=np.float32)
+    zero_wav = np.zeros(int(rate * random_duration), dtype=np.float32)
     return torch.from_numpy(zero_wav).unsqueeze(0)
+
+
+def load_json_or_empty(file_path):
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
 
 
 def process_chapter(book_name, idx):
@@ -210,13 +222,16 @@ def process_chapter(book_name, idx):
         # 获取第一行，文章标题
         title = file_content.split("\n")[0]
 
-    texts = get_texts(file_content)
+    bookname2role_path = f"./tmp/{book_name}/bookname2role.json"
+    line_map_list_path = f"./tmp/{book_name}/role/chapter_{idx}.json"
 
-    with open(f"./tmp/{book_name}/bookname2role.json", "r", encoding="utf-8") as f:
-        bookname2role = json.load(f)
+    is_ignore_double_quotes = not os.path.exists(bookname2role_path)
 
-    with open(f"./tmp/{book_name}/role/chapter_{idx}.json", "r", encoding="utf-8") as f:
-        line_map_list = json.load(f)
+    texts = get_texts(file_content, is_ignore_double_quotes)
+
+    bookname2role = load_json_or_empty(bookname2role_path)
+    line_map_list = load_json_or_empty(line_map_list_path)
+
     line_map = {}
     for item in line_map_list:
         line_map.update(item)
@@ -262,12 +277,59 @@ def process_chapter(book_name, idx):
     wav_list = [wav if wav.ndim == 2 else wav.unsqueeze(0) for wav in wav_list]
     wav_list = torch.concat(wav_list, dim=1)
     output_path = os.path.join(f"./tmp/{book_name}/gen", f"{book_name}_{idx}.wav")
-    torchaudio.save(output_path, wav_list, 22050)
+    torchaudio.save(output_path, wav_list, rate)
     logger.info(f"文件已保存到 {output_path}")
 
     process_file_path = f"./tmp/{book_name}/process.txt"
     with open(process_file_path, "a", encoding="utf-8") as process_file:
         process_file.write(f"Chapter {idx} processed and saved to {output_path}\n")
+
+
+def process_chapter_mork(book_name, idx):
+    """
+    处理章节
+    :param book_name: 书名
+    :param idx: 章节索引
+    """
+    file_path = f"./tmp/{book_name}/data/chapter_{idx}.txt"
+    if not os.path.exists(file_path):
+        logger.info(f"文件 {file_path} 不存在，跳过处理。")
+        return
+
+    with open(file_path, "r", encoding="utf-8") as file:
+        file_content = file.read()
+        # 获取第一行，文章标题
+        title = file_content.split("\n")[0]
+
+    is_ignore_double_quotes = False
+
+    texts = get_texts(file_content, is_ignore_double_quotes)
+
+    for spk in sft_spk:
+        wav_list = []
+        total_texts = len(texts)
+        index = 0
+        with tqdm(
+            total=total_texts,
+            desc=f"正在处理：{book_name}-{idx} - {title}",
+            leave=True,  # 确保进度条在完成后不会被清除
+        ) as pbar:
+            for line in texts:
+                wav_list = process_text(line, wav_list, spk)
+                index += 1
+                pbar.update(1)
+
+        wav_list = [wav if wav.ndim == 2 else wav.unsqueeze(0) for wav in wav_list]
+        wav_list = torch.concat(wav_list, dim=1)
+        output_path = os.path.join(
+            f"./tmp/{book_name}/gen", f"{spk}_{book_name}_{idx}.wav"
+        )
+        torchaudio.save(output_path, wav_list, rate)
+        logger.info(f"文件已保存到 {output_path}")
+
+        process_file_path = f"./tmp/{book_name}/process.txt"
+        with open(process_file_path, "a", encoding="utf-8") as process_file:
+            process_file.write(f"Chapter {idx} processed and saved to {output_path}\n")
 
 
 def main():
@@ -282,9 +344,9 @@ def main():
         "--book_name", type=str, help="Name of the book", default="诡秘之主"
     )
     parser.add_argument(
-        "--start_idx", type=int, help="Starting chapter index", default=1
+        "--start_idx", type=int, help="Starting chapter index", default=6
     )
-    parser.add_argument("--end_idx", type=int, help="Ending chapter index", default=10)
+    parser.add_argument("--end_idx", type=int, help="Ending chapter index", default=6)
 
     args = parser.parse_args()
 

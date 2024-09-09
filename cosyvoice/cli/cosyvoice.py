@@ -32,13 +32,13 @@ class CosyVoice:
             configs["feat_extractor"],
             "{}/campplus.onnx".format(model_dir),
             "{}/speech_tokenizer_v1.onnx".format(model_dir),
-            "{}/spk2info_pb.pt".format(model_dir),
+            "{}/spk2info_all.pt".format(model_dir),
             instruct,
             configs["allowed_special"],
         )
         self.model = CosyVoiceModel(configs["llm"], configs["flow"], configs["hift"])
         self.model.load(
-            "{}/llm_pb_31.pt".format(model_dir),
+            "{}/llm_all_0.pt".format(model_dir),
             "{}/flow.pt".format(model_dir),
             "{}/hift.pt".format(model_dir),
         )

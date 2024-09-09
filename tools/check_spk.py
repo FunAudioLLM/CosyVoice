@@ -1,9 +1,20 @@
-﻿import os
+﻿from http import HTTPStatus
+import os
+import sys
+
+import dashscope
+from openai import OpenAI
+
+
+# 将项目根目录添加到系统路径
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import re
 import requests
 import json
 import logging
 from tqdm import tqdm
+from tools.zh_normalization.text_normlization import TextNormalizer
+
 
 # 配置日志记录
 logging.basicConfig(level=logging.INFO)
@@ -32,7 +43,12 @@ def parse_response(response):
     """
     try:
         response_json = response.json()
-        return response_json.get("response", {})
+        return (
+            response_json.get("response", {})
+            .replace("```", "")
+            .replace("json", "")
+            .strip()
+        )
     except json.JSONDecodeError:
         logger.error("响应内容不是有效的JSON格式。")
         return None
@@ -68,6 +84,27 @@ def main(prompt):
         logger.info("请求失败。")
 
 
+def call_with_messages(msg):
+    client = OpenAI(
+        api_key="sk-79ddff7089fe4363917e5c143c44bc0b",
+        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+    )
+    completion = client.chat.completions.create(
+        model="llama3.1-405b-instruct",
+        messages=[
+            {"role": "system", "content": ""},
+            {"role": "user", "content": msg},
+        ],
+        temperature=0.8,
+    )
+
+    content = (
+        completion.choices[0].message.content.replace("```", "").replace("json", "")
+    )
+    print(content)
+    return json.decoder.JSONDecoder().decode(content)
+
+
 def get_top_books(bookname, current_chapter, top):
     role_data = []
 
@@ -99,7 +136,7 @@ def get_top_books(bookname, current_chapter, top):
     top_roles = filtered_roles[:top]
 
     # 生成结果字符串
-    topbookname = ",".join([f"{role_name}: {count}" for role_name, count in top_roles])
+    topbookname = ",".join([role_name for role_name, count in top_roles])
 
     return topbookname
 
@@ -129,9 +166,13 @@ def process_file(file_path, output_dir, bookname_dir, current_chapter):
         if matches:
             for sentence in matches:
                 sentence = sentence.strip()
+                # 文本格式化
+                tx = TextNormalizer()
+                sentences = tx.normalize(sentence)
+                sentence = "".join(sentences)
                 for attempt in range(5):
-                    prev_start = max(0, idx - 12)
-                    next_end = min(len(lines), idx + 13)
+                    prev_start = max(0, idx - 7)
+                    next_end = min(len(lines), idx + 8)
                     prev_lines = lines[prev_start:idx]
                     next_lines = lines[idx + 1 : next_end]
                     t_content = "".join(prev_lines + [line] + next_lines)
@@ -141,18 +182,36 @@ def process_file(file_path, output_dir, bookname_dir, current_chapter):
 【原文】：
 {t_content}
 
-【任务要求】
-1. 对【{sentence}】进行分析，判断该句台词是否为某个角色所说。如果是，请返回角色姓名和性别。如果不是，返回 "未知"。
-2. 首先从提供的角色姓名列表中匹配说话角色。角色姓名列表：【{topbookname}】。如果匹配不到，请根据原文中的上下文判断可能的角色姓名。
-3. 如果无法确定角色或角色姓名不符合常规姓名（如含有标点、非字符等），请返回 "未知"。
-4. 性别仅为 "男"、"女" 或 "未知"。若无法判断性别，请返回 "未知"。
-5. 请只返回以下格式的 JSON 结构体：
+【任务描述】
+根据给定的句子和上下文内容，判断句子是否为某个角色所说，并确定该角色的姓名和性别。请按照以下步骤执行：
+
+1. 角色判断：分析句子【{sentence}】及其上下文，判断该句子是否由某个角色说出。
+    如果是，请继续下一步。
+    如果不是，请返回 "role": "未知", "gender": "未知"。
+
+2. 角色匹配：
+    2.1 优先从提供的角色姓名列表【{topbookname}】中查找匹配的角色姓名。
+    2.2 如果在列表中找不到完全匹配的姓名，请根据上下文推测可能的角色姓名。
+    2.3 如果推测的角色姓名与列表中的某个姓名相似（例如拼写接近），请使用列表中的姓名。
+
+3. 姓名验证：
+    如果推测出的角色姓名包含标点符号、非字符或不符合常规姓名格式，请返回 "role": "未知", "gender": "未知"。
+
+4. 性别判定：
+    4.1 根据上下文判断角色的性别（仅限 "男"、"女" 或 "未知"）。
+    4.2 如果无法确定性别，请返回 "gender": "未知"。
+
+5. 输出格式：
+    结果需以以下 JSON 格式返回：
 {{
-    "role": "未知",
-    "gender": "未知"
+    {{
+        "role": "角色姓名",
+        "gender": "男/女/未知"
+    }}
 }}
 """
-
+                    # print(prompt)
+                    # response_content = call_with_messages(prompt)
                     response_content = main(prompt)
                     if (
                         response_content

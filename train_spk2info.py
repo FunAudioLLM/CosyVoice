@@ -49,7 +49,7 @@ class Trainer(CosyVoiceFrontEnd):
         pattern = "*.wav"
         for root, dirs, files in os.walk(dest):
             for filename in fnmatch.filter(files, pattern):
-                a = filename.replace(".wav", "").split("#")
+                a = filename.replace(".WAV", "").split("#")
                 spk_name = os.path.basename(root)
                 if self.spk2info.get(spk_name):
                     break
@@ -79,7 +79,7 @@ class Trainer(CosyVoiceFrontEnd):
                 print(f"训练完成:{spk_name}")
 
     def save(self):
-        torch.save(self.spk2info, os.path.join(self.model_dir, "spk2info_pb.pt"))
+        torch.save(self.spk2info, os.path.join(self.model_dir, "spk2info_all.pt"))
 
 
 if __name__ == "__main__":

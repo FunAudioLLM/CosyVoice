@@ -136,24 +136,6 @@ def generate_audio(
         if instruct_text != "":
             gr.Info("您正在使用3s极速复刻模式，预训练音色/instruct文本会被忽略！")
 
-    # 预训练音色模式的处理，忽略其他输入
-    # sft mode only use sft_dropdown
-    if mode_checkbox_group in ["预训练音色"]:
-        if instruct_text != "" or prompt_wav is not None or prompt_text != "":
-            gr.Info(
-                "您正在使用预训练音色模式，prompt文本/prompt音频/instruct文本会被忽略！"
-            )
-
-    # 3s极速复刻模式对prompt_text的检查
-    # zero_shot mode only use prompt_wav prompt text
-    if mode_checkbox_group in ["3s极速复刻"]:
-        if prompt_text == "":
-            gr.Warning("prompt文本为空，您是否忘记输入prompt文本？")
-            return (target_sr, default_data)
-        if instruct_text != "":
-            gr.Info("您正在使用3s极速复刻模式，预训练音色/instruct文本会被忽略！")
-
-    # 根据模式选择不同的推理函数
     if mode_checkbox_group == "预训练音色":
         logging.info("get sft inference request")
         set_all_random_seed(seed)

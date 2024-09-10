@@ -282,5 +282,5 @@ if __name__ == "__main__":
     input_dir = "/root/code/CosyVoice/tmp/诡秘之主/data"
     output_dir = "/root/code/CosyVoice/tmp/诡秘之主/role"
     bookname_dir = "/root/code/CosyVoice/tmp/诡秘之主"
-    idx = 1  # 从 chapter_1.txt 开始处理
+    idx = 828  # 从 chapter_1.txt 开始处理
     process_directory(input_dir, output_dir, bookname_dir, idx)

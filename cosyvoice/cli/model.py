@@ -49,6 +49,7 @@ class CosyVoiceModel:
         self.llm_end_dict = {}
         self.mel_overlap_dict = {}
         self.hift_cache_dict = {}
+        self.speech_window = np.hamming(2 * self.source_cache_len)
 
     def load(self, llm_model, flow_model, hift_model):
         self.llm.load_state_dict(torch.load(llm_model, map_location=self.device))
@@ -113,10 +114,17 @@ class CosyVoiceModel:
             self.mel_overlap_dict[uuid] = tts_mel[:, :, -self.mel_overlap_len:]
             tts_mel = tts_mel[:, :, :-self.mel_overlap_len]
             tts_speech, tts_source = self.hift.inference(mel=tts_mel, cache_source=hift_cache_source)
-            self.hift_cache_dict[uuid] = {'source': tts_source[:, :, -self.source_cache_len:], 'mel': tts_mel[:, :, -self.mel_cache_len:]}
+            if self.hift_cache_dict[uuid] is not None:
+                tts_speech = fade_in_out(tts_speech, self.hift_cache_dict[uuid]['speech'], self.speech_window)
+            self.hift_cache_dict[uuid] = {
+                'mel': tts_mel[:, :, -self.mel_cache_len:],
+                'source': tts_source[:, :, -self.source_cache_len:],
+                'speech': tts_speech[:, -self.source_cache_len:]}
             tts_speech = tts_speech[:, :-self.source_cache_len]
         else:
             tts_speech, tts_source = self.hift.inference(mel=tts_mel, cache_source=hift_cache_source)
+            if self.hift_cache_dict[uuid] is not None:
+                tts_speech = fade_in_out(tts_speech, self.hift_cache_dict[uuid]['speech'], self.speech_window)
         return tts_speech
 
     def inference(self, text, flow_embedding, llm_embedding=torch.zeros(0, 192),

@@ -31,3 +31,4 @@ wget==3.2
 fastapi==0.111.0
 fastapi-cli==0.0.4
 WeTextProcessing==1.0.3
+python-i18n==0.3.9 

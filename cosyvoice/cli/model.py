@@ -15,6 +15,7 @@ import torch
 import numpy as np
 import threading
 import time
+from torch.nn import functional as F
 from contextlib import nullcontext
 import uuid
 from cosyvoice.utils.common import fade_in_out
@@ -91,7 +92,7 @@ class CosyVoiceModel:
                 self.tts_speech_token_dict[uuid].append(i)
         self.llm_end_dict[uuid] = True
 
-    def token2wav(self, token, prompt_token, prompt_feat, embedding, uuid, finalize=False):
+    def token2wav(self, token, prompt_token, prompt_feat, embedding, uuid, finalize=False, speed=1.0):
         tts_mel = self.flow.inference(token=token.to(self.device),
                                       token_len=torch.tensor([token.shape[1]], dtype=torch.int32).to(self.device),
                                       prompt_token=prompt_token.to(self.device),
@@ -116,6 +117,9 @@ class CosyVoiceModel:
             self.hift_cache_dict[uuid] = {'source': tts_source[:, :, -self.source_cache_len:], 'mel': tts_mel[:, :, -self.mel_cache_len:]}
             tts_speech = tts_speech[:, :-self.source_cache_len]
         else:
+            if speed != 1.0:
+                assert self.hift_cache_dict[uuid] is None, 'speed change only support non-stream inference mode'
+                tts_mel = F.interpolate(tts_mel, size=int(tts_mel.shape[2] / speed), mode='linear')
             tts_speech, tts_source = self.hift.inference(mel=tts_mel, cache_source=hift_cache_source)
         return tts_speech
 
@@ -123,7 +127,7 @@ class CosyVoiceModel:
                   prompt_text=torch.zeros(1, 0, dtype=torch.int32),
                   llm_prompt_speech_token=torch.zeros(1, 0, dtype=torch.int32),
                   flow_prompt_speech_token=torch.zeros(1, 0, dtype=torch.int32),
-                  prompt_speech_feat=torch.zeros(1, 0, 80), stream=False, **kwargs):
+                  prompt_speech_feat=torch.zeros(1, 0, 80), stream=False, speed=1.0, **kwargs):
         # this_uuid is used to track variables related to this inference thread
         this_uuid = str(uuid.uuid1())
         with self.lock:
@@ -169,7 +173,8 @@ class CosyVoiceModel:
                                              prompt_feat=prompt_speech_feat,
                                              embedding=flow_embedding,
                                              uuid=this_uuid,
-                                             finalize=True)
+                                             finalize=True,
+                                             speed=speed)
             yield {'tts_speech': this_tts_speech.cpu()}
         with self.lock:
             self.tts_speech_token_dict.pop(this_uuid)

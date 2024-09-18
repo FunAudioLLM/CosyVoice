@@ -33,7 +33,7 @@ def single_job(utt):
     else:
         feat = whisper.log_mel_spectrogram(audio, n_mels=128)
         speech_token = ort_session.run(None, {ort_session.get_inputs()[0].name: feat.detach().cpu().numpy(),
-                                                ort_session.get_inputs()[1].name: np.array([feat.shape[2]], dtype=np.int32)})[0].flatten().tolist()
+                                              ort_session.get_inputs()[1].name: np.array([feat.shape[2]], dtype=np.int32)})[0].flatten().tolist()
     return utt, speech_token
 
 

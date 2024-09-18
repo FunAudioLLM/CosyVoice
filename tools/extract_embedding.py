@@ -26,9 +26,9 @@ def single_job(utt):
     if sample_rate != 16000:
         audio = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)(audio)
     feat = kaldi.fbank(audio,
-                        num_mel_bins=80,
-                        dither=0,
-                        sample_frequency=16000)
+                       num_mel_bins=80,
+                       dither=0,
+                       sample_frequency=16000)
     feat = feat - feat.mean(dim=0, keepdim=True)
     embedding = ort_session.run(None, {ort_session.get_inputs()[0].name: feat.unsqueeze(dim=0).cpu().numpy()})[0].flatten().tolist()
     return utt, embedding

@@ -40,6 +40,8 @@ class CosyVoiceModel:
         # hift cache
         self.mel_cache_len = 20
         self.source_cache_len = int(self.mel_cache_len * 256)
+        # speech fade in out
+        self.speech_window = np.hamming(2 * self.source_cache_len)
         # rtf and decoding related
         self.stream_scale_factor = 1
         assert self.stream_scale_factor >= 1, 'stream_scale_factor should be greater than 1, change it according to your actual rtf'
@@ -50,7 +52,6 @@ class CosyVoiceModel:
         self.llm_end_dict = {}
         self.mel_overlap_dict = {}
         self.hift_cache_dict = {}
-        self.speech_window = np.hamming(2 * self.source_cache_len)
 
     def load(self, llm_model, flow_model, hift_model):
         self.llm.load_state_dict(torch.load(llm_model, map_location=self.device))
@@ -117,10 +118,9 @@ class CosyVoiceModel:
             tts_speech, tts_source = self.hift.inference(mel=tts_mel, cache_source=hift_cache_source)
             if self.hift_cache_dict[uuid] is not None:
                 tts_speech = fade_in_out(tts_speech, self.hift_cache_dict[uuid]['speech'], self.speech_window)
-            self.hift_cache_dict[uuid] = {
-                'mel': tts_mel[:, :, -self.mel_cache_len:],
-                'source': tts_source[:, :, -self.source_cache_len:],
-                'speech': tts_speech[:, -self.source_cache_len:]}
+            self.hift_cache_dict[uuid] = {'mel': tts_mel[:, :, -self.mel_cache_len:],
+                                          'source': tts_source[:, :, -self.source_cache_len:],
+                                          'speech': tts_speech[:, -self.source_cache_len:]}
             tts_speech = tts_speech[:, :-self.source_cache_len]
         else:
             if speed != 1.0:

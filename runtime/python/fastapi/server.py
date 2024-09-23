@@ -80,4 +80,4 @@ if __name__ == '__main__':
                         help='local path or modelscope repo id')
     args = parser.parse_args()
     cosyvoice = CosyVoice(args.model_dir)
-    uvicorn.run(app, host="127.0.0.1", port=args.port)
+    uvicorn.run(app, host="0.0.0.0", port=args.port)

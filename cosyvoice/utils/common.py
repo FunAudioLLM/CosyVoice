@@ -145,6 +145,7 @@ def fade_in_out(fade_in_mel, fade_out_mel, window):
         fade_out_mel[..., -mel_overlap_len:] * window[mel_overlap_len:]
     return fade_in_mel.to(device)
 
+
 def set_all_random_seed(seed):
     random.seed(seed)
     np.random.seed(seed)

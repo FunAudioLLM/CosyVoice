@@ -42,7 +42,6 @@ class CosyVoiceFrontEnd:
                  speech_tokenizer_model: str,
                  spk2info: str = '',
                  instruct: bool = False,
-                 vc: bool = False,
                  allowed_special: str = 'all'):
         self.tokenizer = get_tokenizer()
         self.feat_extractor = feat_extractor
@@ -59,7 +58,6 @@ class CosyVoiceFrontEnd:
         else:
             self.spk2info = {}
         self.instruct = instruct
-        self.vc = vc
         self.allowed_special = allowed_special
         self.inflect_parser = inflect.engine()
         self.use_ttsfrd = use_ttsfrd

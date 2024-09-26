@@ -206,7 +206,7 @@ class TransformerLM(torch.nn.Module):
             if top_ids == self.speech_token_size:
                 break
             # in stream mode, yield token one by one
-            yield torch.tensor([[top_ids]], dtype=torch.int64, device=device)
+            yield top_ids
             out_tokens.append(top_ids)
             offset += lm_input.size(1)
             lm_input = self.speech_embedding.weight[top_ids].reshape(1, 1, -1)

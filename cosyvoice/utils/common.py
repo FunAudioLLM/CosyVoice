@@ -15,8 +15,10 @@
 # Modified from ESPnet(https://github.com/espnet/espnet)
 """Unility functions for Transformer."""
 
+import random
 from typing import List
 
+import numpy as np
 import torch
 
 IGNORE_ID = -1
@@ -142,3 +144,9 @@ def fade_in_out(fade_in_mel, fade_out_mel, window):
     fade_in_mel[..., :mel_overlap_len] = fade_in_mel[..., :mel_overlap_len] * window[:mel_overlap_len] + \
         fade_out_mel[..., -mel_overlap_len:] * window[mel_overlap_len:]
     return fade_in_mel.to(device)
+
+def set_all_random_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)

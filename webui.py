@@ -24,6 +24,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/third_party/Matcha-TTS'.format(ROOT_DIR))
 from cosyvoice.cli.cosyvoice import CosyVoice
 from cosyvoice.utils.file_utils import load_wav, logging
+from cosyvoice.utils.common import set_all_random_seed
 
 inference_mode_list = ['预训练音色', '3s极速复刻', '跨语种复刻', '自然语言控制']
 instruct_dict = {'预训练音色': '1. 选择预训练音色\n2. 点击生成音频按钮',
@@ -40,13 +41,6 @@ def generate_seed():
         "__type__": "update",
         "value": seed
     }
-
-
-def set_all_random_seed(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
 
 
 def postprocess(speech, top_db=60, hop_length=220, win_length=440):

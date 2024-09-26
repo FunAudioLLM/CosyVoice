@@ -124,15 +124,14 @@ class MaskedDiffWithXvec(torch.nn.Module):
         # text encode
         h, h_lengths = self.encoder(token, token_len)
         h = self.encoder_proj(h)
-        mel_len1, mel_len2 = prompt_feat.shape[1], int(token_len2 / 50 * 22050 / 256)
-        h, h_lengths = self.length_regulator.inference(h[:, :token_len1], h[:, token_len1:], mel_len1, mel_len2)
+        mel_len1, mel_len2 = prompt_feat.shape[1], int(token_len2 / self.input_frame_rate * 22050 / 256)
+        h, h_lengths = self.length_regulator.inference(h[:, :token_len1], h[:, token_len1:], mel_len1, mel_len2, self.input_frame_rate)
 
         # get conditions
         conds = torch.zeros([1, mel_len1 + mel_len2, self.output_size], device=token.device)
         conds[:, :mel_len1] = prompt_feat
         conds = conds.transpose(1, 2)
 
-        # mask = (~make_pad_mask(feat_len)).to(h)
         mask = (~make_pad_mask(torch.tensor([mel_len1 + mel_len2]))).to(h)
         feat = self.decoder(
             mu=h.transpose(1, 2).contiguous(),

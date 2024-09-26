@@ -55,6 +55,8 @@ class CosyVoiceFrontEnd:
                                                                                 "CPUExecutionProvider"])
         if os.path.exists(spk2info):
             self.spk2info = torch.load(spk2info, map_location=self.device)
+        else:
+            self.spk2info = {}
         self.instruct = instruct
         self.allowed_special = allowed_special
         self.inflect_parser = inflect.engine()
@@ -171,4 +173,16 @@ class CosyVoiceFrontEnd:
         instruct_text_token, instruct_text_token_len = self._extract_text_token(instruct_text + '<endofprompt>')
         model_input['prompt_text'] = instruct_text_token
         model_input['prompt_text_len'] = instruct_text_token_len
+        return model_input
+
+    def frontend_vc(self, source_speech_16k, prompt_speech_16k):
+        prompt_speech_token, prompt_speech_token_len = self._extract_speech_token(prompt_speech_16k)
+        prompt_speech_22050 = torchaudio.transforms.Resample(orig_freq=16000, new_freq=22050)(prompt_speech_16k)
+        prompt_speech_feat, prompt_speech_feat_len = self._extract_speech_feat(prompt_speech_22050)
+        embedding = self._extract_spk_embedding(prompt_speech_16k)
+        source_speech_token, source_speech_token_len = self._extract_speech_token(source_speech_16k)
+        model_input = {'source_speech_token': source_speech_token, 'source_speech_token_len': source_speech_token_len,
+                       'flow_prompt_speech_token': prompt_speech_token, 'flow_prompt_speech_token_len': prompt_speech_token_len,
+                       'prompt_speech_feat': prompt_speech_feat, 'prompt_speech_feat_len': prompt_speech_feat_len,
+                       'flow_embedding': embedding}
         return model_input

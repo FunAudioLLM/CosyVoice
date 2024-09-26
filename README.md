@@ -22,12 +22,9 @@ For `SenseVoice`, visit [SenseVoice repo](https://github.com/FunAudioLLM/SenseVo
     - [ ] 25hz cosyvoice base model
     - [ ] 25hz cosyvoice voice conversion model
 
-- [ ] 2024/10
-
-    - [ ] 50hz llama based llm model which supports lora finetune
-
 - [ ] TBD
 
+    - [ ] 25hz llama based llm model which supports lora finetune
     - [ ] Support more instruction mode
     - [ ] Voice conversion
     - [ ] Music generation
@@ -121,7 +118,7 @@ print(cosyvoice.list_avaliable_spks())
 for i, j in enumerate(cosyvoice.inference_sft('你好，我是通义生成式语音大模型，请问有什么可以帮您的吗？', '中文女', stream=False)):
     torchaudio.save('sft_{}.wav'.format(i), j['tts_speech'], 22050)
 
-cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M')
+cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-25Hz')
 # zero_shot usage, <|zh|><|en|><|jp|><|yue|><|ko|> for Chinese/English/Japanese/Cantonese/Korean
 prompt_speech_16k = load_wav('zero_shot_prompt.wav', 16000)
 for i, j in enumerate(cosyvoice.inference_zero_shot('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。', '希望你以后能够做的比我还好呦。', prompt_speech_16k, stream=False)):
@@ -135,6 +132,13 @@ cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-Instruct')
 # instruct usage, support <laughter></laughter><strong></strong>[laughter][breath]
 for i, j in enumerate(cosyvoice.inference_instruct('在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。', '中文男', 'Theo \'Crimson\', is a fiery, passionate rebel leader. Fights with fervor for justice, but struggles with impulsiveness.', stream=False)):
     torchaudio.save('instruct_{}.wav'.format(i), j['tts_speech'], 22050)
+
+cosyvoice = CosyVoice('pretrained_models/CosyVoice-VC')
+# vc usage
+prompt_speech_16k = load_wav('zero_shot_prompt.wav', 16000)
+source_speech_16k = load_wav('cross_lingual_prompt.wav', 16000)
+for i, j in enumerate(cosyvoice.inference_vc(source_speech_16k, prompt_speech_16k, stream=False)):
+    torchaudio.save('vc_{}.wav'.format(i), j['tts_speech'], 22050)
 ```
 
 **Start web demo**

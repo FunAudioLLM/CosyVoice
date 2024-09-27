@@ -35,10 +35,12 @@ class TransformerLM(torch.nn.Module):
             length_normalized_loss: bool = True,
             lsm_weight: float = 0.0,
             spk_embed_dim: int = 192,
+            instruct_finetuning: bool = False,
     ):
         super().__init__()
         self.llm_input_size = llm_input_size
         self.speech_token_size = speech_token_size
+        self.instruct_finetuning = instruct_finetuning
         # 1. build text token inputs related modules
         self.text_embedding = torch.nn.Embedding(text_token_size, text_encoder_input_size)
         self.text_encoder = text_encoder
@@ -82,6 +84,8 @@ class TransformerLM(torch.nn.Module):
         speech_token = unpad_sequence(speech_token, speech_token_len.cpu(), batch_first=True)
         lm_input = [torch.concat([sos_eos_emb.squeeze(dim=0), embedding[i], text_token[i], task_id_emb.squeeze(dim=0), speech_token[i]], dim=0)
                     for i in range(len(text_token))]
+        if self.instruct_finetuning:
+            lm_input = [torch.concat([sos_eos_emb.squeeze(dim=0), text_token[i], task_id_emb.squeeze(dim=0), speech_token[i]], dim=0) for i in range(len(text_token))]
         lm_input_len = torch.tensor([i.size(0) for i in lm_input], dtype=torch.int32)
         lm_input = pad_sequence(lm_input, batch_first=True, padding_value=IGNORE_ID)
         return lm_input, lm_input_len
@@ -108,6 +112,8 @@ class TransformerLM(torch.nn.Module):
         lm_target = [torch.tensor([IGNORE_ID] * (2 + text_token_len[i]) + speech_token[i, :speech_token_len[i]].tolist() +
                                   [self.speech_token_size]) for i in range(text_token.size(0))]
         lm_target = pad_sequence(lm_target, batch_first=True, padding_value=IGNORE_ID).to(device)
+        if self.instruct_finetuning:
+            lm_target = [torch.tensor([IGNORE_ID] * (1 + text_token_len[i]) + speech_token[i, :speech_token_len[i]].tolist() + [self.speech_token_size]) for i in range(text_token.size(0))]
 
         # 1. encode text_token
         text_token = self.text_embedding(text_token)

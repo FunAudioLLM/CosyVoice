@@ -120,7 +120,7 @@ def nucleus_sampling(weighted_scores, top_p=0.8, top_k=25):
     sorted_value, sorted_idx = weighted_scores.softmax(dim=0).sort(descending=True, stable=True)
     for i in range(len(sorted_idx)):
         # sampling both top-p and numbers.
-        if cum_prob < top_p and len(prob) < top_k:
+        if (cum_prob < top_p or len(prob) <= 1) and len(prob) < top_k:
             cum_prob += sorted_value[i]
             prob.append(sorted_value[i])
             indices.append(sorted_idx[i])

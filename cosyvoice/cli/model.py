@@ -31,8 +31,8 @@ class CosyVoiceModel:
         self.llm = llm
         self.flow = flow
         self.hift = hift
-        self.token_min_hop_len = 100
-        self.token_max_hop_len = 200
+        self.token_min_hop_len = 2 * self.flow.input_frame_rate
+        self.token_max_hop_len = 4 * self.flow.input_frame_rate
         self.token_overlap_len = 20
         # mel fade in out
         self.mel_overlap_len = int(self.token_overlap_len / self.flow.input_frame_rate * 22050 / 256)
@@ -87,10 +87,7 @@ class CosyVoiceModel:
                                         prompt_text_len=torch.tensor([prompt_text.shape[1]], dtype=torch.int32).to(self.device),
                                         prompt_speech_token=llm_prompt_speech_token.to(self.device),
                                         prompt_speech_token_len=torch.tensor([llm_prompt_speech_token.shape[1]], dtype=torch.int32).to(self.device),
-                                        embedding=llm_embedding.to(self.device).half(),
-                                        sampling=25,
-                                        max_token_text_ratio=30,
-                                        min_token_text_ratio=3):
+                                        embedding=llm_embedding.to(self.device).half()):
                 self.tts_speech_token_dict[uuid].append(i)
         self.llm_end_dict[uuid] = True
 

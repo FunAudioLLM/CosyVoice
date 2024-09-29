@@ -18,7 +18,7 @@ llm: !new:cosyvoice.llm.llm.TransformerLM
     text_encoder_input_size: !ref <text_encoder_input_size>
     llm_input_size: !ref <llm_input_size>
     llm_output_size: !ref <llm_output_size>
-    text_token_size: 51866
+    text_token_size: 51866 # change to 60515 if you want to train with CosyVoice-300M-25Hz recipe
     speech_token_size: 4096
     length_normalized_loss: True
     lsm_weight: 0
@@ -66,7 +66,7 @@ flow: !new:cosyvoice.flow.flow.MaskedDiffWithXvec
     spk_embed_dim: !ref <spk_embed_dim>
     output_type: 'mel'
     vocab_size: 4096
-    input_frame_rate: 50
+    input_frame_rate: 50 # change to 25 if you want to train with CosyVoice-300M-25Hz recipe
     only_mask_loss: True
     encoder: !new:cosyvoice.transformer.encoder.ConformerEncoder
         output_size: 512
@@ -135,7 +135,7 @@ hift: !new:cosyvoice.hifigan.generator.HiFTGenerator
 
 # processor functions
 parquet_opener: !name:cosyvoice.dataset.processor.parquet_opener
-get_tokenizer: !name:whisper.tokenizer.get_tokenizer
+get_tokenizer: !name:whisper.tokenizer.get_tokenizer # change to !name:cosyvoice.tokenizer.tokenizer.get_tokenizer if you want to train with CosyVoice-300M-25Hz recipe
     multilingual: True
     num_languages: 100
     language: 'en'

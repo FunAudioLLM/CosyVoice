@@ -141,6 +141,7 @@ class MaskedDiffWithXvec(torch.nn.Module):
             spks=embedding,
             cond=conds,
             n_timesteps=10,
+            prompt_len=mel_len1,
             required_cache_size=required_cache_size,
             flow_cache=flow_cache
         )

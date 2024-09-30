@@ -37,3 +37,5 @@ wget==3.2
 fastapi==0.115.6
 fastapi-cli==0.0.4
 WeTextProcessing==1.0.3
+loguru==0.7.2
+natsort==8.4.0

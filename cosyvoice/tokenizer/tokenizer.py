@@ -270,10 +270,20 @@ class QwenTokenizer():
         text = self.tokenizer.batch_decode([tokens], skip_special_tokens=self.skip_special_tokens)[0]
         return text
 
-
 @lru_cache(maxsize=None)
 def get_qwen_tokenizer(
     token_path: str,
     skip_special_tokens: bool
 ) -> QwenTokenizer:
     return QwenTokenizer(token_path=token_path, skip_special_tokens=skip_special_tokens)
+
+
+if __name__ == "__main__":
+    tokenizer = get_tokenizer(
+        multilingual=True,
+        num_languages=100,
+        language="en",
+        task="transcribe"
+    )
+    print(tokenizer)
+    print(tokenizer.decode(tokenizer.encode("xin chào Việt Nam, tôi là nam, 1234 1 2?")))

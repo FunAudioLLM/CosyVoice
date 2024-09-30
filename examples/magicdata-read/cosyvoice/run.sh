@@ -7,7 +7,7 @@ stop_stage=3
 
 data_url=www.openslr.org/resources/68
 data_dir=/mnt/hengwu.zty/data/tts/openslr/magicdata-read
-pretrained_model_dir=../../../pretrained_models/CosyVoice-300M
+pretrained_model_dir=../../../pretrained_models/CosyVoice-300M-25Hz
 
 if [ ${stage} -le -1 ] && [ ${stop_stage} -ge -1 ]; then
   echo "Data Download"

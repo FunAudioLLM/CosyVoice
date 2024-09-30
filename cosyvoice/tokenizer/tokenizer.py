@@ -234,3 +234,13 @@ def get_tokenizer(
     return Tokenizer(
         encoding=encoding, num_languages=num_languages, language=language, task=task
     )
+
+if __name__ == "__main__":
+    tokenizer = get_tokenizer(
+        multilingual=True,
+        num_languages=100,
+        language="en",
+        task="transcribe"
+    )
+    print(tokenizer)
+    print(tokenizer.decode(tokenizer.encode("xin chào Việt Nam, tôi là nam, 1234 1 2?")))

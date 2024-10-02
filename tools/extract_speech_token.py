@@ -40,7 +40,7 @@ def single_job(utt):
 def main(args):
     all_task = [executor.submit(single_job, utt) for utt in utt2wav.keys()]
     utt2speech_token = {}
-    for future in tqdm(as_completed(all_task)):
+    for future in tqdm(as_completed(all_task), total=len(all_task)):
         utt, speech_token = future.result()
         utt2speech_token[utt] = speech_token
     torch.save(utt2speech_token, '{}/utt2speech_token.pt'.format(args.dir))

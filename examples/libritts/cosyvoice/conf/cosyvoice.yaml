@@ -135,8 +135,8 @@ hift: !new:cosyvoice.hifigan.generator.HiFTGenerator
 
 # processor functions
 parquet_opener: !name:cosyvoice.dataset.processor.parquet_opener
-# get_tokenizer: !name:whisper.tokenizer.get_tokenizer # change to 
-get_tokenizer: !name:cosyvoice.tokenizer.tokenizer.get_tokenizer if you want to train with CosyVoice-300M-25Hz recipe
+# get_tokenizer: !name:whisper.tokenizer.get_tokenizer
+get_tokenizer: !name:cosyvoice.tokenizer.tokenizer.get_tokenizer # if you want to train with CosyVoice-300M-25Hz recipe
     multilingual: True
     num_languages: 100
     language: 'en'
@@ -166,9 +166,9 @@ compute_fbank: !name:cosyvoice.dataset.processor.compute_fbank
 parse_embedding: !name:cosyvoice.dataset.processor.parse_embedding
     normalize: True
 shuffle: !name:cosyvoice.dataset.processor.shuffle
-    shuffle_size: 1000
+    shuffle_size: 5000
 sort: !name:cosyvoice.dataset.processor.sort
-    sort_size: 500  # sort_size should be less than shuffle_size
+    sort_size: 1000  # sort_size should be less than shuffle_size
 batch: !name:cosyvoice.dataset.processor.batch
     batch_type: 'dynamic'
     max_frames_in_batch: 2000
@@ -193,12 +193,12 @@ data_pipeline: [
 train_conf:
     optim: adam
     optim_conf:
-        lr: 0.001 # change to 1e-5 during sft
+        lr: 1e-5 # change to 1e-5 during sft
     scheduler: warmuplr # change to constantlr during sft
     scheduler_conf:
-        warmup_steps: 2500
-    max_epoch: 200
+        warmup_steps: 4000
+    max_epoch: 20
     grad_clip: 5
-    accum_grad: 2
+    accum_grad: 1
     log_interval: 100
-    save_per_step: -1
+    save_per_step: 5000

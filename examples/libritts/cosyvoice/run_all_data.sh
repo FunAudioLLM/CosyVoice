@@ -5,38 +5,26 @@
 stage=5
 stop_stage=5
 
-# data_url=www.openslr.org/resources/60
 raw_data_dir=/data/tts
-output_raw_data_dir=data
+output_raw_data_dir=data_all
 pretrained_model_dir=../../../pretrained_models/CosyVoice-300M-25Hz
-# pretrained_model_dir=../../../pretrained_models/CosyVoice-300M
-
-# if [ ${stage} -le -1 ] && [ ${stop_stage} -ge -1 ]; then
-#   echo "Data Download"
-#   # for part in dev-clean test-clean dev-other test-other; do
-#   for part in dev-clean test-clean dev-other test-other; do
-#     local/download_and_untar.sh ${raw_data_dir} ${data_url} ${part}
-#   done
-# fi
 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
   echo "Data preparation, prepare wav.scp/text/utt2spk/spk2utt"
-  python local/prepare_data.py $raw_data_dir $output_raw_data_dir
+  local/prepare_data.py $raw_data_dir $output_raw_data_dir
 fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   for x in train valid; do
     echo "Extract campplus speaker embedding, you will get spk2embedding.pt and utt2embedding.pt in $output_raw_data_dir/$x dir"
-    tools/extract_embedding.py --dir $output_raw_data_dir/$x \
-      --onnx_path $pretrained_model_dir/campplus.onnx
+    python tools/extract_embedding.py --dir $output_raw_data_dir/$x --onnx_path $pretrained_model_dir/campplus.onnx
   done
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   for x in train valid; do
     echo "Extract discrete speech token, you will get utt2speech_token.pt in $output_raw_data_dir/$x dir"
-    tools/extract_speech_token.py --dir $output_raw_data_dir/$x \
-      --onnx_path $pretrained_model_dir/speech_tokenizer_v1.onnx
+    tools/extract_speech_token.py --dir $output_raw_data_dir/$x --onnx_path $pretrained_model_dir/speech_tokenizer_v1.onnx
   done
 fi
 
@@ -76,15 +64,15 @@ dist_backend="nccl"
 num_workers=4
 prefetch=100
 train_engine=torch_ddp
-exp_name=ft_25hz_lr1e-5_warmup1k_maxframe2k
+exp_name=ft_25hz_data_all_lr1e-5_warmup1k_maxframe5k
 
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
   echo "Run train. We only support llm traning for now. If your want to train from scratch, please use conf/cosyvoice.fromscratch.yaml"
   if [ $train_engine == 'deepspeed' ]; then
     echo "Notice deepspeed has its own optimizer config. Modify conf/ds_stage2.json if necessary"
   fi
+  # for model in llm flow; do
   for model in flow; do
-  # for model in llm; do
     echo "======================"
     echo "START TRAINING: $model"
     echo "======================"
@@ -102,14 +90,14 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
           --ddp.dist_backend $dist_backend \
           --num_workers ${num_workers} \
           --prefetch ${prefetch} \
-          --pin_memory
-          # --deepspeed_config ./conf/ds_stage2.json \
-          # --deepspeed.save_states model+optimizer
+          --pin_memory \
+          --deepspeed_config ./conf/ds_stage2.json \
+          --deepspeed.save_states model+optimizer
   done
 fi
 
-# if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
-#   echo "Export your model for inference speedup. Remember copy your llm or flow model to model_dir"
-#   python cosyvoice/bin/export_jit.py --model_dir $pretrained_model_dir
-#   python cosyvoice/bin/export_onnx.py --model_dir $pretrained_model_dir
-# fi
+if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
+  echo "Export your model for inference speedup. Remember copy your llm or flow model to model_dir"
+  python cosyvoice/bin/export_jit.py --model_dir $pretrained_model_dir
+  python cosyvoice/bin/export_onnx.py --model_dir $pretrained_model_dir
+fi

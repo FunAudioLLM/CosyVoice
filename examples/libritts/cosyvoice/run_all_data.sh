@@ -2,7 +2,7 @@
 # Copyright 2024 Alibaba Inc. All Rights Reserved.
 . ./path.sh || exit 1;
 
-stage=5
+stage=-1
 stop_stage=5
 
 raw_data_dir=/data/tts
@@ -11,7 +11,7 @@ pretrained_model_dir=../../../pretrained_models/CosyVoice-300M-25Hz
 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
   echo "Data preparation, prepare wav.scp/text/utt2spk/spk2utt"
-  local/prepare_data.py $raw_data_dir $output_raw_data_dir
+  python local/prepare_data.py $raw_data_dir $output_raw_data_dir
 fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
@@ -24,7 +24,7 @@ fi
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   for x in train valid; do
     echo "Extract discrete speech token, you will get utt2speech_token.pt in $output_raw_data_dir/$x dir"
-    tools/extract_speech_token.py --dir $output_raw_data_dir/$x --onnx_path $pretrained_model_dir/speech_tokenizer_v1.onnx
+    python tools/extract_speech_token.py --dir $output_raw_data_dir/$x --onnx_path $pretrained_model_dir/speech_tokenizer_v1.onnx
   done
 fi
 
@@ -32,7 +32,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
   echo "Prepare required parquet format data, you should have prepared wav.scp/text/utt2spk/spk2utt/utt2embedding.pt/spk2embedding.pt/utt2speech_token.pt"
   for x in train valid; do
     mkdir -p $output_raw_data_dir/$x/parquet
-    tools/make_parquet_list.py --num_utts_per_parquet 1000 \
+    python tools/make_parquet_list.py --num_utts_per_parquet 1000 \
       --num_processes 8 \
       --src_dir $output_raw_data_dir/$x \
       --des_dir $output_raw_data_dir/$x/parquet

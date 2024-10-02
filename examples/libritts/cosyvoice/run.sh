@@ -5,19 +5,9 @@
 stage=5
 stop_stage=5
 
-# data_url=www.openslr.org/resources/60
 raw_data_dir=/data/tts
 output_raw_data_dir=data
 pretrained_model_dir=../../../pretrained_models/CosyVoice-300M-25Hz
-# pretrained_model_dir=../../../pretrained_models/CosyVoice-300M
-
-# if [ ${stage} -le -1 ] && [ ${stop_stage} -ge -1 ]; then
-#   echo "Data Download"
-#   # for part in dev-clean test-clean dev-other test-other; do
-#   for part in dev-clean test-clean dev-other test-other; do
-#     local/download_and_untar.sh ${raw_data_dir} ${data_url} ${part}
-#   done
-# fi
 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
   echo "Data preparation, prepare wav.scp/text/utt2spk/spk2utt"

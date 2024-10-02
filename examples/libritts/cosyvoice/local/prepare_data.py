@@ -3,6 +3,7 @@ import os
 from loguru import logger
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+import soundfile
 
 from file import list_files
 
@@ -65,7 +66,7 @@ def main():
             logger.info(f'Loading {file}')
             subset_filelist = []
             with open(file, "r", encoding="utf-8") as f:
-                for line in f.readlines():
+                for line in tqdm(f.readlines()):
                     line = line.strip().split("|")
                     if len(line) != 3:
                         print(line)
@@ -74,6 +75,17 @@ def main():
                     filepath = filepath.replace('/home/andrew/data/tts', '/data/tts')
                     if not os.path.exists(filepath):
                         print(f"File {filepath} not exist")
+                        continue
+                    try:
+                        y, sr = soundfile.read(filepath)
+                    except:
+                        print(f"File {filepath} cannot be read")
+                        continue
+                    if len(y.shape) != 1:
+                        print(f"File {filepath} is not mono")
+                        continue
+                    if y.shape[0]/ sr > 15:
+                        print(f"File {filepath} is too long")
                         continue
                     if 'vivos' in str(file):
                         line[2] = line[2].lower().strip()

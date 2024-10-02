@@ -70,8 +70,10 @@ def main():
                     if len(line) != 3:
                         print(line)
                         continue
-                    if not os.path.exists(line[1]):
-                        print(f"File {line[1]} not exist")
+                    filepath = line[1]
+                    filepath = filepath.replace('/home/andrew/data/tts', '/data/tts')
+                    if not os.path.exists(filepath):
+                        print(f"File {filepath} not exist")
                         continue
                     if 'vivos' in str(file):
                         line[2] = line[2].lower().strip()
@@ -79,7 +81,7 @@ def main():
                     if not text.endswith("."):
                         text += "."
                     text = text.replace(" .", ".").replace(" ,", ",")
-                    line = f"{line[1]}|{line[0]}|{text}"
+                    line = f"{filepath}|{line[0]}|{text}"
                     subset_filelist.append(line)
             
             # Split the current subset into train and valid sets
@@ -97,13 +99,13 @@ def main():
             f.write(file + "\n")
 
     # Process training and validation filelists to create utt2wav, utt2text, utt2spk, and spk2utt files
-    logger.info('Processing train filelist...')
+    logger.info(f'Processing train filelist {len(train_filelist)} samples...')
     process_filelist(train_filelist, os.path.join(args.output_dir, "train"))
 
-    logger.info('Processing valid filelist...')
+    logger.info(f'Processing valid filelist {len(valid_filelist)} samples...')
     process_filelist(valid_filelist, os.path.join(args.output_dir, "valid"))
 
-    logger.success(f'Finished processing training and validation datasets.')
+    logger.success(f'Finished processing training and validation datasets. Saved to {args.output_dir}')
 
 if __name__ == "__main__":
     main()

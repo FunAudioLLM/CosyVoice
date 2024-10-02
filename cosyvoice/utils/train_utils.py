@@ -317,7 +317,7 @@ def log_per_step(writer, info_dict):
 
     # TRAIN & CV, Shell log (stdout)
     if (info_dict['batch_idx'] + 1) % info_dict['log_interval'] == 0:
-        log_str = '{} Batch {}/{} '.format(tag, epoch, batch_idx + 1)
+        log_str = '[{}] Epoch {} Batch {} '.format(tag, epoch, batch_idx + 1)
         for name, value in loss_dict.items():
             log_str += '{} {:.6f} '.format(name, value)
         if tag == "TRAIN":

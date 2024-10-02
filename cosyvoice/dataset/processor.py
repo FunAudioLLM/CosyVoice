@@ -326,9 +326,11 @@ def dynamic_batch(data, max_frames_in_batch=12000, mode='train'):
         assert 'speech_feat' in sample
         assert isinstance(sample['speech_feat'], torch.Tensor)
         new_sample_frames = sample['speech_feat'].size(0)
+        # logging.info(f'new_sample_frames: {new_sample_frames}')
         longest_frames = max(longest_frames, new_sample_frames)
         frames_after_padding = longest_frames * (len(buf) + 1)
         if frames_after_padding > max_frames_in_batch:
+            # logging.info(f'buf: {len(buf)}')
             yield buf
             buf = [sample]
             longest_frames = new_sample_frames

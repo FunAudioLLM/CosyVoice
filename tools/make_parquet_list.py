@@ -36,7 +36,7 @@ def job(utt_list, parquet_file, utt2parquet_file, spk2parquet_file):
     spkembedding_list = [spk2embedding[utt2spk[utt]] for utt in utt_list]
     speech_token_list = [utt2speech_token[utt] for utt in utt_list]
 
-    # 保存到parquet,utt2parquet_file,spk2parquet_file
+    # parquet,utt2parquet_file,spk2parquet_file
     df = pd.DataFrame()
     df['utt'] = utt_list
     df['wav'] = wav_list

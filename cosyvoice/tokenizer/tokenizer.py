@@ -169,9 +169,10 @@ TTS_Vocal_Token = {
 @lru_cache(maxsize=None)
 def get_encoding(name: str = "gpt2", num_languages: int = 99):
     vocab_path = os.path.join(os.path.dirname(__file__), "assets", f"{name}.tiktoken")
+    lines = open(vocab_path).readlines()
     ranks = {
         base64.b64decode(token): int(rank)
-        for token, rank in (line.split() for line in open(vocab_path) if line)
+        for token, rank in (line.split() for line in lines if line)
     }
     n_vocab = len(ranks)
     special_tokens = {}

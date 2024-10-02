@@ -37,7 +37,7 @@ def single_job(utt):
 def main(args):
     all_task = [executor.submit(single_job, utt) for utt in utt2wav.keys()]
     utt2embedding, spk2embedding = {}, {}
-    for future in tqdm(as_completed(all_task)):
+    for future in tqdm(as_completed(all_task), total=len(all_task)):
         utt, embedding = future.result()
         utt2embedding[utt] = embedding
         spk = utt2spk[utt]

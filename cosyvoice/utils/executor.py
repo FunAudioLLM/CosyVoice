@@ -31,7 +31,7 @@ class Executor:
         self.rank = int(os.environ.get('RANK', 0))
         self.device = torch.device('cuda:{}'.format(self.rank))
 
-    def train_one_epoc(self, model, optimizer, scheduler, train_data_loader, cv_data_loader, writer, info_dict, group_join):
+    def train_one_epoc(self, model, optimizer, scheduler, train_data_loader, cv_data_loader, writer, info_dict, group_join=None):
         ''' Train one epoch
         '''
 
@@ -43,41 +43,45 @@ class Executor:
         # torch.nn.parallel.DistributedDataParallel to be able to train
         # with uneven inputs across participating processes.
         model.train()
-        model_context = model.join if info_dict['train_engine'] == 'torch_ddp' else nullcontext
-        with model_context():
-            for batch_idx, batch_dict in enumerate(train_data_loader):
-                info_dict["tag"] = "TRAIN"
-                info_dict["step"] = self.step
-                info_dict["epoch"] = self.epoch
-                info_dict["batch_idx"] = batch_idx
-                if cosyvoice_join(group_join, info_dict):
-                    break
+        # model_context = model.join if info_dict['train_engine'] == 'torch_ddp' else nullcontext
+        # with model_context():
+        for batch_idx, batch_dict in enumerate(train_data_loader):
+            info_dict["tag"] = "TRAIN"
+            info_dict["step"] = self.step
+            info_dict["epoch"] = self.epoch
+            info_dict["batch_idx"] = batch_idx
+            # if cosyvoice_join(group_join, info_dict):
+            #     break
 
-                # Disable gradient synchronizations across DDP processes.
-                # Within this context, gradients will be accumulated on module
-                # variables, which will later be synchronized.
-                if info_dict['train_engine'] == 'torch_ddp' and (batch_idx + 1) % info_dict["accum_grad"] != 0:
-                    context = model.no_sync
-                # Used for single gpu training and DDP gradient synchronization
-                # processes.
-                else:
-                    context = nullcontext
+            # Disable gradient synchronizations across DDP processes.
+            # Within this context, gradients will be accumulated on module
+            # variables, which will later be synchronized.
+            # if info_dict['train_engine'] == 'torch_ddp' and (batch_idx + 1) % info_dict["accum_grad"] != 0:
+            #     context = model.no_sync
+            # # Used for single gpu training and DDP gradient synchronization
+            # # processes.
+            # else:
+            #     context = nullcontext
 
-                with context():
-                    info_dict = batch_forward(model, batch_dict, info_dict)
-                    info_dict = batch_backward(model, info_dict)
+            # with context():
+            try:
+                info_dict = batch_forward(model, batch_dict, info_dict)
+                info_dict = batch_backward(model, info_dict)
 
                 info_dict = update_parameter_and_lr(model, optimizer, scheduler, info_dict)
                 log_per_step(writer, info_dict)
                 # NOTE specify save_per_step in cosyvoice.yaml if you want to enable step save
                 if info_dict['save_per_step'] > 0 and (self.step + 1) % info_dict['save_per_step'] == 0 and \
-                   (batch_idx + 1) % info_dict["accum_grad"] == 0:
-                    dist.barrier()
+                    (batch_idx + 1) % info_dict["accum_grad"] == 0:
+                    # dist.barrier()
                     self.cv(model, cv_data_loader, writer, info_dict, on_batch_end=False)
                     model.train()
                 if (batch_idx + 1) % info_dict["accum_grad"] == 0:
                     self.step += 1
-        dist.barrier()
+            except Exception as e:
+                logging.error(e)
+
+        # dist.barrier()
         self.cv(model, cv_data_loader, writer, info_dict, on_batch_end=True)
 
     @torch.inference_mode()

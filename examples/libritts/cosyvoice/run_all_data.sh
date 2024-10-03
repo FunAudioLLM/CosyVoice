@@ -2,7 +2,7 @@
 # Copyright 2024 Alibaba Inc. All Rights Reserved.
 . ./path.sh || exit 1;
 
-stage=-1
+stage=5
 stop_stage=5
 
 raw_data_dir=/data/tts
@@ -61,10 +61,10 @@ export CUDA_VISIBLE_DEVICES="0"
 num_gpus=$(echo $CUDA_VISIBLE_DEVICES | awk -F "," '{print NF}')
 job_id=1986
 dist_backend="nccl"
-num_workers=4
+num_workers=1
 prefetch=100
 train_engine=torch_ddp
-exp_name=ft_25hz_data_all_lr1e-5_warmup1k_maxframe5k
+exp_name=ft_25hz_data_all_lr1e-5_warmup5k_maxframe5k_acc1
 
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
   echo "Run train. We only support llm traning for now. If your want to train from scratch, please use conf/cosyvoice.fromscratch.yaml"
@@ -72,27 +72,23 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "Notice deepspeed has its own optimizer config. Modify conf/ds_stage2.json if necessary"
   fi
   # for model in llm flow; do
-  for model in flow; do
+  for model in llm; do
     echo "======================"
     echo "START TRAINING: $model"
     echo "======================"
-    torchrun --nnodes=1 --nproc_per_node=$num_gpus \
-        --rdzv_id=$job_id --rdzv_backend="c10d" --rdzv_endpoint="localhost:0" \
-        cosyvoice/bin/train.py \
-          --train_engine $train_engine \
-          --config conf/cosyvoice.yaml \
-          --train_data $output_raw_data_dir/train/parquet/data.list \
-          --cv_data $output_raw_data_dir/valid/parquet/data.list \
-          --model $model \
-          --checkpoint $pretrained_model_dir/$model.pt \
-          --model_dir `pwd`/exp/$exp_name/$model \
-          --tensorboard_dir `pwd`/tensorboard/$exp_name/$model \
-          --ddp.dist_backend $dist_backend \
-          --num_workers ${num_workers} \
-          --prefetch ${prefetch} \
-          --pin_memory \
-          --deepspeed_config ./conf/ds_stage2.json \
-          --deepspeed.save_states model+optimizer
+      python cosyvoice/bin/train.py \
+        --train_engine $train_engine \
+        --config conf/cosyvoice.yaml \
+        --train_data $output_raw_data_dir/train/parquet/data.list \
+        --cv_data $output_raw_data_dir/valid/parquet/data.list \
+        --model $model \
+        --checkpoint $pretrained_model_dir/$model.pt \
+        --model_dir `pwd`/exp/$exp_name/$model \
+        --tensorboard_dir `pwd`/tensorboard/$exp_name/$model \
+        --ddp.dist_backend $dist_backend \
+        --num_workers ${num_workers} \
+        --prefetch ${prefetch} \
+        --pin_memory
   done
 fi
 

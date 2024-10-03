@@ -81,13 +81,15 @@ class CosyVoiceModel:
 
     def llm_job(self, text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):
         with self.llm_context:
-            for i in self.llm.inference(text=text.to(self.device),
-                                        text_len=torch.tensor([text.shape[1]], dtype=torch.int32).to(self.device),
-                                        prompt_text=prompt_text.to(self.device),
-                                        prompt_text_len=torch.tensor([prompt_text.shape[1]], dtype=torch.int32).to(self.device),
-                                        prompt_speech_token=llm_prompt_speech_token.to(self.device),
-                                        prompt_speech_token_len=torch.tensor([llm_prompt_speech_token.shape[1]], dtype=torch.int32).to(self.device),
-                                        embedding=llm_embedding.to(self.device).half()):
+            for i in self.llm.inference(
+                text=text.to(self.device),
+                text_len=torch.tensor([text.shape[1]], dtype=torch.int32).to(self.device),
+                prompt_text=prompt_text.to(self.device),
+                prompt_text_len=torch.tensor([prompt_text.shape[1]], dtype=torch.int32).to(self.device),
+                prompt_speech_token=llm_prompt_speech_token.to(self.device),
+                prompt_speech_token_len=torch.tensor([llm_prompt_speech_token.shape[1]], dtype=torch.int32).to(self.device),
+                embedding=llm_embedding.to(self.device).half()
+            ):
                 self.tts_speech_token_dict[uuid].append(i)
         self.llm_end_dict[uuid] = True
 

@@ -45,7 +45,7 @@ def init_distributed(args):
                  ', rank {}, world_size {}'.format(rank, world_size))
     if args.train_engine == 'torch_ddp':
         torch.cuda.set_device(local_rank)
-        dist.init_process_group(args.dist_backend)
+        # dist.init_process_group(args.dist_backend)
     else:
         deepspeed.init_distributed(dist_backend=args.dist_backend)
     return world_size, local_rank, rank
@@ -97,7 +97,7 @@ def wrap_cuda_model(args, model):
     if args.train_engine == "torch_ddp":  # native pytorch ddp
         assert (torch.cuda.is_available())
         model.cuda()
-        model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
+        # model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
     else:
         if int(os.environ.get('RANK', 0)) == 0:
             logging.info("Estimating model states memory needs (zero2)...")
@@ -157,7 +157,7 @@ def save_model(model, model_name, info_dict):
 
     if info_dict["train_engine"] == "torch_ddp":
         if rank == 0:
-            torch.save(model.module.state_dict(), save_model_path)
+            torch.save(model.state_dict(), save_model_path)
     else:
         with torch.no_grad():
             model.save_checkpoint(save_dir=model_dir,

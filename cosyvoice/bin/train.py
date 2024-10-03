@@ -118,7 +118,7 @@ def main():
 
     # Save init checkpoints
     info_dict = deepcopy(configs['train_conf'])
-    save_model(model, 'init', info_dict)
+    # save_model(model, 'init', info_dict)
 
     # Get executor
     executor = Executor()
@@ -127,10 +127,10 @@ def main():
     for epoch in range(info_dict['max_epoch']):
         executor.epoch = epoch
         train_dataset.set_epoch(epoch)
-        dist.barrier()
-        group_join = dist.new_group(backend="gloo", timeout=datetime.timedelta(seconds=args.timeout))
-        executor.train_one_epoc(model, optimizer, scheduler, train_data_loader, cv_data_loader, writer, info_dict, group_join)
-        dist.destroy_process_group(group_join)
+        # dist.barrier()
+        # group_join = dist.new_group(backend="gloo", timeout=datetime.timedelta(seconds=args.timeout))
+        executor.train_one_epoc(model, optimizer, scheduler, train_data_loader, cv_data_loader, writer, info_dict)
+        # dist.destroy_process_group(group_join)
 
 
 if __name__ == '__main__':

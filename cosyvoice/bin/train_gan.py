@@ -26,11 +26,11 @@ from hyperpyyaml import load_hyperpyyaml
 
 from torch.distributed.elastic.multiprocessing.errors import record
 
-from cosyvoice.utils.executor import Executor
+from cosyvoice.utils.executor_gan import Executor
 from cosyvoice.utils.train_utils import (
     init_distributed,
     init_dataset_and_dataloader,
-    init_optimizer_and_scheduler,
+    init_optimizer_and_scheduler_gan,
     init_summarywriter, save_model,
     wrap_cuda_model, check_modify_and_save_config)
 
@@ -89,7 +89,7 @@ def main():
 
     override_dict = {k: None for k in ['llm', 'flow', 'hifigan'] if k != args.model}
     with open(args.config, 'r') as f:
-        configs = load_hyperpyyaml(f, overrides=override_dict)
+        configs = load_hyperpyyaml(f, overrides=override_dict, overrides_must_match=False)
     configs['train_conf'].update(vars(args))
 
     # Init env for ddp
@@ -114,7 +114,7 @@ def main():
     model = wrap_cuda_model(args, model)
 
     # Get optimizer & scheduler
-    model, optimizer, scheduler = init_optimizer_and_scheduler(args, configs, model)
+    model, optimizer, scheduler, optimizer_d, scheduler_d = init_optimizer_and_scheduler_gan(args, configs, model)
 
     # Save init checkpoints
     info_dict = deepcopy(configs['train_conf'])
@@ -129,7 +129,7 @@ def main():
         train_dataset.set_epoch(epoch)
         dist.barrier()
         group_join = dist.new_group(backend="gloo", timeout=datetime.timedelta(seconds=args.timeout))
-        executor.train_one_epoc(model, optimizer, scheduler, train_data_loader, cv_data_loader, writer, info_dict, group_join)
+        executor.train_one_epoc(model, optimizer, scheduler, optimizer_d, scheduler_d, train_data_loader, cv_data_loader, writer, info_dict, group_join)
         dist.destroy_process_group(group_join)
 
 

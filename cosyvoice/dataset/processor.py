@@ -393,8 +393,6 @@ def padding(data, use_spk_embedding, mode='train', gan=False):
             "speech_token_len": speech_token_len,
             "speech_feat": speech_feat,
             "speech_feat_len": speech_feat_len,
-            "pitch_feat": pitch_feat,
-            "pitch_feat_len": pitch_feat_len,
             "text": text,
             "text_token": text_token,
             "text_token_len": text_token_len,

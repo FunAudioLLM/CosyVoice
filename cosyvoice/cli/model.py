@@ -120,7 +120,7 @@ class CosyVoiceModel:
         if finalize is False:
             self.mel_overlap_dict[uuid] = tts_mel[:, :, -self.mel_overlap_len:]
             tts_mel = tts_mel[:, :, :-self.mel_overlap_len]
-            tts_speech, tts_source = self.hift.inference(mel=tts_mel, cache_source=hift_cache_source)
+            tts_speech, tts_source = self.hift.inference(speech_feat=tts_mel, cache_source=hift_cache_source)
             if self.hift_cache_dict[uuid] is not None:
                 tts_speech = fade_in_out(tts_speech, self.hift_cache_dict[uuid]['speech'], self.speech_window)
             self.hift_cache_dict[uuid] = {'mel': tts_mel[:, :, -self.mel_cache_len:],

@@ -126,6 +126,7 @@ class DataList(IterableDataset):
 def Dataset(data_list_file,
             data_pipeline,
             mode='train',
+            gan=False,
             shuffle=True,
             partition=True,
             tts_file='',
@@ -153,8 +154,11 @@ def Dataset(data_list_file,
                        shuffle=shuffle,
                        partition=partition)
     if mode == 'inference':
-        # map partial arg tts_data in inference mode
+        # map partial arg to parquet_opener func in inference mode
         data_pipeline[0] = partial(data_pipeline[0], tts_data=tts_data)
+    if gan is True:
+        # map partial arg to padding func in gan mode
+        data_pipeline[-1] = partial(data_pipeline[-1], gan=gan)
     for func in data_pipeline:
         dataset = Processor(dataset, func, mode=mode)
     return dataset

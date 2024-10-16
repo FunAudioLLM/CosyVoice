@@ -16,7 +16,6 @@
 import os
 import argparse
 import glob
-import sys
 
 import yaml
 import torch

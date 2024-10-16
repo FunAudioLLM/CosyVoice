@@ -1,10 +1,10 @@
-from typing import List
 import torch
 import torch.nn as nn
 from torch.nn.utils import weight_norm
 from typing import List, Optional, Tuple
 from einops import rearrange
 from torchaudio.transforms import Spectrogram
+
 
 class MultipleDiscriminator(nn.Module):
     def __init__(
@@ -27,6 +27,7 @@ class MultipleDiscriminator(nn.Module):
         fmap_rs += this_fmap_rs
         fmap_gs += this_fmap_gs
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
+
 
 class MultiResolutionDiscriminator(nn.Module):
     def __init__(
@@ -112,7 +113,7 @@ class DiscriminatorR(nn.Module):
         x = torch.view_as_real(x)
         x = rearrange(x, "b f t c -> b c t f")
         # Split into bands
-        x_bands = [x[..., b[0] : b[1]] for b in self.bands]
+        x_bands = [x[..., b[0]: b[1]] for b in self.bands]
         return x_bands
 
     def forward(self, x: torch.Tensor, cond_embedding_id: torch.Tensor = None):

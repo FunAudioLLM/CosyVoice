@@ -138,7 +138,8 @@ def main():
         dist.barrier()
         group_join = dist.new_group(backend="gloo", timeout=datetime.timedelta(seconds=args.timeout))
         if gan is True:
-            executor.train_one_epoc_gan(model, optimizer, scheduler, optimizer_d, scheduler_d, train_data_loader, cv_data_loader, writer, info_dict, group_join)
+            executor.train_one_epoc_gan(model, optimizer, scheduler, optimizer_d, scheduler_d, train_data_loader, cv_data_loader,
+                                        writer, info_dict, group_join)
         else:
             executor.train_one_epoc(model, optimizer, scheduler, train_data_loader, cv_data_loader, writer, info_dict, group_join)
         dist.destroy_process_group(group_join)

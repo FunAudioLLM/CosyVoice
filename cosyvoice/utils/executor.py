@@ -25,7 +25,7 @@ from cosyvoice.utils.train_utils import update_parameter_and_lr, log_per_step, l
 
 class Executor:
 
-    def __init__(self, gan: bool=False):
+    def __init__(self, gan: bool = False):
         self.gan = gan
         self.step = 0
         self.epoch = 0
@@ -81,7 +81,8 @@ class Executor:
         dist.barrier()
         self.cv(model, cv_data_loader, writer, info_dict, on_batch_end=True)
 
-    def train_one_epoc_gan(self, model, optimizer, scheduler, optimizer_d, scheduler_d, train_data_loader, cv_data_loader, writer, info_dict, group_join):
+    def train_one_epoc_gan(self, model, optimizer, scheduler, optimizer_d, scheduler_d, train_data_loader, cv_data_loader,
+                           writer, info_dict, group_join):
         ''' Train one epoch
         '''
 

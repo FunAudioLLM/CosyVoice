@@ -177,6 +177,7 @@ def compute_fbank(data,
         sample['speech_feat'] = mat
         yield sample
 
+
 def compute_f0(data, pitch_extractor, mode='train'):
     """ Extract f0
 
@@ -404,8 +405,8 @@ def padding(data, use_spk_embedding, mode='train', gan=False):
             pitch_feat = [sample[i]['pitch_feat'] for i in order]
             pitch_feat_len = torch.tensor([i.size(0) for i in pitch_feat], dtype=torch.int32)
             pitch_feat = pad_sequence(pitch_feat,
-                                    batch_first=True,
-                                    padding_value=0)
+                                      batch_first=True,
+                                      padding_value=0)
             batch["pitch_feat"] = pitch_feat
             batch["pitch_feat_len"] = pitch_feat_len
         else:

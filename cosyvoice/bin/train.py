@@ -74,7 +74,7 @@ def get_args():
                         choices=['model_only', 'model+optimizer'],
                         help='save model/optimizer states')
     parser.add_argument('--timeout',
-                        default=30,
+                        default=60,
                         type=int,
                         help='timeout (in seconds) of cosyvoice_join.')
     parser = deepspeed.add_config_arguments(parser)

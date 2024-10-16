@@ -110,8 +110,7 @@ class MaskedDiffWithXvec(torch.nn.Module):
                   prompt_feat,
                   prompt_feat_len,
                   embedding,
-                  required_cache_size=0,
-                  flow_cache=None):
+                  flow_cache):
         assert token.shape[0] == 1
         # xvec projection
         embedding = F.normalize(embedding, dim=1)
@@ -142,7 +141,6 @@ class MaskedDiffWithXvec(torch.nn.Module):
             cond=conds,
             n_timesteps=10,
             prompt_len=mel_len1,
-            required_cache_size=required_cache_size,
             flow_cache=flow_cache
         )
         feat = feat[:, :, mel_len1:]

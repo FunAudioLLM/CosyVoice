@@ -32,7 +32,7 @@ class ConditionalCFM(BASECFM):
         self.estimator = estimator
 
     @torch.inference_mode()
-    def forward(self, mu, mask, n_timesteps, temperature=1.0, spks=None, cond=None):
+    def forward(self, mu, mask, n_timesteps, temperature=1.0, spks=None, cond=None, prompt_len=0, flow_cache=torch.zeros(1, 80, 0, 2)):
         """Forward diffusion
 
         Args:
@@ -50,11 +50,21 @@ class ConditionalCFM(BASECFM):
             sample: generated mel-spectrogram
                 shape: (batch_size, n_feats, mel_timesteps)
         """
+
         z = torch.randn_like(mu) * temperature
+        cache_size = flow_cache.shape[2]
+        # fix prompt and overlap part mu and z
+        if cache_size != 0:
+            z[:, :, :cache_size] = flow_cache[:, :, :, 0]
+            mu[:, :, :cache_size] = flow_cache[:, :, :, 1]
+        z_cache = torch.concat([z[:, :, :prompt_len], z[:, :, -34:]], dim=2)
+        mu_cache = torch.concat([mu[:, :, :prompt_len], mu[:, :, -34:]], dim=2)
+        flow_cache = torch.stack([z_cache, mu_cache], dim=-1)
+
         t_span = torch.linspace(0, 1, n_timesteps + 1, device=mu.device, dtype=mu.dtype)
         if self.t_scheduler == 'cosine':
             t_span = 1 - torch.cos(t_span * 0.5 * torch.pi)
-        return self.solve_euler(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond)
+        return self.solve_euler(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond), flow_cache
 
     def solve_euler(self, x, t_span, mu, mask, spks, cond):
         """

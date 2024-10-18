@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from loguru import logger
 import torch
 import numpy as np
 import threading
@@ -18,8 +19,7 @@ import time
 from torch.nn import functional as F
 from contextlib import nullcontext
 import uuid
-from cosyvoice.utils.common import fade_in_out
-
+from cosyvoice.utils.common import fade_in_out, fade_in_out_audio
 
 class CosyVoiceModel:
 
@@ -101,9 +101,6 @@ class CosyVoiceModel:
                                       prompt_feat=prompt_feat.to(self.device),
                                       prompt_feat_len=torch.tensor([prompt_feat.shape[1]], dtype=torch.int32).to(self.device),
                                       embedding=embedding.to(self.device))
-        # mel overlap fade in out
-        if self.mel_overlap_dict[uuid] is not None:
-            tts_mel = fade_in_out(tts_mel, self.mel_overlap_dict[uuid], self.mel_window)
         # append hift cache
         if self.hift_cache_dict[uuid] is not None:
             hift_cache_mel, hift_cache_source = self.hift_cache_dict[uuid]['mel'], self.hift_cache_dict[uuid]['source']
@@ -115,8 +112,7 @@ class CosyVoiceModel:
             self.mel_overlap_dict[uuid] = tts_mel[:, :, -self.mel_overlap_len:]
             tts_mel = tts_mel[:, :, :-self.mel_overlap_len]
             tts_speech, tts_source = self.hift.inference(mel=tts_mel, cache_source=hift_cache_source)
-            if self.hift_cache_dict[uuid] is not None:
-                tts_speech = fade_in_out(tts_speech, self.hift_cache_dict[uuid]['speech'], self.speech_window)
+            # tts_speech = mel2wav(mel=tts_mel)
             self.hift_cache_dict[uuid] = {'mel': tts_mel[:, :, -self.mel_cache_len:],
                                           'source': tts_source[:, :, -self.source_cache_len:],
                                           'speech': tts_speech[:, -self.source_cache_len:]}
@@ -126,8 +122,8 @@ class CosyVoiceModel:
                 assert self.hift_cache_dict[uuid] is None, 'speed change only support non-stream inference mode'
                 tts_mel = F.interpolate(tts_mel, size=int(tts_mel.shape[2] / speed), mode='linear')
             tts_speech, tts_source = self.hift.inference(mel=tts_mel, cache_source=hift_cache_source)
-            if self.hift_cache_dict[uuid] is not None:
-                tts_speech = fade_in_out(tts_speech, self.hift_cache_dict[uuid]['speech'], self.speech_window)
+            # tts_speech = mel2wav(mel=tts_mel)
+        tts_speech = fade_in_out_audio(tts_speech)
         return tts_speech
 
     def tts(self, text, flow_embedding, llm_embedding=torch.zeros(0, 192),
@@ -145,16 +141,18 @@ class CosyVoiceModel:
         if stream is True:
             token_hop_len = self.token_min_hop_len
             while True:
-                time.sleep(0.1)
+                time.sleep(0.01)
                 if len(self.tts_speech_token_dict[this_uuid]) >= token_hop_len + self.token_overlap_len:
                     this_tts_speech_token = torch.tensor(self.tts_speech_token_dict[this_uuid][:token_hop_len + self.token_overlap_len]) \
                         .unsqueeze(dim=0)
-                    this_tts_speech = self.token2wav(token=this_tts_speech_token,
-                                                     prompt_token=flow_prompt_speech_token,
-                                                     prompt_feat=prompt_speech_feat,
-                                                     embedding=flow_embedding,
-                                                     uuid=this_uuid,
-                                                     finalize=False)
+                    this_tts_speech = self.token2wav(
+                        token=this_tts_speech_token,
+                        prompt_token=flow_prompt_speech_token,
+                        prompt_feat=prompt_speech_feat,
+                        embedding=flow_embedding,
+                        uuid=this_uuid,
+                        finalize=False
+                    )
                     yield {'tts_speech': this_tts_speech.cpu()}
                     with self.lock:
                         self.tts_speech_token_dict[this_uuid] = self.tts_speech_token_dict[this_uuid][token_hop_len:]

@@ -22,14 +22,10 @@ import torchaudio
 import os
 import re
 import inflect
-try:
-    import ttsfrd
-    use_ttsfrd = True
-except ImportError:
-    print("failed to import ttsfrd, use WeTextProcessing instead")
-    from tn.chinese.normalizer import Normalizer as ZhNormalizer
-    from tn.english.normalizer import Normalizer as EnNormalizer
-    use_ttsfrd = False
+from loguru import logger
+from vinorm import TTSnorm as Vinormalizer
+from tn.chinese.normalizer import Normalizer as ZhNormalizer
+use_ttsfrd = False
 from cosyvoice.utils.frontend_utils import contains_chinese, replace_blank, replace_corner_mark, remove_bracket, spell_out_number, split_paragraph
 
 
@@ -61,17 +57,8 @@ class CosyVoiceFrontEnd:
         self.allowed_special = allowed_special
         self.inflect_parser = inflect.engine()
         self.use_ttsfrd = use_ttsfrd
-        if self.use_ttsfrd:
-            self.frd = ttsfrd.TtsFrontendEngine()
-            ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-            assert self.frd.initialize('{}/../../pretrained_models/CosyVoice-ttsfrd/resource'.format(ROOT_DIR)) is True, \
-                'failed to initialize ttsfrd resource'
-            self.frd.set_lang_type('pinyin')
-            self.frd.enable_pinyin_mix(True)
-            self.frd.set_breakmodel_index(1)
-        else:
-            self.zh_tn_model = ZhNormalizer(remove_erhua=False, full_to_half=False)
-            self.en_tn_model = EnNormalizer()
+        self.zh_tn_model = ZhNormalizer(remove_erhua=False, full_to_half=False)
+        # self.en_tn_model = EnNormalizer()
 
     def _extract_text_token(self, text):
         text_token = self.tokenizer.encode(text, allowed_special=self.allowed_special)
@@ -80,7 +67,8 @@ class CosyVoiceFrontEnd:
         return text_token, text_token_len
 
     def _extract_speech_token(self, speech):
-        assert speech.shape[1] / 16000 <= 30, 'do not support extract speech token for audio longer than 30s'
+        if speech.shape[1] / 16000 > 30:
+            speech = speech[:, :int(16000 * 30)]
         feat = whisper.log_mel_spectrogram(speech, n_mels=128)
         speech_token = self.speech_tokenizer_session.run(None,
                                                          {self.speech_tokenizer_session.get_inputs()[0].name:
@@ -110,11 +98,9 @@ class CosyVoiceFrontEnd:
 
     def text_normalize(self, text, split=True):
         text = text.strip()
+
         if contains_chinese(text):
-            if self.use_ttsfrd:
-                text = self.frd.get_frd_extra_info(text, 'input')
-            else:
-                text = self.zh_tn_model.normalize(text)
+            text = self.zh_tn_model.normalize(text)
             text = text.replace("\n", "")
             text = replace_blank(text)
             text = replace_corner_mark(text)
@@ -125,15 +111,78 @@ class CosyVoiceFrontEnd:
             texts = list(split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=80,
                                          token_min_n=60, merge_len=20, comma_split=False))
         else:
-            if self.use_ttsfrd:
-                text = self.frd.get_frd_extra_info(text, 'input')
-            else:
-                text = self.en_tn_model.normalize(text)
-            text = spell_out_number(text, self.inflect_parser)
-            texts = list(split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=80,
-                                         token_min_n=60, merge_len=20, comma_split=False))
-        if split is False:
-            return text
+            def remove_urls_and_links(text):
+                url_pattern = r"http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+|www\.[a-zA-Z0-9.\/]+"
+                markdown_image_pattern = r"!\[.*?\]\(http[s]?:\/\/.*?\)"
+                text = re.sub(markdown_image_pattern, '', text, 0, re.MULTILINE)
+                text = re.sub(url_pattern, '', text, 0, re.MULTILINE)
+                return text
+
+            def remove_emojis(text):
+                emoji_pattern = re.compile(
+                    "["
+                    "\U0001F600-\U0001F64F"  # emoticons
+                    "\U0001F300-\U0001F5FF"  # symbols & pictographs
+                    "\U0001F680-\U0001F6FF"  # transport & map symbols
+                    "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+                    "\U00002702-\U000027B0"  # other miscellaneous symbols
+                    "\U000024C2-\U0001F251" 
+                    "\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
+                    "\U0001FA70-\U0001FAFF"  # Symbols and Pictographs Extended-A
+                    "\U0001F004-\U0001F0CF"  # Mahjong and Playing Cards
+                    "]+",
+                    flags=re.UNICODE
+                )
+                return emoji_pattern.sub(r'', text)
+            
+            def remove_punc(text):
+                text = (text
+                    .replace('<input>', '')
+                    .replace("..", ".")
+                    .replace("!.", "!")
+                    .replace('!', ".")
+                    .replace("?.", "?")
+                    .replace("?", ".")
+                    .replace(" .", ".")
+                    .replace(" ,", ",")
+                    .replace('"', "")
+                    .replace("'", "")
+                    .replace("AI", "Ây Ai")
+                    .replace("A.I", "Ây Ai")
+                    .replace("$", "")
+                    .replace("(", "")
+                    .replace(")", "")
+                    .replace("**", "")
+                    .replace(" = ", " bằng ")
+                    # .replace("/", "phần")
+                    .replace("#", "")
+                    .replace('\\', '')
+                    .replace('```', '')
+                    .replace('- ', '')
+                    .replace('+ ', '')
+                    .replace(":", "")
+                    .replace(",,", ",")
+                    .replace(", ,", ",")
+                    .replace(",.", ".")
+                    .replace(".,", ".")
+                    .replace("..", ".")
+                    .replace(". .", ".")
+                )
+                text = re.sub(r'\n+', ' ', text)
+                text = ' '.join([t for t in text.split() if t.strip()])
+                text = text.strip()
+                return text
+            
+            text = remove_urls_and_links(text)
+            text = remove_emojis(text)
+            text = remove_punc(text)
+            text = Vinormalizer(text, lower=False)
+
+            if not split:
+                return text
+            texts = list(split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=30,
+                                            token_min_n=10, merge_len=5, comma_split=False))
+        logger.info(f"Text normalized: {texts}")
         return texts
 
     def frontend_sft(self, tts_text, spk_id):
@@ -143,6 +192,8 @@ class CosyVoiceFrontEnd:
         return model_input
 
     def frontend_zero_shot(self, tts_text, prompt_text, prompt_speech_16k):
+        if isinstance(prompt_speech_16k, np.ndarray):
+            prompt_speech_16k = torch.from_numpy(prompt_speech_16k)
         tts_text_token, tts_text_token_len = self._extract_text_token(tts_text)
         prompt_text_token, prompt_text_token_len = self._extract_text_token(prompt_text)
         prompt_speech_22050 = torchaudio.transforms.Resample(orig_freq=16000, new_freq=22050)(prompt_speech_16k)
@@ -166,16 +217,32 @@ class CosyVoiceFrontEnd:
         del model_input['llm_prompt_speech_token_len']
         return model_input
 
-    def frontend_instruct(self, tts_text, spk_id, instruct_text):
-        model_input = self.frontend_sft(tts_text, spk_id)
-        # in instruct mode, we remove spk_embedding in llm due to information leakage
-        del model_input['llm_embedding']
+    def frontend_instruct(self, tts_text, instruct_text, prompt_speech_16k):
+        model_input = self.frontend_zero_shot(tts_text, '', prompt_speech_16k)
         instruct_text_token, instruct_text_token_len = self._extract_text_token(instruct_text + '<endofprompt>')
         model_input['prompt_text'] = instruct_text_token
         model_input['prompt_text_len'] = instruct_text_token_len
+        # in cross lingual mode, we remove prompt in llm
+        del model_input['llm_prompt_speech_token']
+        del model_input['llm_prompt_speech_token_len']
+        del model_input['llm_embedding']
         return model_input
 
+    # def frontend_instruct(self, tts_text, spk_id, instruct_text):
+    #     model_input = self.frontend_sft(tts_text, spk_id)
+    #     # in instruct mode, we remove spk_embedding in llm due to information leakage
+    #     del model_input['llm_embedding']
+    #     instruct_text_token, instruct_text_token_len = self._extract_text_token(instruct_text + '<endofprompt>')
+    #     model_input['prompt_text'] = instruct_text_token
+    #     model_input['prompt_text_len'] = instruct_text_token_len
+    #     return model_input
+
     def frontend_vc(self, source_speech_16k, prompt_speech_16k):
+        if isinstance(source_speech_16k, np.ndarray):
+            source_speech_16k = torch.from_numpy(source_speech_16k)
+        if isinstance(prompt_speech_16k, np.ndarray):
+            prompt_speech_16k = torch.from_numpy(prompt_speech_16k)
+
         prompt_speech_token, prompt_speech_token_len = self._extract_speech_token(prompt_speech_16k)
         prompt_speech_22050 = torchaudio.transforms.Resample(orig_freq=16000, new_freq=22050)(prompt_speech_16k)
         prompt_speech_feat, prompt_speech_feat_len = self._extract_speech_feat(prompt_speech_22050)

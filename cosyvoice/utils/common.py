@@ -120,7 +120,7 @@ def nucleus_sampling(weighted_scores, top_p=0.8, top_k=25):
     sorted_value, sorted_idx = weighted_scores.softmax(dim=0).sort(descending=True, stable=True)
     for i in range(len(sorted_idx)):
         # sampling both top-p and numbers.
-        if cum_prob < top_p and len(prob) < top_k:
+        if (cum_prob < top_p or len(prob) <=1) and len(prob) <top_k:     
             cum_prob += sorted_value[i]
             prob.append(sorted_value[i])
             indices.append(sorted_idx[i])
@@ -145,6 +145,14 @@ def fade_in_out(fade_in_mel, fade_out_mel, window):
         fade_out_mel[..., -mel_overlap_len:] * window[mel_overlap_len:]
     return fade_in_mel.to(device)
 
+def fade_in_out_audio(audio: torch.Tensor):
+    device = audio.device
+    audio = audio.squeeze(0).cpu()
+    overlap_len = int(22050 * 0.1)
+    window = torch.linspace(0, 1, overlap_len, dtype=torch.float32)
+    audio[:overlap_len] *= window
+    audio[-overlap_len:] *= window.flip([0])
+    return audio.unsqueeze(0).to(device)
 
 def set_all_random_seed(seed):
     random.seed(seed)

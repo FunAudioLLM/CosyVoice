@@ -52,7 +52,6 @@ class HiFiGan(nn.Module):
 
     def forward_discriminator(self, batch, device):
         real_speech = batch['speech'].to(device)
-        pitch_feat = batch['pitch_feat'].to(device)
         # 1. calculate generator outputs
         with torch.no_grad():
             generated_speech, generated_f0 = self.generator(batch, device)

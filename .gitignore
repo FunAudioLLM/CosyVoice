@@ -1,51 +1,121 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+import os
+import sys
+import argparse
+import gradio as gr
+import numpy as np
+import torch
+import torchaudio
+import random
+import librosa
 
-# Visual Studio Code files
-.vscode
-.vs
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(ROOT_DIR, 'third_party', 'Matcha-TTS'))
 
-# PyCharm files
-.idea
+from cosyvoice.cli.cosyvoice import CosyVoice
+from cosyvoice.utils.file_utils import load_wav, logging
+from cosyvoice.utils.common import set_all_random_seed
 
-# Eclipse Project settings
-*.*project
-.settings
+# Constants
+MAX_VAL = 0.8
+TOP_DB = 60
+HOP_LENGTH = 220
+WIN_LENGTH = 440
+PROMPT_SR, TARGET_SR = 16000, 22050
 
-# Sublime Text settings
-*.sublime-workspace
-*.sublime-project
+# Inference configurations
+INFERENCE_MODES = ['Single Language', 'Multi-Language']
+INSTRUCTIONS = {
+    'Single Language': '1. Choose the language model\n2. Click on generate audio',
+    'Multi-Language': '1. Choose the multi-language model\n2. Provide prompt audio\n3. Click on generate audio'
+}
+STREAM_OPTIONS = [('No', False), ('Yes', True)]
 
-# Editor temporaries
-*.swn
-*.swo
-*.swp
-*.swm
-*~
+def generate_seed():
+    return random.randint(1, 100000000)
 
-# IPython notebook checkpoints
-.ipynb_checkpoints
+def postprocess(speech):
+    speech, _ = librosa.effects.trim(
+        speech, top_db=TOP_DB, frame_length=WIN_LENGTH, hop_length=HOP_LENGTH
+    )
+    if speech.abs().max() > MAX_VAL:
+        speech = speech / speech.abs().max() * MAX_VAL
+    return torch.concat([speech, torch.zeros(1, int(TARGET_SR * 0.2))], dim=1)
 
-# macOS dir files
-.DS_Store
+def load_and_validate_prompt_audio(prompt_audio):
+    if prompt_audio is None:
+        raise ValueError("Prompt audio is missing, please provide an audio file.")
+    if torchaudio.info(prompt_audio).sample_rate < PROMPT_SR:
+        raise ValueError(f'Prompt audio sampling rate {torchaudio.info(prompt_audio).sample_rate} is lower than {PROMPT_SR}.')
+    return postprocess(load_wav(prompt_audio, PROMPT_SR))
 
-exp
-data
-raw_wav
-tensorboard
-**/*build*
+def change_instruction(mode_checkbox_group):
+    return INSTRUCTIONS[mode_checkbox_group]
 
-# Clangd files
-.cache
-compile_commands.json
+def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text,
+                   prompt_wav_upload, prompt_wav_record, seed, stream, speed, language_type):
+    prompt_wav = prompt_wav_upload or prompt_wav_record
+    if mode_checkbox_group == 'Multi-Language':
+        try:
+            prompt_speech_16k = load_and_validate_prompt_audio(prompt_wav)
+        except ValueError as e:
+            gr.Warning(str(e))
+            yield (TARGET_SR, np.zeros(TARGET_SR))  # Return an empty audio output on error
 
-# train/inference files
-*.wav
-*.m4a
-*.aac
-*.pt
-pretrained_models/*
-*_pb2_grpc.py
-*_pb2.py
+    logging.info('Starting inference request')
+    set_all_random_seed(seed)
+
+    if mode_checkbox_group == 'Single Language':
+        logging.info('Using single language model')
+        for audio in cosyvoice.inference_single_language(tts_text, sft_dropdown, stream=stream, speed=speed, language=language_type):
+            yield (TARGET_SR, audio['tts_speech'].numpy().flatten())
+    else:
+        logging.info('Using multi-language model')
+        for audio in cosyvoice.inference_multi_language(tts_text, prompt_speech_16k, stream=stream, speed=speed, language=language_type):
+            yield (TARGET_SR, audio['tts_speech'].numpy().flatten())
+
+def main():
+    with gr.Blocks() as demo:
+        gr.Markdown("### Code for Cross-Lingual and Single Language Training Support")
+
+        tts_text = gr.Textbox(label="Enter text for synthesis", lines=1, value="Hello, this is a voice synthesis example.")
+        language_type = gr.Dropdown(choices=['English', 'Spanish', 'French'], label='Select Language', value='English')
+        with gr.Row():
+            mode_checkbox_group = gr.Radio(choices=INFERENCE_MODES, label='Select Mode', value=INFERENCE_MODES[0])
+            instruction_text = gr.Text(label="Instructions", value=INSTRUCTIONS[INFERENCE_MODES[0]], scale=0.5)
+            sft_dropdown = gr.Dropdown(choices=sft_spk, label='Choose Pre-trained Voice', value=sft_spk[0], scale=0.25)
+            stream = gr.Radio(choices=STREAM_OPTIONS, label='Stream Mode', value=STREAM_OPTIONS[0][1])
+            speed = gr.Number(value=1, label="Speed Adjustment", minimum=0.5, maximum=2.0, step=0.1)
+            seed_button = gr.Button(value="🎲")
+            seed = gr.Number(value=0, label="Random Seed")
+
+        with gr.Row():
+            prompt_wav_upload = gr.Audio(sources='upload', type='filepath', label='Upload Prompt Audio')
+            prompt_wav_record = gr.Audio(sources='microphone', type='filepath', label='Record Prompt Audio')
+        prompt_text = gr.Textbox(label="Enter Prompt Text", lines=1, placeholder="Enter prompt text matching the audio...")
+
+        generate_button = gr.Button("Generate Audio")
+        audio_output = gr.Audio(label="Synthesized Audio", autoplay=True, streaming=True)
+
+        seed_button.click(generate_seed, inputs=[], outputs=seed)
+        generate_button.click(generate_audio,
+                              inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text,
+                                      prompt_wav_upload, prompt_wav_record, seed, stream, speed, language_type],
+                              outputs=[audio_output])
+        mode_checkbox_group.change(fn=change_instruction, inputs=[mode_checkbox_group], outputs=[instruction_text])
+        
+    demo.queue(max_size=4, default_concurrency_limit=2)
+    demo.launch(server_name='0.0.0.0', server_port=args.port)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--port', type=int, default=8000)
+    parser.add_argument('--model_dir', type=str, default='pretrained_models/CosyVoice-300M', help='Model directory')
+    args = parser.parse_args()
+    
+    cosyvoice = CosyVoice(args.model_dir)
+    sft_spk = cosyvoice.list_avaliable_spks()
+
+    # Set the default audio to silence
+    default_data = np.zeros(TARGET_SR)
+    
+    main()

@@ -39,6 +39,7 @@ tensorboard
 
 # Clangd files
 .cache
+.github
 compile_commands.json
 
 # train/inference files

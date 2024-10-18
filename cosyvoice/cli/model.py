@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from loguru import logger
 import torch
 import numpy as np
 import threading
@@ -18,8 +19,7 @@ import time
 from torch.nn import functional as F
 from contextlib import nullcontext
 import uuid
-from cosyvoice.utils.common import fade_in_out
-
+from cosyvoice.utils.common import fade_in_out, fade_in_out_audio
 
 class CosyVoiceModel:
 
@@ -140,6 +140,7 @@ class CosyVoiceModel:
             tts_speech, tts_source = self.hift.inference(speech_feat=tts_mel, cache_source=hift_cache_source)
             if self.hift_cache_dict[uuid] is not None:
                 tts_speech = fade_in_out(tts_speech, self.hift_cache_dict[uuid]['speech'], self.speech_window)
+        tts_speech = fade_in_out_audio(tts_speech)
         return tts_speech
 
     def tts(self, text, flow_embedding, llm_embedding=torch.zeros(0, 192),
@@ -159,16 +160,18 @@ class CosyVoiceModel:
         if stream is True:
             token_hop_len = self.token_min_hop_len
             while True:
-                time.sleep(0.1)
+                time.sleep(0.01)
                 if len(self.tts_speech_token_dict[this_uuid]) >= token_hop_len + self.token_overlap_len:
                     this_tts_speech_token = torch.tensor(self.tts_speech_token_dict[this_uuid][:token_hop_len + self.token_overlap_len]) \
                         .unsqueeze(dim=0)
-                    this_tts_speech = self.token2wav(token=this_tts_speech_token,
-                                                     prompt_token=flow_prompt_speech_token,
-                                                     prompt_feat=prompt_speech_feat,
-                                                     embedding=flow_embedding,
-                                                     uuid=this_uuid,
-                                                     finalize=False)
+                    this_tts_speech = self.token2wav(
+                        token=this_tts_speech_token,
+                        prompt_token=flow_prompt_speech_token,
+                        prompt_feat=prompt_speech_feat,
+                        embedding=flow_embedding,
+                        uuid=this_uuid,
+                        finalize=False
+                    )
                     yield {'tts_speech': this_tts_speech.cpu()}
                     with self.lock:
                         self.tts_speech_token_dict[this_uuid] = self.tts_speech_token_dict[this_uuid][token_hop_len:]

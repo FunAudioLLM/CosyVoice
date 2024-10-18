@@ -14,6 +14,7 @@
 import os
 import time
 from tqdm import tqdm
+from loguru import logger
 from hyperpyyaml import load_hyperpyyaml
 from modelscope import snapshot_download
 import torch
@@ -55,6 +56,7 @@ class CosyVoice:
         if load_trt:
             self.model.load_trt('{}/flow.decoder.estimator.{}.v100.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'))
         del configs
+        logger.success('Loaded model from {}'.format(model_dir))
 
     def list_available_spks(self):
         spks = list(self.frontend.spk2info.keys())
@@ -64,7 +66,7 @@ class CosyVoice:
         for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
             model_input = self.frontend.frontend_sft(i, spk_id)
             start_time = time.time()
-            logging.info('synthesis text {}'.format(i))
+            logger.info('synthesis text {}'.format(i))
             for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
                 speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
                 logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
@@ -78,7 +80,7 @@ class CosyVoice:
                 logging.warning('synthesis text {} too short than prompt text {}, this may lead to bad performance'.format(i, prompt_text))
             model_input = self.frontend.frontend_zero_shot(i, prompt_text, prompt_speech_16k, self.sample_rate)
             start_time = time.time()
-            logging.info('synthesis text {}'.format(i))
+            logger.info('synthesis text {}'.format(i))
             for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
                 speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
                 logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
@@ -94,7 +96,7 @@ class CosyVoice:
                 speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
                 logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
                 yield model_output
-                start_time = time.time()
+        logger.success('Synthesis done')
 
     def inference_instruct(self, tts_text, spk_id, instruct_text, stream=False, speed=1.0, text_frontend=True):
         assert isinstance(self.model, CosyVoiceModel), 'inference_instruct is only implemented for CosyVoice!'
@@ -109,7 +111,7 @@ class CosyVoice:
                 speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
                 logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
                 yield model_output
-                start_time = time.time()
+        logger.success('Synthesis done')
 
     def inference_vc(self, source_speech_16k, prompt_speech_16k, stream=False, speed=1.0):
         model_input = self.frontend.frontend_vc(source_speech_16k, prompt_speech_16k, self.sample_rate)

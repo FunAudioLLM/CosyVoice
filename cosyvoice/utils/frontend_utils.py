@@ -114,6 +114,7 @@ def split_paragraph(text: str, tokenize, lang="zh", token_max_n=80, token_min_n=
         else:
             final_utts.append(cur_utt)
 
+    final_utts = [utt.strip() for utt in final_utts]
     return final_utts
 
 

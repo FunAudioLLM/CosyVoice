@@ -64,6 +64,5 @@ class HiFiGan(nn.Module):
             loss_tpr = tpr_loss(y_d_rs, y_d_gs, self.tpr_loss_tau)
         else:
             loss_tpr = torch.zeros(1).to(device)
-        loss_f0 = F.l1_loss(generated_f0, pitch_feat)
-        loss = loss_disc + self.tpr_loss_weight * loss_tpr + loss_f0
-        return {'loss': loss, 'loss_disc': loss_disc, 'loss_tpr': loss_tpr, 'loss_f0': loss_f0}
+        loss = loss_disc + self.tpr_loss_weight * loss_tpr
+        return {'loss': loss, 'loss_disc': loss_disc, 'loss_tpr': loss_tpr}

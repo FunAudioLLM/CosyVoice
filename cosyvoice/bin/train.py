@@ -95,6 +95,8 @@ def main():
         override_dict.pop('hift')
     with open(args.config, 'r') as f:
         configs = load_hyperpyyaml(f, overrides=override_dict)
+    if gan is True:
+        configs['train_conf'] = configs['train_conf_gan']
     configs['train_conf'].update(vars(args))
 
     # Init env for ddp

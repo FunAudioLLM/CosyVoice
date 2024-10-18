@@ -110,30 +110,29 @@ def wrap_cuda_model(args, model):
 
 
 def init_optimizer_and_scheduler(args, configs, model, gan):
-    key = 'train_conf_gan' if gan is True else 'train_conf'
-    if configs[key]['optim'] == 'adam':
-        optimizer = optim.Adam(model.parameters(), **configs[key]['optim_conf'])
-    elif configs[key]['optim'] == 'adamw':
-        optimizer = optim.AdamW(model.parameters(), **configs[key]['optim_conf'])
+    if configs['train_conf']['optim'] == 'adam':
+        optimizer = optim.Adam(model.parameters(), **configs['train_conf']['optim_conf'])
+    elif configs['train_conf']['optim'] == 'adamw':
+        optimizer = optim.AdamW(model.parameters(), **configs['train_conf']['optim_conf'])
     else:
-        raise ValueError("unknown optimizer: " + configs[key])
+        raise ValueError("unknown optimizer: " + configs['train_conf'])
 
-    if configs[key]['scheduler'] == 'warmuplr':
+    if configs['train_conf']['scheduler'] == 'warmuplr':
         scheduler_type = WarmupLR
-        scheduler = WarmupLR(optimizer, **configs[key]['scheduler_conf'])
-    elif configs[key]['scheduler'] == 'NoamHoldAnnealing':
+        scheduler = WarmupLR(optimizer, **configs['train_conf']['scheduler_conf'])
+    elif configs['train_conf']['scheduler'] == 'NoamHoldAnnealing':
         scheduler_type = NoamHoldAnnealing
-        scheduler = NoamHoldAnnealing(optimizer, **configs[key]['scheduler_conf'])
-    elif configs[key]['scheduler'] == 'constantlr':
+        scheduler = NoamHoldAnnealing(optimizer, **configs['train_conf']['scheduler_conf'])
+    elif configs['train_conf']['scheduler'] == 'constantlr':
         scheduler_type = ConstantLR
         scheduler = ConstantLR(optimizer)
     else:
-        raise ValueError("unknown scheduler: " + configs[key])
+        raise ValueError("unknown scheduler: " + configs['train_conf'])
 
     # use deepspeed optimizer for speedup
     if args.train_engine == "deepspeed":
         def scheduler(opt):
-            return scheduler_type(opt, **configs[key]['scheduler_conf'])
+            return scheduler_type(opt, **configs['train_conf']['scheduler_conf'])
         model, optimizer, _, scheduler = deepspeed.initialize(
             args=args,
             model=model,
@@ -143,24 +142,24 @@ def init_optimizer_and_scheduler(args, configs, model, gan):
 
     # currently we wrap generator and discriminator in one model, so we cannot use deepspeed
     if gan is True:
-        if configs[key]['optim_d'] == 'adam':
-            optimizer_d = optim.Adam(model.module.discriminator.parameters(), **configs[key]['optim_conf'])
-        elif configs[key]['optim_d'] == 'adamw':
-            optimizer_d = optim.AdamW(model.module.discriminator.parameters(), **configs[key]['optim_conf'])
+        if configs['train_conf']['optim_d'] == 'adam':
+            optimizer_d = optim.Adam(model.module.discriminator.parameters(), **configs['train_conf']['optim_conf'])
+        elif configs['train_conf']['optim_d'] == 'adamw':
+            optimizer_d = optim.AdamW(model.module.discriminator.parameters(), **configs['train_conf']['optim_conf'])
         else:
-            raise ValueError("unknown optimizer: " + configs[key])
+            raise ValueError("unknown optimizer: " + configs['train_conf'])
 
-        if configs[key]['scheduler_d'] == 'warmuplr':
+        if configs['train_conf']['scheduler_d'] == 'warmuplr':
             scheduler_type = WarmupLR
-            scheduler_d = WarmupLR(optimizer_d, **configs[key]['scheduler_conf'])
-        elif configs[key]['scheduler_d'] == 'NoamHoldAnnealing':
+            scheduler_d = WarmupLR(optimizer_d, **configs['train_conf']['scheduler_conf'])
+        elif configs['train_conf']['scheduler_d'] == 'NoamHoldAnnealing':
             scheduler_type = NoamHoldAnnealing
-            scheduler_d = NoamHoldAnnealing(optimizer_d, **configs[key]['scheduler_conf'])
-        elif configs[key]['scheduler'] == 'constantlr':
+            scheduler_d = NoamHoldAnnealing(optimizer_d, **configs['train_conf']['scheduler_conf'])
+        elif configs['train_conf']['scheduler'] == 'constantlr':
             scheduler_type = ConstantLR
             scheduler_d = ConstantLR(optimizer_d)
         else:
-            raise ValueError("unknown scheduler: " + configs[key])
+            raise ValueError("unknown scheduler: " + configs['train_conf'])
     else:
         optimizer_d, scheduler_d = None, None
     return model, optimizer, scheduler, optimizer_d, scheduler_d

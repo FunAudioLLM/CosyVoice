@@ -68,6 +68,10 @@ def get_args():
                         action='store_true',
                         default=False,
                         help='Use pinned memory buffers used for reading')
+    parser.add_argument('--use_amp',
+                        action='store_true',
+                        default=False,
+                        help='Use automatic mixed precision training')
     parser.add_argument('--deepspeed.save_states',
                         dest='save_states',
                         default='model_only',
@@ -133,6 +137,9 @@ def main():
     # Get executor
     executor = Executor(gan=gan)
 
+    # Init scaler, used for pytorch amp mixed precision training
+    scaler = torch.cuda.amp.GradScaler() if args.use_amp else None
+
     # Start training loop
     for epoch in range(info_dict['max_epoch']):
         executor.epoch = epoch
@@ -141,9 +148,9 @@ def main():
         group_join = dist.new_group(backend="gloo", timeout=datetime.timedelta(seconds=args.timeout))
         if gan is True:
             executor.train_one_epoc_gan(model, optimizer, scheduler, optimizer_d, scheduler_d, train_data_loader, cv_data_loader,
-                                        writer, info_dict, group_join)
+                                        writer, info_dict, scaler, group_join)
         else:
-            executor.train_one_epoc(model, optimizer, scheduler, train_data_loader, cv_data_loader, writer, info_dict, group_join)
+            executor.train_one_epoc(model, optimizer, scheduler, train_data_loader, cv_data_loader, writer, info_dict, scaler, group_join)
         dist.destroy_process_group(group_join)
 
 

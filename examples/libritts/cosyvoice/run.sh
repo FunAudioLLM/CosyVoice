@@ -99,6 +99,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
       --num_workers ${num_workers} \
       --prefetch ${prefetch} \
       --pin_memory \
+      --use_amp \
       --deepspeed_config ./conf/ds_stage2.json \
       --deepspeed.save_states model+optimizer
   done

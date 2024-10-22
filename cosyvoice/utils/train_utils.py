@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from contextlib import nullcontext
 import logging
 import os
 import torch
@@ -110,38 +109,60 @@ def wrap_cuda_model(args, model):
 
 
 def init_optimizer_and_scheduler(args, configs, model, gan):
-    if configs['train_conf']['optim'] == 'adam':
-        optimizer = optim.Adam(model.parameters(), **configs['train_conf']['optim_conf'])
-    elif configs['train_conf']['optim'] == 'adamw':
-        optimizer = optim.AdamW(model.parameters(), **configs['train_conf']['optim_conf'])
+    if gan is False:
+        if configs['train_conf']['optim'] == 'adam':
+            optimizer = optim.Adam(model.parameters(), **configs['train_conf']['optim_conf'])
+        elif configs['train_conf']['optim'] == 'adamw':
+            optimizer = optim.AdamW(model.parameters(), **configs['train_conf']['optim_conf'])
+        else:
+            raise ValueError("unknown optimizer: " + configs['train_conf'])
+
+        if configs['train_conf']['scheduler'] == 'warmuplr':
+            scheduler_type = WarmupLR
+            scheduler = WarmupLR(optimizer, **configs['train_conf']['scheduler_conf'])
+        elif configs['train_conf']['scheduler'] == 'NoamHoldAnnealing':
+            scheduler_type = NoamHoldAnnealing
+            scheduler = NoamHoldAnnealing(optimizer, **configs['train_conf']['scheduler_conf'])
+        elif configs['train_conf']['scheduler'] == 'constantlr':
+            scheduler_type = ConstantLR
+            scheduler = ConstantLR(optimizer)
+        else:
+            raise ValueError("unknown scheduler: " + configs['train_conf'])
+
+        # use deepspeed optimizer for speedup
+        if args.train_engine == "deepspeed":
+            def scheduler(opt):
+                return scheduler_type(opt, **configs['train_conf']['scheduler_conf'])
+            model, optimizer, _, scheduler = deepspeed.initialize(
+                args=args,
+                model=model,
+                optimizer=None,
+                lr_scheduler=scheduler,
+                model_parameters=model.parameters())
+
+        optimizer_d, scheduler_d = None, None
+
     else:
-        raise ValueError("unknown optimizer: " + configs['train_conf'])
+        # currently we wrap generator and discriminator in one model, so we cannot use deepspeed
+        if configs['train_conf']['optim'] == 'adam':
+            optimizer = optim.Adam(model.module.generator.parameters(), **configs['train_conf']['optim_conf'])
+        elif configs['train_conf']['optim'] == 'adamw':
+            optimizer = optim.AdamW(model.module.generator.parameters(), **configs['train_conf']['optim_conf'])
+        else:
+            raise ValueError("unknown optimizer: " + configs['train_conf'])
 
-    if configs['train_conf']['scheduler'] == 'warmuplr':
-        scheduler_type = WarmupLR
-        scheduler = WarmupLR(optimizer, **configs['train_conf']['scheduler_conf'])
-    elif configs['train_conf']['scheduler'] == 'NoamHoldAnnealing':
-        scheduler_type = NoamHoldAnnealing
-        scheduler = NoamHoldAnnealing(optimizer, **configs['train_conf']['scheduler_conf'])
-    elif configs['train_conf']['scheduler'] == 'constantlr':
-        scheduler_type = ConstantLR
-        scheduler = ConstantLR(optimizer)
-    else:
-        raise ValueError("unknown scheduler: " + configs['train_conf'])
+        if configs['train_conf']['scheduler'] == 'warmuplr':
+            scheduler_type = WarmupLR
+            scheduler = WarmupLR(optimizer, **configs['train_conf']['scheduler_conf'])
+        elif configs['train_conf']['scheduler'] == 'NoamHoldAnnealing':
+            scheduler_type = NoamHoldAnnealing
+            scheduler = NoamHoldAnnealing(optimizer, **configs['train_conf']['scheduler_conf'])
+        elif configs['train_conf']['scheduler'] == 'constantlr':
+            scheduler_type = ConstantLR
+            scheduler = ConstantLR(optimizer)
+        else:
+            raise ValueError("unknown scheduler: " + configs['train_conf'])
 
-    # use deepspeed optimizer for speedup
-    if args.train_engine == "deepspeed":
-        def scheduler(opt):
-            return scheduler_type(opt, **configs['train_conf']['scheduler_conf'])
-        model, optimizer, _, scheduler = deepspeed.initialize(
-            args=args,
-            model=model,
-            optimizer=None,
-            lr_scheduler=scheduler,
-            model_parameters=model.parameters())
-
-    # currently we wrap generator and discriminator in one model, so we cannot use deepspeed
-    if gan is True:
         if configs['train_conf']['optim_d'] == 'adam':
             optimizer_d = optim.Adam(model.module.discriminator.parameters(), **configs['train_conf']['optim_conf'])
         elif configs['train_conf']['optim_d'] == 'adamw':
@@ -160,8 +181,6 @@ def init_optimizer_and_scheduler(args, configs, model, gan):
             scheduler_d = ConstantLR(optimizer_d)
         else:
             raise ValueError("unknown scheduler: " + configs['train_conf'])
-    else:
-        optimizer_d, scheduler_d = None, None
     return model, optimizer, scheduler, optimizer_d, scheduler_d
 
 
@@ -216,7 +235,7 @@ def cosyvoice_join(group_join, info_dict):
         return False
 
 
-def batch_forward(model, batch, info_dict):
+def batch_forward(model, batch, scaler, info_dict):
     device = int(os.environ.get('LOCAL_RANK', 0))
 
     dtype = info_dict["dtype"]
@@ -228,7 +247,7 @@ def batch_forward(model, batch, info_dict):
         dtype = torch.float32
 
     if info_dict['train_engine'] == 'torch_ddp':
-        autocast = nullcontext()
+        autocast = torch.cuda.amp.autocast(enabled=scaler is not None)
     else:
         autocast = torch.cuda.amp.autocast(enabled=True, dtype=dtype, cache_enabled=False)
 
@@ -237,27 +256,40 @@ def batch_forward(model, batch, info_dict):
     return info_dict
 
 
-def batch_backward(model, info_dict):
+def batch_backward(model, scaler, info_dict):
     if info_dict["train_engine"] == "deepspeed":
         scaled_loss = model.backward(info_dict['loss_dict']['loss'])
     else:
         scaled_loss = info_dict['loss_dict']['loss'] / info_dict['accum_grad']
-        scaled_loss.backward()
+        if scaler is not None:
+            scaler.scale(scaled_loss).backward()
+        else:
+            scaled_loss.backward()
 
     info_dict['loss_dict']['loss'] = scaled_loss
     return info_dict
 
 
-def update_parameter_and_lr(model, optimizer, scheduler, info_dict):
+def update_parameter_and_lr(model, optimizer, scheduler, scaler, info_dict):
     grad_norm = 0.0
     if info_dict['train_engine'] == "deepspeed":
         info_dict["is_gradient_accumulation_boundary"] = model.is_gradient_accumulation_boundary()
         model.step()
         grad_norm = model.get_global_grad_norm()
     elif (info_dict['batch_idx'] + 1) % info_dict["accum_grad"] == 0:
-        grad_norm = clip_grad_norm_(model.parameters(), info_dict['grad_clip'])
-        if torch.isfinite(grad_norm):
-            optimizer.step()
+        # Use mixed precision training
+        if scaler is not None:
+            scaler.unscale_(optimizer)
+            grad_norm = clip_grad_norm_(model.parameters(), info_dict['grad_clip'])
+            # We don't check grad here since that if the gradient
+            # has inf/nan values, scaler.step will skip
+            # optimizer.step().
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            grad_norm = clip_grad_norm_(model.parameters(), info_dict['grad_clip'])
+            if torch.isfinite(grad_norm):
+                optimizer.step()
         optimizer.zero_grad()
         scheduler.step()
     info_dict["lr"] = optimizer.param_groups[0]['lr']

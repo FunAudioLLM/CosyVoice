@@ -141,7 +141,7 @@ mel_spec_transform1: !name:matcha.utils.audio.mel_spectrogram
     hop_size: 256
     win_size: 1024
     fmin: 0
-    fmax: 8000
+    fmax: null
     center: False
 hifigan: !new:cosyvoice.hifigan.hifigan.HiFiGan
     generator: !ref <hift>

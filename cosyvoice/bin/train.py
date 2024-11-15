@@ -118,9 +118,15 @@ def main():
 
     # load checkpoint
     model = configs[args.model]
+    start_step, start_epoch = 0, -1
     if args.checkpoint is not None:
         if os.path.exists(args.checkpoint):
-            model.load_state_dict(torch.load(args.checkpoint, map_location='cpu'), strict=False)
+            state_dict = torch.load(args.checkpoint, map_location='cpu')
+            model.load_state_dict(state_dict, strict=False)
+            if 'step' in state_dict:
+                start_step = state_dict['step']
+            if 'epoch' in state_dict:
+                start_epoch = state_dict['epoch']
         else:
             logging.warning('checkpoint {} do not exsist!'.format(args.checkpoint))
 
@@ -129,19 +135,25 @@ def main():
 
     # Get optimizer & scheduler
     model, optimizer, scheduler, optimizer_d, scheduler_d = init_optimizer_and_scheduler(args, configs, model, gan)
+    scheduler.set_step(start_step)
+    if scheduler_d is not None:
+        scheduler_d.set_step(start_step)
 
     # Save init checkpoints
     info_dict = deepcopy(configs['train_conf'])
+    info_dict['step'] = start_step
+    info_dict['epoch'] = start_epoch
     save_model(model, 'init', info_dict)
 
     # Get executor
     executor = Executor(gan=gan)
+    executor.step = start_step
 
     # Init scaler, used for pytorch amp mixed precision training
     scaler = torch.cuda.amp.GradScaler() if args.use_amp else None
-
+    print('start step {} start epoch {}'.format(start_step, start_epoch))
     # Start training loop
-    for epoch in range(info_dict['max_epoch']):
+    for epoch in range(start_epoch + 1, info_dict['max_epoch']):
         executor.epoch = epoch
         train_dataset.set_epoch(epoch)
         dist.barrier()

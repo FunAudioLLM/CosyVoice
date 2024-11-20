@@ -252,7 +252,7 @@ def main():
     demo.queue(max_size=4, default_concurrency_limit=2)
     demo.launch(server_name='0.0.0.0', server_port=args.port)
 
-def generate_wav(audio_data, sample_rate, filename):
+def generate_wav(audio_data, sample_rate):
     """
     使用 pydub 将音频数据转换为 WAV 格式。
     :param audio_data: numpy 数组，音频数据
@@ -286,6 +286,7 @@ def generate_wav(audio_data, sample_rate, filename):
         channels = channels
     )
     # 指定保存文件的路径
+    filename = f"{str(uuid.uuid4())}.wav"
     wav_dir = "results/output"
     wav_path = os.path.join(wav_dir, filename)
     # 确保目录存在
@@ -345,8 +346,7 @@ async def tts(text:str, prompt_text:str, prompt_wav:UploadFile = File(...), spak
     # 获取音频数据
     target_sr, audio_data = audio
     # 使用自定义方法生成 WAV 格式
-    filename = f"{str(uuid.uuid4())}.wav"
-    wav_path = generate_wav(audio_data, target_sr, filename)
+    wav_path = generate_wav(audio_data, target_sr)
     # 返回音频响应
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
 
@@ -365,8 +365,7 @@ async def tts(text:str, spaker:float = 1.0):
   # 获取音频数据
     target_sr, audio_data = audio
     # 使用自定义方法生成 WAV 格式
-    filename = f"{str(uuid.uuid4())}.wav"
-    wav_path = generate_wav(audio_data, target_sr, filename)
+    wav_path = generate_wav(audio_data, target_sr)
     # 返回音频响应
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
 

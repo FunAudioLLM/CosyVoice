@@ -27,8 +27,8 @@ sys.path.append('{}/third_party/Matcha-TTS'.format(ROOT_DIR))
 from cosyvoice.cli.cosyvoice import CosyVoice
 from cosyvoice.utils.file_utils import load_wav, logging
 from cosyvoice.utils.common import set_all_random_seed
-from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import Response, StreamingResponse, JSONResponse, PlainTextResponse
+from fastapi import FastAPI, File, UploadFile, Query, Body
+from fastapi.responses import Response, StreamingResponse, JSONResponse, PlainTextResponse, FileResponse
 from starlette.middleware.cors import CORSMiddleware  #引入 CORS中间件模块
 from pydub import AudioSegment
 from io import BytesIO
@@ -287,7 +287,7 @@ def generate_wav(audio_data, sample_rate):
     )
     # 指定保存文件的路径
     filename = f"{str(uuid.uuid4())}.wav"
-    wav_dir = "results/output"
+    wav_dir = "results\output"
     wav_path = os.path.join(wav_dir, filename)
     # 确保目录存在
     if not os.path.exists(wav_dir):
@@ -309,13 +309,24 @@ app.add_middleware(
     allow_headers=["*"])  #允许跨域的headers，可以用来鉴别来源等作用。
 @app.get('/test')
 async def test():
+    """
+    测试接口，用于验证服务是否正常运行。
+    """
     return PlainTextResponse('success')
 
 @app.post('/fast_copy')
-async def tts(text:str, prompt_text:str, prompt_wav:UploadFile = File(...), spaker:float = 1.0):
+async def tts(
+    text:str = Body(..., description="输入合成文本"), 
+    prompt_text:str = Body(..., description="请输入prompt文本，需与prompt音频内容一致，暂时不支持自动识别"), 
+    prompt_wav:UploadFile = File(..., description="选择prompt音频文件，注意采样率不低于16khz"), 
+    spaker:float = Body(1.0, description="语速调节(0.5-2.0)")
+):
+    """
+    用户自定义音色语音合成接口。
+    """
     ###################### 读取上传的音频文件 ######################
     # 指定保存文件的路径
-    prompt_wav_dir = "results/input"
+    prompt_wav_dir = "results\input"
     prompt_wav_upload = os.path.join(prompt_wav_dir, prompt_wav.filename)
     # 确保目录存在
     if not os.path.exists(prompt_wav_dir):
@@ -350,13 +361,20 @@ async def tts(text:str, prompt_text:str, prompt_wav:UploadFile = File(...), spak
     # 返回音频响应
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
 
-@app.get('/tts')
-async def tts(text:str, spaker:float = 1.0):
+@app.post('/tts')
+async def tts(
+    text:str = Body(..., description="输入合成文本"), 
+    sft_dropdown:str = Body('中文女', description="输入预训练音色"), 
+    spaker:float = Body(1.0, description="语速调节(0.5-2.0)")
+):
+    """
+    使用预训练音色模型的语音合成接口。
+    """
     seed_data = generate_seed()
     seed = seed_data["value"]
     # 调用 generate_audio
     errcode, errmsg, audio = generate_audio(
-        text, '预训练音色', '中文女', '', None, None, '', 
+        text, '预训练音色', sft_dropdown, '', None, None, '', 
         seed=seed, stream=1, speed=spaker
     )
     # 检查返回值中的错误码
@@ -368,6 +386,16 @@ async def tts(text:str, spaker:float = 1.0):
     wav_path = generate_wav(audio_data, target_sr)
     # 返回音频响应
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
+
+@app.get('/download')
+async def download(
+    wav_path:str = Query(..., description="输入wav文件路径"), 
+    name:str = Query(..., description="输入wav文件名")
+):    
+    """
+    音频文件下载接口。
+    """
+    return FileResponse(path=wav_path, filename=name, media_type='application/octet-stream')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--webui',

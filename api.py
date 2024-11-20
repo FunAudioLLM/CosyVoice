@@ -21,13 +21,14 @@ import torchaudio
 import random
 import librosa
 import uvicorn
+import uuid
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/third_party/Matcha-TTS'.format(ROOT_DIR))
 from cosyvoice.cli.cosyvoice import CosyVoice
 from cosyvoice.utils.file_utils import load_wav, logging
 from cosyvoice.utils.common import set_all_random_seed
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse, JSONResponse, PlainTextResponse
+from fastapi import FastAPI, File, UploadFile
+from fastapi.responses import Response, StreamingResponse, JSONResponse, PlainTextResponse
 from starlette.middleware.cors import CORSMiddleware  #引入 CORS中间件模块
 from pydub import AudioSegment
 from io import BytesIO
@@ -42,14 +43,12 @@ instruct_dict = {'预训练音色': '1. 选择预训练音色\n2. 点击生成�
 stream_mode_list = [('否', False), ('是', True)]
 max_val = 0.8
 
-
 def generate_seed():
     seed = random.randint(1, 100000000)
     return {
         "__type__": "update",
         "value": seed
     }
-
 
 def postprocess(speech, top_db=60, hop_length=220, win_length=440):
     speech, _ = librosa.effects.trim(
@@ -62,10 +61,13 @@ def postprocess(speech, top_db=60, hop_length=220, win_length=440):
     speech = torch.concat([speech, torch.zeros(1, int(target_sr * 0.2))], dim=1)
     return speech
 
-
 def change_instruction(mode_checkbox_group):
     return instruct_dict[mode_checkbox_group]
 
+# 定义一个函数进行显存清理
+def clear_cuda_cache():
+    torch.cuda.empty_cache()
+    print("CUDA cache cleared!")
 
 def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text,
                    seed, stream, speed):
@@ -160,6 +162,7 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
             for i in cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text, stream=stream, speed=speed):
                 generated_audio_list.append(i['tts_speech'].numpy().flatten())
 
+        clear_cuda_cache()
         # 合并所有音频片段为一整段
         if generated_audio_list:
             errcode = 0
@@ -184,18 +187,16 @@ def gradio_generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_te
         tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record,
         instruct_text, seed, stream, speed
     )
-    
     # 根据结果返回 Gradio 的更新
     if errcode == 0:  # 正常
         return (
-            gr.update(value="", visible=False),  # 隐藏错误码
             gr.update(value="", visible=False),  # 隐藏错误信息
             audio_data                           # 返回音频
         )
     else:  # 异常
+        error_display = f"错误码: {errcode}\n错误信息: {errmsg}"
         return (
-            gr.update(value=str(errcode), visible=True),  # 显示错误码
-            gr.update(value=errmsg, visible=True),        # 显示错误信息
+            gr.update(value=error_display, visible=True), # 显示错误信息
             audio_data                                    # 无音频输出
         )
         
@@ -225,44 +226,78 @@ def main():
         instruct_text = gr.Textbox(label="输入instruct文本", lines=1, placeholder="请输入instruct文本.", value='')
 
         generate_button = gr.Button("生成音频")
-
-        error_code_output = gr.Textbox(label="错误码", visible=False)
-        error_message_output = gr.Textbox(label="错误信息", visible=False)
+        error_output = gr.Textbox(label="错误信息", visible=False)
         audio_output = gr.Audio(label="合成音频", autoplay=True, streaming=True)
-
+        # 定义重置函数（用于初始化时隐藏错误信息）
+        def reset_error_outputs():
+            return (
+                gr.update(value="", visible=False)
+            )
         seed_button.click(generate_seed, inputs=[], outputs=seed)
-        generate_button.click(gradio_generate_audio,
-                            inputs=[
-                                tts_text, mode_checkbox_group, sft_dropdown, 
-                                prompt_text, prompt_wav_upload, prompt_wav_record, 
-                                instruct_text, seed, stream, speed
-                            ],
-                            outputs=[error_code_output, 
-                                     error_message_output, 
-                                     audio_output
-                            ]
+        generate_button.click(
+            reset_error_outputs,  # 重置错误信息的状态
+            inputs=[],
+            outputs=[error_output]
+        ).then(gradio_generate_audio,
+            inputs=[
+                tts_text, mode_checkbox_group, sft_dropdown, 
+                prompt_text, prompt_wav_upload, prompt_wav_record, 
+                instruct_text, seed, stream, speed
+            ],
+            outputs=[error_output, 
+                    audio_output
+            ]
         )
         mode_checkbox_group.change(fn=change_instruction, inputs=[mode_checkbox_group], outputs=[instruction_text])
     demo.queue(max_size=4, default_concurrency_limit=2)
     demo.launch(server_name='0.0.0.0', server_port=args.port)
 
-def generate_wav(audio_data, sample_rate):
+def generate_wav(audio_data, sample_rate, filename):
     """
     使用 pydub 将音频数据转换为 WAV 格式。
     :param audio_data: numpy 数组，音频数据
     :param sample_rate: int，采样率
     :return: BytesIO 对象，包含 WAV 数据
     """
+    # 检测音频数据类型
+    sample_width = 2
+    # audio_data 是 NumPy 数组
+    if audio_data.dtype == np.float32:
+        # 如果是 float32 数据，量化到 int16
+        audio_data = (audio_data * 32767).astype(np.int16)
+        sample_width = 2  # 16-bit (2 bytes per sample)
+    elif audio_data.dtype == np.int16:
+        sample_width = 2  # 16-bit (2 bytes per sample)
+    elif audio_data.dtype == np.int8:
+        audio_data = audio_data.astype(np.int16) * 256  # 转换为 int16
+        sample_width = 2  # 16-bit
+    # 检测声道数
+    channels = 1        
+
+    if len(audio_data.shape) == 1:  # 单声道
+        channels = 1
+    elif len(audio_data.shape) == 2:  # 多声道
+        channels = audio_data.shape[1]
+
     audio_segment = AudioSegment(
         audio_data.tobytes(),
-        frame_rate=sample_rate,
-        sample_width=2,  # 16-bit (2 bytes per sample)
-        channels=1       # 单声道
+        frame_rate = sample_rate,
+        sample_width = sample_width,
+        channels = channels
     )
-    buffer = BytesIO()
-    audio_segment.export(buffer, format="wav")
-    buffer.seek(0)  # 将指针移到开头
-    return buffer
+    # 指定保存文件的路径
+    wav_dir = "results/output"
+    wav_path = os.path.join(wav_dir, filename)
+    # 确保目录存在
+    if not os.path.exists(wav_dir):
+        os.makedirs(wav_dir)
+    # 如果文件已存在，先删除
+    if os.path.exists(wav_path):
+        os.remove(wav_path)
+
+    audio_segment.export(wav_path, format="wav")
+
+    return wav_path
 
 app=FastAPI()
 app.add_middleware(
@@ -275,8 +310,48 @@ app.add_middleware(
 async def test():
     return PlainTextResponse('success')
 
+@app.post('/fast_copy')
+async def tts(text:str, prompt_text:str, prompt_wav:UploadFile = File(...), spaker:float = 1.0):
+    ###################### 读取上传的音频文件 ######################
+    # 指定保存文件的路径
+    prompt_wav_dir = "results/input"
+    prompt_wav_upload = os.path.join(prompt_wav_dir, prompt_wav.filename)
+    # 确保目录存在
+    if not os.path.exists(prompt_wav_dir):
+        os.makedirs(prompt_wav_dir)
+    # 如果文件已存在，先删除
+    if os.path.exists(prompt_wav_upload):
+        os.remove(prompt_wav_upload)
+
+    print(f"接收上传prompt_wav请求 {prompt_wav_upload}")
+    try:
+        # 保存上传的音频文件
+        with open(prompt_wav_upload, "wb") as f:
+            f.write(await prompt_wav.read())
+    except Exception as e:
+        return JSONResponse({"errcode": -1, "errmsg": f"音频文件保存失败: {str(e)}"})
+    
+    ###################### generate_audio ######################
+    seed_data = generate_seed()
+    seed = seed_data["value"]
+    # 调用 generate_audio
+    errcode, errmsg, audio = generate_audio(
+        text, '3s极速复刻', '', prompt_text, prompt_wav_upload, None, '', 
+        seed=seed, stream=1, speed=spaker
+    )
+    # 检查返回值中的错误码
+    if errcode != 0:
+       return JSONResponse({"errcode": errcode, "errmsg": errmsg})
+    # 获取音频数据
+    target_sr, audio_data = audio
+    # 使用自定义方法生成 WAV 格式
+    filename = f"{str(uuid.uuid4())}.wav"
+    wav_path = generate_wav(audio_data, target_sr, filename)
+    # 返回音频响应
+    return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
+
 @app.get('/tts')
-async def tts(text:str, spaker:str):
+async def tts(text:str, spaker:float = 1.0):
     seed_data = generate_seed()
     seed = seed_data["value"]
     # 调用 generate_audio
@@ -287,15 +362,13 @@ async def tts(text:str, spaker:str):
     # 检查返回值中的错误码
     if errcode != 0:
        return JSONResponse({"errcode": errcode, "errmsg": errmsg})
-
   # 获取音频数据
     target_sr, audio_data = audio
-
     # 使用自定义方法生成 WAV 格式
-    wav_data = generate_wav(audio_data, target_sr).getvalue()
-
+    filename = f"{str(uuid.uuid4())}.wav"
+    wav_path = generate_wav(audio_data, target_sr, filename)
     # 返回音频响应
-    return Response(wav_data, media_type="audio/wav")
+    return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--webui',

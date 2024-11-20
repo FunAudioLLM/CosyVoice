@@ -27,7 +27,7 @@ sys.path.append('{}/third_party/Matcha-TTS'.format(ROOT_DIR))
 from cosyvoice.cli.cosyvoice import CosyVoice
 from cosyvoice.utils.file_utils import load_wav, logging
 from cosyvoice.utils.common import set_all_random_seed
-from fastapi import FastAPI, File, UploadFile, Query, Body
+from fastapi import FastAPI, File, UploadFile, Query, Body, Form
 from fastapi.responses import Response, StreamingResponse, JSONResponse, PlainTextResponse, FileResponse
 from starlette.middleware.cors import CORSMiddleware  #引入 CORS中间件模块
 from pydub import AudioSegment
@@ -315,11 +315,11 @@ async def test():
     return PlainTextResponse('success')
 
 @app.post('/fast_copy')
-async def tts(
-    text:str = Body(..., description="输入合成文本"), 
-    prompt_text:str = Body(..., description="请输入prompt文本，需与prompt音频内容一致，暂时不支持自动识别"), 
+async def fast_copy(
+    text:str = Form(..., description="输入合成文本"), 
+    prompt_text:str = Form(..., description="请输入prompt文本，需与prompt音频内容一致，暂时不支持自动识别"), 
     prompt_wav:UploadFile = File(..., description="选择prompt音频文件，注意采样率不低于16khz"), 
-    spaker:float = Body(1.0, description="语速调节(0.5-2.0)")
+    spaker:float = Form(1.0, description="语速调节(0.5-2.0)")
 ):
     """
     用户自定义音色语音合成接口。
@@ -363,9 +363,9 @@ async def tts(
 
 @app.post('/tts')
 async def tts(
-    text:str = Body(..., description="输入合成文本"), 
-    sft_dropdown:str = Body('中文女', description="输入预训练音色"), 
-    spaker:float = Body(1.0, description="语速调节(0.5-2.0)")
+    text:str = Form(..., description="输入合成文本"), 
+    sft_dropdown:str = Form('中文女', description="输入预训练音色"), 
+    spaker:float = Form(1.0, description="语速调节(0.5-2.0)")
 ):
     """
     使用预训练音色模型的语音合成接口。

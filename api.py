@@ -300,7 +300,7 @@ def generate_wav(audio_data, sample_rate):
 
     return wav_path
 
-app=FastAPI()
+app = FastAPI(docs_url="/docs")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  #设置允许的origins来源

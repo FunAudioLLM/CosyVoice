@@ -80,6 +80,7 @@ class CosyVoiceFrontEnd:
         return text_token, text_token_len
 
     def _extract_speech_token(self, speech):
+        print('extract speech token')
         assert speech.shape[1] / 16000 <= 30, 'do not support extract speech token for audio longer than 30s'
         feat = whisper.log_mel_spectrogram(speech, n_mels=128)
         speech_token = self.speech_tokenizer_session.run(None,
@@ -92,6 +93,7 @@ class CosyVoiceFrontEnd:
         return speech_token, speech_token_len
 
     def _extract_spk_embedding(self, speech):
+        print('extract spk embedding')
         feat = kaldi.fbank(speech,
                            num_mel_bins=80,
                            dither=0,
@@ -103,6 +105,7 @@ class CosyVoiceFrontEnd:
         return embedding
 
     def _extract_speech_feat(self, speech):
+        print('extract speech feat')
         speech_feat = self.feat_extractor(speech).squeeze(dim=0).transpose(0, 1).to(self.device)
         speech_feat = speech_feat.unsqueeze(dim=0)
         speech_feat_len = torch.tensor([speech_feat.shape[1]], dtype=torch.int32).to(self.device)
@@ -142,13 +145,26 @@ class CosyVoiceFrontEnd:
         model_input = {'text': tts_text_token, 'text_len': tts_text_token_len, 'llm_embedding': embedding, 'flow_embedding': embedding}
         return model_input
 
-    def frontend_zero_shot(self, tts_text, prompt_text, prompt_speech_16k):
+    def frontend_zero_shot(self, tts_text, prompt_text, prompt_speech_16k, 
+            embedding = None, speech_feat_obj = None, speech_token_obj = None
+        ):
         tts_text_token, tts_text_token_len = self._extract_text_token(tts_text)
         prompt_text_token, prompt_text_token_len = self._extract_text_token(prompt_text)
-        prompt_speech_22050 = torchaudio.transforms.Resample(orig_freq=16000, new_freq=22050)(prompt_speech_16k)
-        speech_feat, speech_feat_len = self._extract_speech_feat(prompt_speech_22050)
-        speech_token, speech_token_len = self._extract_speech_token(prompt_speech_16k)
-        embedding = self._extract_spk_embedding(prompt_speech_16k)
+
+        if speech_feat_obj is None:
+            prompt_speech_22050 = torchaudio.transforms.Resample(orig_freq=16000, new_freq=22050)(prompt_speech_16k)
+            speech_feat, speech_feat_len = self._extract_speech_feat(prompt_speech_22050)
+        else:
+            speech_feat, speech_feat_len = speech_feat_obj
+
+        if speech_token_obj is None:
+            speech_token, speech_token_len = self._extract_speech_token(prompt_speech_16k)
+        else:
+            speech_token, speech_token_len = speech_token_obj
+
+        if embedding is None:
+            embedding = self._extract_spk_embedding(prompt_speech_16k)
+
         model_input = {'text': tts_text_token, 'text_len': tts_text_token_len,
                        'prompt_text': prompt_text_token, 'prompt_text_len': prompt_text_token_len,
                        'llm_prompt_speech_token': speech_token, 'llm_prompt_speech_token_len': speech_token_len,

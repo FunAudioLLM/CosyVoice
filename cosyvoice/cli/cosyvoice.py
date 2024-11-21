@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 import time
+import torchaudio
 from tqdm import tqdm
 from hyperpyyaml import load_hyperpyyaml
 from modelscope import snapshot_download
@@ -66,12 +67,21 @@ class CosyVoice:
 
     def inference_zero_shot(self, tts_text, prompt_text, prompt_speech_16k, stream=False, speed=1.0):
         prompt_text = self.frontend.text_normalize(prompt_text, split=False)
+        prompt_speech_22050 = torchaudio.transforms.Resample(orig_freq=16000, new_freq=22050)(prompt_speech_16k)
+        speech_feat, speech_feat_len = self.frontend._extract_speech_feat(prompt_speech_22050)
+        speech_token, speech_token_len = self.frontend._extract_speech_token(prompt_speech_16k)
+        embedding = self.frontend._extract_spk_embedding(prompt_speech_16k)
+
         for i in tqdm(self.frontend.text_normalize(tts_text, split=True)):
             if len(i) < 0.5 * len(prompt_text):
                 logging.warning('synthesis text {} too short than prompt text {}, this may lead to bad performance'.format(i, prompt_text))
-            model_input = self.frontend.frontend_zero_shot(i, prompt_text, prompt_speech_16k)
+            
+            model_input = self.frontend.frontend_zero_shot(i, prompt_text, prompt_speech_16k, embedding, 
+                                                           (speech_feat, speech_feat_len), 
+                                                           (speech_token, speech_token_len))
             start_time = time.time()
             logging.info('synthesis text {}'.format(i))
+
             for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
                 speech_len = model_output['tts_speech'].shape[1] / 22050
                 logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))

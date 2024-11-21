@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 import sys
+import datetime
 import argparse
 import gradio as gr
 import numpy as np
@@ -64,6 +65,28 @@ def postprocess(speech, top_db=60, hop_length=220, win_length=440):
 def change_instruction(mode_checkbox_group):
     return instruct_dict[mode_checkbox_group]
 
+def log_error(exception: Exception, log_dir='error'):
+    """
+    记录错误信息到指定目录，并按日期时间命名文件。
+
+    :param exception: 捕获的异常对象
+    :param log_dir: 错误日志存储的目录，默认为 'error'
+    """
+    # 确保日志目录存在
+    os.makedirs(log_dir, exist_ok=True)
+    # 获取当前时间戳，格式化为 YYYY-MM-DD_HH-MM-SS
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    # 创建日志文件路径
+    log_file_path = os.path.join(log_dir, f'error_{timestamp}.log')
+    # 写入错误信息到文件
+    with open(log_file_path, 'w') as log_file:
+        log_file.write(f"Error occurred at {timestamp}\n")
+        log_file.write(f"Error Message: {str(exception)}\n")
+        log_file.write("Traceback:\n")
+        log_file.write(str(exception.__traceback__) + '\n')
+    
+    print(f"错误信息已保存至: {log_file_path}")
+    
 # 定义一个函数进行显存清理
 def clear_cuda_cache():
     torch.cuda.empty_cache()
@@ -174,6 +197,7 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
             errmsg = "音频生成失败，未收到有效的音频数据。"
             return errcode, errmsg, (target_sr, default_data)
     except Exception as e:
+        log_error(e)
         errcode = -1
         errmsg = f"音频生成失败，错误信息：{str(e)}"
         logging.error(errmsg)
@@ -421,5 +445,6 @@ if __name__ == '__main__':
         try:
             uvicorn.run(app="api:app", host="0.0.0.0", port=args.port, workers=1, reload=True)
         except Exception as e:
+            log_error(e)
             print(e)
             exit(0)

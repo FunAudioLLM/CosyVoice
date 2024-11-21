@@ -14,6 +14,7 @@
 import os
 import sys
 import datetime
+import traceback
 import argparse
 import gradio as gr
 import numpy as np
@@ -78,15 +79,17 @@ def log_error(exception: Exception, log_dir='error'):
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     # 创建日志文件路径
     log_file_path = os.path.join(log_dir, f'error_{timestamp}.log')
+    # 使用 traceback 模块获取详细的错误信息
+    error_traceback = traceback.format_exc()
     # 写入错误信息到文件
     with open(log_file_path, 'w') as log_file:
-        log_file.write(f"Error occurred at {timestamp}\n")
-        log_file.write(f"Error Message: {str(exception)}\n")
-        log_file.write("Traceback:\n")
-        log_file.write(str(exception.__traceback__) + '\n')
+        log_file.write(f"错误发生时间: {timestamp}\n")
+        log_file.write(f"错误信息: {str(exception)}\n")
+        log_file.write("堆栈信息:\n")
+        log_file.write(error_traceback + '\n')
     
     print(f"错误信息已保存至: {log_file_path}")
-    
+
 # 定义一个函数进行显存清理
 def clear_cuda_cache():
     torch.cuda.empty_cache()

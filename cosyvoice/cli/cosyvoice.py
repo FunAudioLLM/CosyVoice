@@ -154,7 +154,7 @@ class CosyVoice:
 
         final_audio = self.crossfade_segments(generated_segments, overlap, target_sr)
 
-        print(f"Final length: {len(final_audio)}")
+        logging.info(f"Final length: {len(final_audio)}")
 
         yield final_audio
 
@@ -163,7 +163,7 @@ class CosyVoice:
         samples_per_segment = int(segment_length * sample_rate)
         overlap_samples = int(overlap * sample_rate)
         total_samples = audio.size(1)
-        print(f'total_samples: {total_samples}')
+        logging.info(f'total_samples: {total_samples}')
         if total_samples <= samples_per_segment:
             # 如果音频小于等于一个段长度，直接返回整段
             return [audio]
@@ -203,7 +203,7 @@ class CosyVoice:
                 # Concatenate the non-overlapping parts
                 result = np.concatenate([result[:-actual_overlap], crossfaded, segments[i][actual_overlap:]])
         
-        print(f'crossfade_segments: {len(result)}')
+        logging.info(f'crossfade_segments: {len(result)}')
         # Ensure the final length is within the expected range
         total_samples = sum(len(segment) for segment in segments)
 

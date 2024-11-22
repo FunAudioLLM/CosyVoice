@@ -49,7 +49,7 @@ max_val = 0.8
 
 def generate_seed():
     seed = random.randint(1, 100000000)
-    print(f'seed: {seed}')
+    logging.info(f'seed: {seed}')
     return {
         "__type__": "update",
         "value": seed
@@ -91,19 +91,19 @@ def log_error(exception: Exception, log_dir='error'):
         log_file.write("堆栈信息:\n")
         log_file.write(error_traceback + '\n')
     
-    print(f"错误信息已保存至: {log_file_path}")
+    logging.info(f"错误信息已保存至: {log_file_path}")
 
 # 定义一个函数进行显存清理
 def clear_cuda_cache():
     torch.cuda.empty_cache()
-    print("CUDA cache cleared!")
+    logging.info("CUDA cache cleared!")
 
 def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav, instruct_text,
                    seed, stream, speed, source_wav):
     errcode = 0
     errmsg = ''
-    print(f'prompt_wav: {prompt_wav}')
-    print(f'source_wav: {source_wav}')
+    logging.info(f'prompt_wav: {prompt_wav}')
+    logging.info(f'source_wav: {source_wav}')
     # if instruct mode, please make sure that model is iic/CosyVoice-300M-Instruct and not cross_lingual mode
     if mode_checkbox_group in ['自然语言控制']:
         if cosyvoice.frontend.instruct is False:
@@ -209,7 +209,7 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
             errcode = 0
             errmsg = 'ok'
             full_audio = np.concatenate(generated_audio_list)
-            print(f'full_audio: {full_audio.dtype}')
+            logging.info(f'full_audio: {full_audio.dtype}')
             return errcode, errmsg, (target_sr, full_audio)
         else:
             errcode = -2
@@ -392,7 +392,7 @@ async def seed_vc(
     if os.path.exists(prompt_wav_upload):
         os.remove(prompt_wav_upload)
 
-    print(f"接收上传prompt_wav请求 {prompt_wav_upload}")
+    logging.info(f"接收上传prompt_wav请求 {prompt_wav_upload}")
     try:
         # 保存上传的音频文件
         with open(prompt_wav_upload, "wb") as f:
@@ -405,7 +405,7 @@ async def seed_vc(
     if os.path.exists(source_wav_upload):
         os.remove(source_wav_upload)
 
-    print(f"接收上传source_wav请求 {source_wav_upload}")
+    logging.info(f"接收上传source_wav请求 {source_wav_upload}")
     try:
         # 保存上传的音频文件
         with open(source_wav_upload, "wb") as f:
@@ -455,7 +455,7 @@ async def fast_copy(
     if os.path.exists(prompt_wav_upload):
         os.remove(prompt_wav_upload)
 
-    print(f"接收上传prompt_wav请求 {prompt_wav_upload}")
+    logging.info(f"接收上传prompt_wav请求 {prompt_wav_upload}")
     try:
         # 保存上传的音频文件
         with open(prompt_wav_upload, "wb") as f:

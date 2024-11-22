@@ -31,7 +31,7 @@ except ImportError:
     from tn.english.normalizer import Normalizer as EnNormalizer
     use_ttsfrd = False
 from cosyvoice.utils.frontend_utils import contains_chinese, replace_blank, replace_corner_mark, remove_bracket, spell_out_number, split_paragraph
-
+from cosyvoice.utils.file_utils import logging
 
 class CosyVoiceFrontEnd:
 
@@ -80,7 +80,7 @@ class CosyVoiceFrontEnd:
         return text_token, text_token_len
 
     def _extract_speech_token(self, speech):
-        print('extract speech token')
+        logging.info('extract speech token')
         assert speech.shape[1] / 16000 <= 30, 'do not support extract speech token for audio longer than 30s'
         feat = whisper.log_mel_spectrogram(speech, n_mels=128)
         speech_token = self.speech_tokenizer_session.run(None,
@@ -93,7 +93,7 @@ class CosyVoiceFrontEnd:
         return speech_token, speech_token_len
 
     def _extract_spk_embedding(self, speech):
-        print('extract spk embedding')
+        logging.info('extract spk embedding')
         feat = kaldi.fbank(speech,
                            num_mel_bins=80,
                            dither=0,
@@ -105,7 +105,7 @@ class CosyVoiceFrontEnd:
         return embedding
 
     def _extract_speech_feat(self, speech):
-        print('extract speech feat')
+        logging.info('extract speech feat')
         speech_feat = self.feat_extractor(speech).squeeze(dim=0).transpose(0, 1).to(self.device)
         speech_feat = speech_feat.unsqueeze(dim=0)
         speech_feat_len = torch.tensor([speech_feat.shape[1]], dtype=torch.int32).to(self.device)

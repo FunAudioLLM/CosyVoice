@@ -16,9 +16,24 @@
 import json
 import torchaudio
 import logging
+from tqdm import tqdm
+
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)s %(message)s')
+
+# 自定义一个 TqdmLoggingHandler
+class TqdmLoggingHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            tqdm.write(msg)  # 将日志写入 tqdm 的 write 方法
+        except Exception:
+            self.handleError(record)
+
+logging.basicConfig(
+    level = logging.INFO,
+    format = '%(asctime)s %(levelname)s %(message)s',
+    handlers = [TqdmLoggingHandler()]  # 使用自定义 Handler
+)
 
 
 def read_lists(list_file):

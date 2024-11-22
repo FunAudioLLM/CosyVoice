@@ -363,6 +363,36 @@ def generate_wav(audio_data, sample_rate):
 
     return wav_path
 
+async def save_upload_to_wav(upload_file: UploadFile, prefix: str):
+    """保存上传文件并转换为 WAV 格式（如果需要）"""
+    # 指定保存文件的路径
+    input_wav_dir = "results\input"
+    # 确保目录存在
+    os.makedirs(input_wav_dir, exist_ok=True)
+    # 构造文件路径
+    file_upload_path = os.path.join(input_wav_dir, f'{prefix}{upload_file.filename}')
+    # 删除同名已存在的文件
+    if os.path.exists(file_upload_path):
+        os.remove(file_upload_path)
+
+    logging.info(f"接收上传{upload_file.filename}请求 {file_upload_path}")
+
+    try:
+        # 保存上传的音频文件
+        with open(file_upload_path, "wb") as f:
+            f.write(await upload_file.read())
+        # 检查文件格式并转换为 WAV（如果需要）
+        if not file_upload_path.lower().endswith(".wav"):
+            audio = AudioSegment.from_file(file_upload_path)
+            wav_path = os.path.splitext(file_upload_path)[0] + ".wav"
+            audio.export(wav_path, format="wav")
+            os.remove(file_upload_path)  # 删除原始文件
+            file_upload_path = wav_path
+
+        return file_upload_path
+    except Exception as e:
+        raise Exception(f"{upload_file.filename}音频文件保存或转换失败: {str(e)}")
+    
 app = FastAPI(docs_url="/docs")
 app.add_middleware(
     CORSMiddleware,
@@ -386,32 +416,11 @@ async def seed_vc(
     """
     用户自定义语音音色复刻接口。
     """
-    ############################## prompt_wav ##############################
-    prompt_wav_upload = os.path.join(input_wav_dir, f'p{prompt_wav.filename}')
-
-    if os.path.exists(prompt_wav_upload):
-        os.remove(prompt_wav_upload)
-
-    logging.info(f"接收上传prompt_wav请求 {prompt_wav_upload}")
     try:
-        # 保存上传的音频文件
-        with open(prompt_wav_upload, "wb") as f:
-            f.write(await prompt_wav.read())
+        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p")
+        source_wav_upload = await save_upload_to_wav(source_wav, "s")
     except Exception as e:
-        return JSONResponse({"errcode": -1, "errmsg": f"prompt_wav音频文件保存失败: {str(e)}"})
-    ############################## source_wav ##############################
-    source_wav_upload = os.path.join(input_wav_dir, f's{source_wav.filename}')
-    # 如果文件已存在，先删除
-    if os.path.exists(source_wav_upload):
-        os.remove(source_wav_upload)
-
-    logging.info(f"接收上传source_wav请求 {source_wav_upload}")
-    try:
-        # 保存上传的音频文件
-        with open(source_wav_upload, "wb") as f:
-            f.write(await source_wav.read())
-    except Exception as e:
-        return JSONResponse({"errcode": -1, "errmsg": f"source_wav音频文件保存失败: {str(e)}"})
+        return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################
     seed_data = generate_seed()
     seed = seed_data["value"]
@@ -448,20 +457,10 @@ async def fast_copy(
     """
     用户自定义音色语音合成接口。
     """
-    ############################## prompt_wav ##############################
-    # 指定保存文件的路径
-    prompt_wav_upload = os.path.join(input_wav_dir, f'p{prompt_wav.filename}')
-
-    if os.path.exists(prompt_wav_upload):
-        os.remove(prompt_wav_upload)
-
-    logging.info(f"接收上传prompt_wav请求 {prompt_wav_upload}")
     try:
-        # 保存上传的音频文件
-        with open(prompt_wav_upload, "wb") as f:
-            f.write(await prompt_wav.read())
+        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p")
     except Exception as e:
-        return JSONResponse({"errcode": -1, "errmsg": f"prompt_wav音频文件保存失败: {str(e)}"})
+        return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################
     seed_data = generate_seed()
     seed = seed_data["value"]
@@ -549,10 +548,6 @@ cosyvoice = CosyVoice(args.model_dir)
 sft_spk = cosyvoice.list_avaliable_spks()
 prompt_sr, target_sr = 16000, 22050
 default_data = np.zeros(target_sr)
-# 指定保存文件的路径
-input_wav_dir = "results\input"
-# 确保目录存在
-os.makedirs(input_wav_dir, exist_ok=True)
 
 if __name__ == '__main__':
     if args.webui:

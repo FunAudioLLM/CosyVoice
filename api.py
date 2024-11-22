@@ -34,14 +34,16 @@ from fastapi.responses import Response, StreamingResponse, JSONResponse, PlainTe
 from starlette.middleware.cors import CORSMiddleware  #引入 CORS中间件模块
 from pydub import AudioSegment
 from io import BytesIO
+from tqdm import tqdm
 #设置允许访问的域名
 origins = ["*"]  #"*"，即为所有。
 
-inference_mode_list = ['预训练音色', '3s极速复刻', '跨语种复刻', '自然语言控制']
+inference_mode_list = ['预训练音色', '3s极速复刻', '跨语种复刻', '自然语言控制', '语音复刻']
 instruct_dict = {'预训练音色': '1. 选择预训练音色\n2. 点击生成音频按钮',
                  '3s极速复刻': '1. 选择prompt音频文件，或录入prompt音频，注意不超过30s，若同时提供，优先选择prompt音频文件\n2. 输入prompt文本\n3. 点击生成音频按钮',
                  '跨语种复刻': '1. 选择prompt音频文件，或录入prompt音频，注意不超过30s，若同时提供，优先选择prompt音频文件\n2. 点击生成音频按钮',
-                 '自然语言控制': '1. 选择预训练音色\n2. 输入instruct文本\n3. 点击生成音频按钮'}
+                 '自然语言控制': '1. 选择预训练音色\n2. 输入instruct文本\n3. 点击生成音频按钮',
+                 '语音复刻': '1. 选择source音频文件\n2. 选择prompt音频文件，或录入prompt音频，注意不超过30s，若同时提供，优先选择prompt音频文件\n3. 点击生成音频按钮'}
 stream_mode_list = [('否', False), ('是', True)]
 max_val = 0.8
 
@@ -95,15 +97,8 @@ def clear_cuda_cache():
     torch.cuda.empty_cache()
     print("CUDA cache cleared!")
 
-def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text,
-                   seed, stream, speed):
-    if prompt_wav_upload is not None:
-        prompt_wav = prompt_wav_upload
-    elif prompt_wav_record is not None:
-        prompt_wav = prompt_wav_record
-    else:
-        prompt_wav = None
-    
+def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav, instruct_text,
+                   seed, stream, speed, source_wav):
     errcode = 0
     errmsg = ''
 
@@ -138,7 +133,7 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
         
         logging.info('您正在使用跨语种复刻模式, 请确保合成文本和prompt文本为不同语言')
     # if in zero_shot cross_lingual, please make sure that prompt_text and prompt_wav meets requirements
-    if mode_checkbox_group in ['3s极速复刻', '跨语种复刻']:
+    if mode_checkbox_group in ['3s极速复刻', '跨语种复刻', '语音复刻']:
         if prompt_wav is None:
             errcode = 6
             errmsg = 'prompt音频为空，您是否忘记输入prompt音频？'
@@ -162,6 +157,17 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
         if instruct_text != '':
             logging.info('您正在使用3s极速复刻模式，预训练音色/instruct文本会被忽略！')
 
+    if mode_checkbox_group in ['语音复刻']:
+        if source_wav is None:
+            errcode = 6
+            errmsg = 'source音频为空，您是否忘记输入prompt音频？'
+            return errcode, errmsg, (target_sr, default_data)
+        
+        if torchaudio.info(source_wav).sample_rate < prompt_sr:
+            errcode = 7
+            errmsg = 'source音频采样率{}低于{}'.format(torchaudio.info(source_wav).sample_rate, prompt_sr)
+            return errcode, errmsg, (target_sr, default_data)
+
     generated_audio_list = []  # 用于存储生成的音频片段
 
     try:
@@ -182,6 +188,13 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
             set_all_random_seed(seed)
             for i in cosyvoice.inference_cross_lingual(tts_text, prompt_speech_16k, stream=stream, speed=speed):
                 generated_audio_list.append(i['tts_speech'].numpy().flatten())
+        elif mode_checkbox_group == '语音复刻':
+            logging.info('get vc inference request')
+            prompt_speech_16k = postprocess(load_wav(prompt_wav, prompt_sr))
+            source_speech_16k = postprocess(load_wav(source_wav, prompt_sr))
+            set_all_random_seed(seed)
+            for i in cosyvoice.inference_vc_long(source_speech_16k, prompt_speech_16k, stream=stream, speed=speed):
+                generated_audio_list.append(i)   
         else:
             logging.info('get instruct inference request')
             set_all_random_seed(seed)
@@ -190,10 +203,12 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
 
         clear_cuda_cache()
         # 合并所有音频片段为一整段
-        if generated_audio_list:
+        if len(generated_audio_list) > 0:
             errcode = 0
             errmsg = 'ok'
             full_audio = np.concatenate(generated_audio_list)
+            print(full_audio.dtype)
+
             return errcode, errmsg, (target_sr, full_audio)
         else:
             errcode = -2
@@ -206,13 +221,18 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
         logging.error(errmsg)
         return errcode, errmsg, (target_sr, default_data)
     
+   
 # 包装处理逻辑
-def gradio_generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text,
-                   seed, stream, speed):
-    # 调用通用的 `generate_audio` 函数
+def gradio_generate_audio(tts_text, mode_checkbox_group, sft_dropdown, 
+                        prompt_text, prompt_wav, 
+                        instruct_text, seed, stream, speed,
+                        source_wav
+    ):
     errcode, errmsg, audio_data = generate_audio(
-        tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record,
-        instruct_text, seed, stream, speed
+        tts_text, mode_checkbox_group, sft_dropdown, 
+        prompt_text, prompt_wav,
+        instruct_text, seed, stream, speed,
+        source_wav
     )
     # 根据结果返回 Gradio 的更新
     if errcode == 0:  # 正常
@@ -247,8 +267,17 @@ def main():
                 seed = gr.Number(value=0, label="随机推理种子")
 
         with gr.Row():
-            prompt_wav_upload = gr.Audio(sources='upload', type='filepath', label='选择prompt音频文件，注意采样率不低于16khz')
-            prompt_wav_record = gr.Audio(sources='microphone', type='filepath', label='录制prompt音频文件')
+            source_wav = gr.Audio(
+                sources=['upload', 'microphone'],
+                type='filepath',
+                label='上传或录制source音频文件，注意采样率不低于16khz'
+            )
+            prompt_wav = gr.Audio(
+                sources=['upload', 'microphone'],
+                type='filepath',
+                label='上传或录制prompt音频文件，注意采样率不低于16khz'
+            )
+      
         prompt_text = gr.Textbox(label="输入prompt文本", lines=1, placeholder="请输入prompt文本，需与prompt音频内容一致，暂时不支持自动识别...", value='')
         instruct_text = gr.Textbox(label="输入instruct文本", lines=1, placeholder="请输入instruct文本.", value='')
 
@@ -268,8 +297,9 @@ def main():
         ).then(gradio_generate_audio,
             inputs=[
                 tts_text, mode_checkbox_group, sft_dropdown, 
-                prompt_text, prompt_wav_upload, prompt_wav_record, 
-                instruct_text, seed, stream, speed
+                prompt_text, prompt_wav, 
+                instruct_text, seed, stream, speed,
+                source_wav
             ],
             outputs=[error_output, 
                     audio_output
@@ -277,7 +307,7 @@ def main():
         )
         mode_checkbox_group.change(fn=change_instruction, inputs=[mode_checkbox_group], outputs=[instruction_text])
     demo.queue(max_size=4, default_concurrency_limit=2)
-    demo.launch(server_name='0.0.0.0', server_port=args.port)
+    demo.launch(server_name='0.0.0.0', server_port=args.port, debug=False)
 
 def generate_wav(audio_data, sample_rate):
     """
@@ -351,7 +381,6 @@ async def fast_copy(
     """
     用户自定义音色语音合成接口。
     """
-    ###################### 读取上传的音频文件 ######################
     # 指定保存文件的路径
     prompt_wav_dir = "results\input"
     prompt_wav_upload = os.path.join(prompt_wav_dir, prompt_wav.filename)
@@ -370,13 +399,12 @@ async def fast_copy(
     except Exception as e:
         return JSONResponse({"errcode": -1, "errmsg": f"音频文件保存失败: {str(e)}"})
     
-    ###################### generate_audio ######################
     seed_data = generate_seed()
     seed = seed_data["value"]
-    # 调用 generate_audio
     errcode, errmsg, audio = generate_audio(
-        text, '3s极速复刻', '', prompt_text, prompt_wav_upload, None, '', 
-        seed=seed, stream=1, speed=spaker
+        text, '3s极速复刻', '', prompt_text, prompt_wav_upload, '', 
+        seed = seed, stream = 1, speed = spaker, 
+        source_wav = None
     )
     # 检查返回值中的错误码
     if errcode != 0:
@@ -399,10 +427,10 @@ async def tts(
     """
     seed_data = generate_seed()
     seed = seed_data["value"]
-    # 调用 generate_audio
     errcode, errmsg, audio = generate_audio(
-        text, '预训练音色', sft_dropdown, '', None, None, '', 
-        seed=seed, stream=1, speed=spaker
+        text, '预训练音色', sft_dropdown, '', None, '', 
+        seed = seed, stream = 1, speed = spaker, 
+        source_wav = None
     )
     # 检查返回值中的错误码
     if errcode != 0:
@@ -446,7 +474,7 @@ if __name__ == '__main__':
         main()
     else:
         try:
-            uvicorn.run(app="api:app", host="0.0.0.0", port=args.port, workers=1, reload=True)
+            uvicorn.run(app="api:app", host="0.0.0.0", port=args.port, workers=1, reload=True, log_level="info")
         except Exception as e:
             log_error(e)
             print(e)

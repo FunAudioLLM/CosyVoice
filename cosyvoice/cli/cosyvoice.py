@@ -14,6 +14,7 @@
 import os
 import time
 import torchaudio
+import numpy as np
 from tqdm import tqdm
 from hyperpyyaml import load_hyperpyyaml
 from modelscope import snapshot_download
@@ -123,3 +124,66 @@ class CosyVoice:
             logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
             yield model_output
             start_time = time.time()
+
+    def inference_vc_long(self, source_speech_16k, prompt_speech_16k, stream=False, speed=1.0):    
+        prompt_sr, target_sr = 16000, 22050
+        overlap = 5  
+        segment_length = 30
+        segments = self.segment_audio_with_overlap(source_speech_16k, segment_length, overlap, prompt_sr)
+        generated_segments = []
+
+        for segment in tqdm(segments, total = len(segments)):
+            for i in self.inference_vc(segment, prompt_speech_16k, stream=stream, speed=speed):
+                generated_segments.append(i['tts_speech'].numpy().flatten())
+
+        yield self.crossfade_segments(generated_segments, overlap, target_sr)
+
+    def segment_audio_with_overlap(self, audio, segment_length=30, overlap=5, sample_rate=16000):
+        """带重叠的音频分段，处理不足一个段长度的情况"""
+        samples_per_segment = int(segment_length * sample_rate)
+        overlap_samples = int(overlap * sample_rate)
+        total_samples = audio.size(1)
+
+        if total_samples <= samples_per_segment:
+            # 如果音频小于等于一个段长度，直接返回整段
+            return [audio]
+        
+        segments = []
+        for i in range(0, total_samples - overlap_samples, samples_per_segment - overlap_samples):
+            segments.append(audio[:, i:i + samples_per_segment])
+
+        return segments
+
+    def crossfade_segments(self, segments, overlap=5, sample_rate=16000):    
+        """对生成的音频片段进行交叉淡化合并"""
+        if len(segments) == 0:
+            raise ValueError("Segments list is empty.")
+        if len(segments) == 1:
+            return segments[0]
+        
+        overlap_samples = int(overlap * sample_rate)
+        # 初始化结果音频
+        result = segments[0]
+
+        for i in range(1, len(segments)):
+            # 确定实际重叠长度
+            prev_length = len(result)
+            curr_length = len(segments[i])
+            actual_overlap = min(overlap_samples, prev_length, curr_length)
+
+            if actual_overlap == 0:
+                # 没有重叠，直接拼接
+                result = np.concatenate([result, segments[i]])
+            else:
+                # 生成淡入淡出窗
+                fade_out = np.linspace(1, 0, actual_overlap)
+                fade_in = np.linspace(0, 1, actual_overlap)
+
+                # 对重叠区域进行加权
+                crossfaded = result[-actual_overlap:] * fade_out + segments[i][:actual_overlap] * fade_in
+
+                # 拼接音频：前一段去掉重叠尾部，后一段去掉重叠开头
+                result = np.concatenate([result[:-actual_overlap], crossfaded, segments[i][actual_overlap:]])
+
+        return result
+

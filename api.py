@@ -221,7 +221,6 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
         logging.error(errmsg)
         return errcode, errmsg, (target_sr, default_data)
     
-   
 # 包装处理逻辑
 def gradio_generate_audio(tts_text, mode_checkbox_group, sft_dropdown, 
                         prompt_text, prompt_wav, 
@@ -347,8 +346,7 @@ def generate_wav(audio_data, sample_rate):
     wav_dir = "results\output"
     wav_path = os.path.join(wav_dir, filename)
     # 确保目录存在
-    if not os.path.exists(wav_dir):
-        os.makedirs(wav_dir)
+    os.makedirs(wav_dir, exist_ok=True)
     # 如果文件已存在，先删除
     if os.path.exists(wav_path):
         os.remove(wav_path)
@@ -371,6 +369,67 @@ async def test():
     """
     return PlainTextResponse('success')
 
+@app.post('/seed_vc')
+async def seed_vc(
+    source_wav:UploadFile = File(..., description="选择source音频文件，注意采样率不低于16khz"), 
+    prompt_wav:UploadFile = File(..., description="选择prompt音频文件，注意采样率不低于16khz"), 
+    spaker:float = Form(1.0, description="语速调节(0.5-2.0)")
+):
+    """
+    用户自定义语音音色复刻接口。
+    """
+    ############################## prompt_wav ##############################
+    prompt_wav_upload = os.path.join(input_wav_dir, f'p{prompt_wav.filename}')
+
+    if os.path.exists(prompt_wav_upload):
+        os.remove(prompt_wav_upload)
+
+    print(f"接收上传prompt_wav请求 {prompt_wav_upload}")
+    try:
+        # 保存上传的音频文件
+        with open(prompt_wav_upload, "wb") as f:
+            f.write(await prompt_wav.read())
+    except Exception as e:
+        return JSONResponse({"errcode": -1, "errmsg": f"prompt_wav音频文件保存失败: {str(e)}"})
+    ############################## source_wav ##############################
+    source_wav_upload = os.path.join(input_wav_dir, f's{source_wav.filename}')
+    # 如果文件已存在，先删除
+    if os.path.exists(source_wav_upload):
+        os.remove(source_wav_upload)
+
+    print(f"接收上传source_wav请求 {source_wav_upload}")
+    try:
+        # 保存上传的音频文件
+        with open(source_wav_upload, "wb") as f:
+            f.write(await source_wav.read())
+    except Exception as e:
+        return JSONResponse({"errcode": -1, "errmsg": f"source_wav音频文件保存失败: {str(e)}"})
+    ############################## generate ##############################
+    seed_data = generate_seed()
+    seed = seed_data["value"]
+    print(f'seed{seed}')
+    errcode, errmsg, audio = generate_audio(
+        tts_text = '', 
+        mode_checkbox_group = '语音复刻', 
+        sft_dropdown = '', 
+        prompt_text = '', 
+        prompt_wav = prompt_wav_upload, 
+        instruct_text = '', 
+        seed = seed, 
+        stream = False, 
+        speed = spaker, 
+        source_wav = source_wav_upload
+    )
+    # 检查返回值中的错误码
+    if errcode != 0:
+       return JSONResponse({"errcode": errcode, "errmsg": errmsg})
+    # 获取音频数据
+    target_sr, audio_data = audio
+    # 使用自定义方法生成 WAV 格式
+    wav_path = generate_wav(audio_data, target_sr)
+    # 返回音频响应
+    return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
+
 @app.post('/fast_copy')
 async def fast_copy(
     text:str = Form(..., description="输入合成文本"), 
@@ -381,13 +440,10 @@ async def fast_copy(
     """
     用户自定义音色语音合成接口。
     """
+    ############################## prompt_wav ##############################
     # 指定保存文件的路径
-    prompt_wav_dir = "results\input"
-    prompt_wav_upload = os.path.join(prompt_wav_dir, prompt_wav.filename)
-    # 确保目录存在
-    if not os.path.exists(prompt_wav_dir):
-        os.makedirs(prompt_wav_dir)
-    # 如果文件已存在，先删除
+    prompt_wav_upload = os.path.join(input_wav_dir, f'p{prompt_wav.filename}')
+
     if os.path.exists(prompt_wav_upload):
         os.remove(prompt_wav_upload)
 
@@ -397,13 +453,21 @@ async def fast_copy(
         with open(prompt_wav_upload, "wb") as f:
             f.write(await prompt_wav.read())
     except Exception as e:
-        return JSONResponse({"errcode": -1, "errmsg": f"音频文件保存失败: {str(e)}"})
-    
+        return JSONResponse({"errcode": -1, "errmsg": f"prompt_wav音频文件保存失败: {str(e)}"})
+    ############################## generate ##############################
     seed_data = generate_seed()
     seed = seed_data["value"]
+    print(f'seed{seed}')
     errcode, errmsg, audio = generate_audio(
-        text, '3s极速复刻', '', prompt_text, prompt_wav_upload, '', 
-        seed = seed, stream = 1, speed = spaker, 
+        tts_text = text, 
+        mode_checkbox_group = '3s极速复刻', 
+        sft_dropdown = '', 
+        prompt_text = prompt_text, 
+        prompt_wav = prompt_wav_upload, 
+        instruct_text = '', 
+        seed = seed, 
+        stream = False, 
+        speed = spaker, 
         source_wav = None
     )
     # 检查返回值中的错误码
@@ -425,11 +489,20 @@ async def tts(
     """
     使用预训练音色模型的语音合成接口。
     """
+    ############################## generate ##############################
     seed_data = generate_seed()
     seed = seed_data["value"]
+    print(f'seed{seed}')
     errcode, errmsg, audio = generate_audio(
-        text, '预训练音色', sft_dropdown, '', None, '', 
-        seed = seed, stream = 1, speed = spaker, 
+        tts_text = text, 
+        mode_checkbox_group = '预训练音色', 
+        sft_dropdown = sft_dropdown, 
+        prompt_text = '', 
+        prompt_wav = None, 
+        instruct_text = '', 
+        seed = seed, 
+        stream = False, 
+        speed = spaker, 
         source_wav = None
     )
     # 检查返回值中的错误码
@@ -468,6 +541,10 @@ cosyvoice = CosyVoice(args.model_dir)
 sft_spk = cosyvoice.list_avaliable_spks()
 prompt_sr, target_sr = 16000, 22050
 default_data = np.zeros(target_sr)
+# 指定保存文件的路径
+input_wav_dir = "results\input"
+# 确保目录存在
+os.makedirs(input_wav_dir, exist_ok=True)
 
 if __name__ == '__main__':
     if args.webui:

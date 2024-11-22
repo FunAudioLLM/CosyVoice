@@ -141,6 +141,8 @@ def fade_in_out(fade_in_mel, fade_out_mel, window):
     device = fade_in_mel.device
     fade_in_mel, fade_out_mel = fade_in_mel.cpu(), fade_out_mel.cpu()
     mel_overlap_len = int(window.shape[0] / 2)
+    if fade_in_mel.device == torch.device('cpu'):
+        fade_in_mel = fade_in_mel.clone()
     fade_in_mel[..., :mel_overlap_len] = fade_in_mel[..., :mel_overlap_len] * window[:mel_overlap_len] + \
         fade_out_mel[..., -mel_overlap_len:] * window[mel_overlap_len:]
     return fade_in_mel.to(device)

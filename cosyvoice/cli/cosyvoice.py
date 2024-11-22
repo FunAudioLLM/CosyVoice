@@ -16,6 +16,7 @@ import time
 from tqdm import tqdm
 from hyperpyyaml import load_hyperpyyaml
 from modelscope import snapshot_download
+import torch
 from cosyvoice.cli.frontend import CosyVoiceFrontEnd
 from cosyvoice.cli.model import CosyVoiceModel
 from cosyvoice.utils.file_utils import logging
@@ -37,6 +38,10 @@ class CosyVoice:
                                           '{}/spk2info.pt'.format(model_dir),
                                           instruct,
                                           configs['allowed_special'])
+        if torch.cuda.is_available() is False and (fp16 is True or load_jit is True):
+            load_jit = False
+            fp16 = False
+            logging.warning('cpu do not support fp16 and jit, force set to False')
         self.model = CosyVoiceModel(configs['llm'], configs['flow'], configs['hift'], fp16)
         self.model.load('{}/llm.pt'.format(model_dir),
                         '{}/flow.pt'.format(model_dir),

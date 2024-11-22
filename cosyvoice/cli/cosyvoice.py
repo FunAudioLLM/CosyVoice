@@ -116,8 +116,15 @@ class CosyVoice:
                 yield model_output
                 start_time = time.time()
 
-    def inference_vc(self, source_speech_16k, prompt_speech_16k, stream=False, speed=1.0):
-        model_input = self.frontend.frontend_vc(source_speech_16k, prompt_speech_16k)
+    def inference_vc(self, source_speech_16k, prompt_speech_16k, stream=False, speed=1.0, 
+            embedding = None, 
+            prompt_speech_feat_obj = None, 
+            prompt_speech_token_obj = None
+        ):
+        model_input = self.frontend.frontend_vc(source_speech_16k, prompt_speech_16k,
+                                                embedding = embedding, 
+                                                prompt_speech_feat_obj = prompt_speech_feat_obj, 
+                                                prompt_speech_token_obj = prompt_speech_token_obj)
         start_time = time.time()
         for model_output in self.model.vc(**model_input, stream=stream, speed=speed):
             speech_len = model_output['tts_speech'].shape[1] / 22050
@@ -129,21 +136,35 @@ class CosyVoice:
         prompt_sr, target_sr = 16000, 22050
         overlap = 5  
         segment_length = 30
+
+        prompt_speech_22050 = torchaudio.transforms.Resample(orig_freq=16000, new_freq=22050)(prompt_speech_16k)
+        prompt_speech_feat, prompt_speech_feat_len = self.frontend._extract_speech_feat(prompt_speech_22050)
+        prompt_speech_token, prompt_speech_token_len = self.frontend._extract_speech_token(prompt_speech_16k)
+        embedding = self.frontend._extract_spk_embedding(prompt_speech_16k)
+
         segments = self.segment_audio_with_overlap(source_speech_16k, segment_length, overlap, prompt_sr)
         generated_segments = []
-
-        for segment in tqdm(segments, total = len(segments)):
-            for i in self.inference_vc(segment, prompt_speech_16k, stream=stream, speed=speed):
+        for segment in tqdm(segments, total = len(segments), disable=False):
+            for i in self.inference_vc(segment, prompt_speech_16k, stream=stream, speed=speed,
+                                       embedding = embedding,
+                                       prompt_speech_feat_obj = (prompt_speech_feat, prompt_speech_feat_len),
+                                       prompt_speech_token_obj = (prompt_speech_token, prompt_speech_token_len)
+                                    ):
                 generated_segments.append(i['tts_speech'].numpy().flatten())
 
-        yield self.crossfade_segments(generated_segments, overlap, target_sr)
+        total_samples = len(source_speech_16k)  # 对齐到源音频总长度
+        final_audio = self.crossfade_segments(generated_segments, overlap, target_sr)
+
+        print(f"Expected length: {total_samples}, Final length: {len(final_audio)}")
+
+        yield final_audio
 
     def segment_audio_with_overlap(self, audio, segment_length=30, overlap=5, sample_rate=16000):
         """带重叠的音频分段，处理不足一个段长度的情况"""
         samples_per_segment = int(segment_length * sample_rate)
         overlap_samples = int(overlap * sample_rate)
         total_samples = audio.size(1)
-
+        print(f'segment_audio_with_overlap{total_samples}')
         if total_samples <= samples_per_segment:
             # 如果音频小于等于一个段长度，直接返回整段
             return [audio]
@@ -162,28 +183,30 @@ class CosyVoice:
             return segments[0]
         
         overlap_samples = int(overlap * sample_rate)
-        # 初始化结果音频
         result = segments[0]
 
         for i in range(1, len(segments)):
-            # 确定实际重叠长度
             prev_length = len(result)
             curr_length = len(segments[i])
             actual_overlap = min(overlap_samples, prev_length, curr_length)
 
             if actual_overlap == 0:
-                # 没有重叠，直接拼接
+                # No overlap, just concatenate
                 result = np.concatenate([result, segments[i]])
             else:
-                # 生成淡入淡出窗
-                fade_out = np.linspace(1, 0, actual_overlap)
-                fade_in = np.linspace(0, 1, actual_overlap)
+                # Generate fade-in and fade-out windows (using cosine for smoother transitions)
+                fade_out = 0.5 * (1 - np.cos(np.pi * np.linspace(0, 1, actual_overlap)))
+                fade_in = 0.5 * (1 + np.cos(np.pi * np.linspace(0, 1, actual_overlap)))
 
-                # 对重叠区域进行加权
+                # Crossfade the overlapping regions
                 crossfaded = result[-actual_overlap:] * fade_out + segments[i][:actual_overlap] * fade_in
 
-                # 拼接音频：前一段去掉重叠尾部，后一段去掉重叠开头
+                # Concatenate the non-overlapping parts
                 result = np.concatenate([result[:-actual_overlap], crossfaded, segments[i][actual_overlap:]])
+        
+        print(f'crossfade_segments{len(result)}')
+        # Ensure the final length is within the expected range
+        total_samples = sum(len(segment) for segment in segments)
 
-        return result
+        return result[:total_samples]  # Ensure we don't exceed the original length
 

@@ -144,7 +144,7 @@ class CosyVoice:
 
         segments = self.segment_audio_with_overlap(source_speech_16k, segment_length, overlap, prompt_sr)
         generated_segments = []
-        for segment in tqdm(segments, total = len(segments), disable=False):
+        for segment in tqdm(segments):
             for i in self.inference_vc(segment, prompt_speech_16k, stream=stream, speed=speed,
                                        embedding = embedding,
                                        prompt_speech_feat_obj = (prompt_speech_feat, prompt_speech_feat_len),
@@ -152,10 +152,9 @@ class CosyVoice:
                                     ):
                 generated_segments.append(i['tts_speech'].numpy().flatten())
 
-        total_samples = len(source_speech_16k)  # 对齐到源音频总长度
         final_audio = self.crossfade_segments(generated_segments, overlap, target_sr)
 
-        print(f"Expected length: {total_samples}, Final length: {len(final_audio)}")
+        print(f"Final length: {len(final_audio)}")
 
         yield final_audio
 
@@ -164,7 +163,7 @@ class CosyVoice:
         samples_per_segment = int(segment_length * sample_rate)
         overlap_samples = int(overlap * sample_rate)
         total_samples = audio.size(1)
-        print(f'segment_audio_with_overlap{total_samples}')
+        print(f'total_samples: {total_samples}')
         if total_samples <= samples_per_segment:
             # 如果音频小于等于一个段长度，直接返回整段
             return [audio]
@@ -195,8 +194,8 @@ class CosyVoice:
                 result = np.concatenate([result, segments[i]])
             else:
                 # Generate fade-in and fade-out windows (using cosine for smoother transitions)
-                fade_out = 0.5 * (1 - np.cos(np.pi * np.linspace(0, 1, actual_overlap)))
-                fade_in = 0.5 * (1 + np.cos(np.pi * np.linspace(0, 1, actual_overlap)))
+                fade_out = 0.5 * (1 - np.cos(np.pi * np.linspace(0, 1, actual_overlap, dtype=np.float32)))
+                fade_in = 0.5 * (1 + np.cos(np.pi * np.linspace(0, 1, actual_overlap, dtype=np.float32)))
 
                 # Crossfade the overlapping regions
                 crossfaded = result[-actual_overlap:] * fade_out + segments[i][:actual_overlap] * fade_in
@@ -204,9 +203,8 @@ class CosyVoice:
                 # Concatenate the non-overlapping parts
                 result = np.concatenate([result[:-actual_overlap], crossfaded, segments[i][actual_overlap:]])
         
-        print(f'crossfade_segments{len(result)}')
+        print(f'crossfade_segments: {len(result)}')
         # Ensure the final length is within the expected range
         total_samples = sum(len(segment) for segment in segments)
 
         return result[:total_samples]  # Ensure we don't exceed the original length
-

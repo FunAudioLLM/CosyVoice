@@ -49,6 +49,7 @@ max_val = 0.8
 
 def generate_seed():
     seed = random.randint(1, 100000000)
+    print(f'seed: {seed}')
     return {
         "__type__": "update",
         "value": seed
@@ -101,7 +102,8 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
                    seed, stream, speed, source_wav):
     errcode = 0
     errmsg = ''
-
+    print(f'prompt_wav: {prompt_wav}')
+    print(f'source_wav: {source_wav}')
     # if instruct mode, please make sure that model is iic/CosyVoice-300M-Instruct and not cross_lingual mode
     if mode_checkbox_group in ['自然语言控制']:
         if cosyvoice.frontend.instruct is False:
@@ -189,7 +191,7 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
             for i in cosyvoice.inference_cross_lingual(tts_text, prompt_speech_16k, stream=stream, speed=speed):
                 generated_audio_list.append(i['tts_speech'].numpy().flatten())
         elif mode_checkbox_group == '语音复刻':
-            logging.info('get vc inference request')
+            logging.info('get vc long inference request')
             prompt_speech_16k = postprocess(load_wav(prompt_wav, prompt_sr))
             source_speech_16k = postprocess(load_wav(source_wav, prompt_sr))
             set_all_random_seed(seed)
@@ -207,8 +209,7 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
             errcode = 0
             errmsg = 'ok'
             full_audio = np.concatenate(generated_audio_list)
-            print(full_audio.dtype)
-
+            print(f'full_audio: {full_audio.dtype}')
             return errcode, errmsg, (target_sr, full_audio)
         else:
             errcode = -2
@@ -315,6 +316,9 @@ def generate_wav(audio_data, sample_rate):
     :param sample_rate: int，采样率
     :return: BytesIO 对象，包含 WAV 数据
     """
+    # 确保 audio_data 是 numpy 数组
+    if not isinstance(audio_data, np.ndarray):
+        raise ValueError("audio_data 必须是 numpy 数组。")
     # 检测音频数据类型
     sample_width = 2
     # audio_data 是 NumPy 数组
@@ -327,6 +331,8 @@ def generate_wav(audio_data, sample_rate):
     elif audio_data.dtype == np.int8:
         audio_data = audio_data.astype(np.int16) * 256  # 转换为 int16
         sample_width = 2  # 16-bit
+    else:
+        raise ValueError("audio_data.dtype 不正确。")
     # 检测声道数
     channels = 1        
 
@@ -334,6 +340,8 @@ def generate_wav(audio_data, sample_rate):
         channels = 1
     elif len(audio_data.shape) == 2:  # 多声道
         channels = audio_data.shape[1]
+    else:
+        raise ValueError("audio_data.shape 格式不正确，必须是 1D 或 2D numpy 数组。")
 
     audio_segment = AudioSegment(
         audio_data.tobytes(),
@@ -407,7 +415,7 @@ async def seed_vc(
     ############################## generate ##############################
     seed_data = generate_seed()
     seed = seed_data["value"]
-    print(f'seed{seed}')
+
     errcode, errmsg, audio = generate_audio(
         tts_text = '', 
         mode_checkbox_group = '语音复刻', 
@@ -457,7 +465,7 @@ async def fast_copy(
     ############################## generate ##############################
     seed_data = generate_seed()
     seed = seed_data["value"]
-    print(f'seed{seed}')
+
     errcode, errmsg, audio = generate_audio(
         tts_text = text, 
         mode_checkbox_group = '3s极速复刻', 
@@ -492,7 +500,7 @@ async def tts(
     ############################## generate ##############################
     seed_data = generate_seed()
     seed = seed_data["value"]
-    print(f'seed{seed}')
+
     errcode, errmsg, audio = generate_audio(
         tts_text = text, 
         mode_checkbox_group = '预训练音色', 

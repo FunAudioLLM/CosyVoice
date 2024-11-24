@@ -26,15 +26,18 @@ import uvicorn
 import uuid
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/third_party/Matcha-TTS'.format(ROOT_DIR))
-from cosyvoice.cli.cosyvoice import CosyVoice
 from cosyvoice.utils.file_utils import load_wav, logging
 from cosyvoice.utils.common import set_all_random_seed
+from cosyvoice.utils.ModelManager import ModelManager
 from fastapi import FastAPI, File, UploadFile, Query, Body, Form
 from fastapi.responses import Response, StreamingResponse, JSONResponse, PlainTextResponse, FileResponse
 from starlette.middleware.cors import CORSMiddleware  #引入 CORS中间件模块
+from contextlib import asynccontextmanager
 from pydub import AudioSegment
-from io import BytesIO
-from tqdm import tqdm
+from langdetect import detect
+
+# 全局模型管理器
+model_manager = ModelManager()
 #设置允许访问的域名
 origins = ["*"]  #"*"，即为所有。
 
@@ -47,6 +50,11 @@ instruct_dict = {'预训练音色': '1. 选择预训练音色\n2. 点击生成�
 stream_mode_list = [('否', False), ('是', True)]
 max_val = 0.8
 
+def detect_language(text):
+    lang = detect(text)
+    logging.info(f'lang: {lang}')
+    return lang
+    
 def generate_seed():
     seed = random.randint(1, 100000000)
     logging.info(f'seed: {seed}')
@@ -104,6 +112,16 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
     errmsg = ''
     logging.info(f'prompt_wav: {prompt_wav}')
     logging.info(f'source_wav: {source_wav}')
+
+    cosyvoice = None
+    # 获取需要的模型
+    if mode_checkbox_group == '预训练音色':
+        cosyvoice = model_manager.get_model("cosyvoice_sft")
+    elif mode_checkbox_group in ['3s极速复刻', '跨语种复刻', '语音复刻']:
+        cosyvoice = model_manager.get_model("cosyvoice")
+    else:
+        cosyvoice = model_manager.get_model("cosyvoice_instruct")  
+
     # if instruct mode, please make sure that model is iic/CosyVoice-300M-Instruct and not cross_lingual mode
     if mode_checkbox_group in ['自然语言控制']:
         if cosyvoice.frontend.instruct is False:
@@ -393,13 +411,22 @@ async def save_upload_to_wav(upload_file: UploadFile, prefix: str):
     except Exception as e:
         raise Exception(f"{upload_file.filename}音频文件保存或转换失败: {str(e)}")
     
-app = FastAPI(docs_url="/docs")
+# 定义 FastAPI 应用
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 在应用启动时加载模型
+    model_manager.load_models()
+    logging.info("Models loaded successfully!")
+    yield  # 这里是应用运行的时间段
+    logging.info("Application shutting down...")  # 在这里可以释放资源    
+app = FastAPI(docs_url="/docs", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  #设置允许的origins来源
     allow_credentials=True,
     allow_methods=["*"],  # 设置允许跨域的http方法，比如 get、post、put等。
     allow_headers=["*"])  #允许跨域的headers，可以用来鉴别来源等作用。
+
 @app.get('/test')
 async def test():
     """
@@ -449,6 +476,75 @@ async def seed_vc(
 
 @app.post('/fast_copy')
 async def fast_copy(
+    text:str = Form(..., description="输入合成文本"), 
+    prompt_text:str = Form(..., description="请输入prompt文本，需与prompt音频内容一致，暂时不支持自动识别"), 
+    prompt_wav:UploadFile = File(..., description="选择prompt音频文件，注意采样率不低于16khz"), 
+    spaker:float = Form(1.0, description="语速调节(0.5-2.0)")
+):
+    """
+    用户自定义音色语音合成接口。
+    """
+    try:
+        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p")
+    except Exception as e:
+        return JSONResponse({"errcode": -1, "errmsg": str(e)})
+    ############################## generate ##############################
+    lang = detect_language(text)
+    if lang == 'en':
+        sft_dropdown = '英文男'
+    else:
+        sft_dropdown = '中文男'
+
+    seed_data = generate_seed()
+    seed = seed_data["value"]
+
+    errcode, errmsg, audio = generate_audio(
+        tts_text = text, 
+        mode_checkbox_group = '预训练音色', 
+        sft_dropdown = sft_dropdown, 
+        prompt_text = '', 
+        prompt_wav = None, 
+        instruct_text = '', 
+        seed = seed, 
+        stream = False, 
+        speed = spaker, 
+        source_wav = None
+    )
+    # 检查返回值中的错误码
+    if errcode != 0:
+       return JSONResponse({"errcode": errcode, "errmsg": errmsg})
+    # 获取音频数据
+    target_sr, audio_data = audio
+    # 使用自定义方法生成 WAV 格式
+    source_wav_upload = generate_wav(audio_data, target_sr)
+    
+    seed_data = generate_seed()
+    seed = seed_data["value"]
+
+    errcode, errmsg, audio = generate_audio(
+        tts_text = '', 
+        mode_checkbox_group = '语音复刻', 
+        sft_dropdown = '', 
+        prompt_text = '', 
+        prompt_wav = prompt_wav_upload, 
+        instruct_text = '', 
+        seed = seed, 
+        stream = False, 
+        speed = spaker, 
+        source_wav = source_wav_upload
+    )
+    # 检查返回值中的错误码
+    if errcode != 0:
+       return JSONResponse({"errcode": errcode, "errmsg": errmsg})
+    # 获取音频数据
+    target_sr, audio_data = audio
+    # 使用自定义方法生成 WAV 格式
+    wav_path = generate_wav(audio_data, target_sr)
+    # 返回音频响应
+    return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
+
+@app.post('/fast_copy_s')
+async def fast_copy_s(
     text:str = Form(..., description="输入合成文本"), 
     prompt_text:str = Form(..., description="请输入prompt文本，需与prompt音频内容一致，暂时不支持自动识别"), 
     prompt_wav:UploadFile = File(..., description="选择prompt音频文件，注意采样率不低于16khz"), 
@@ -544,13 +640,13 @@ parser.add_argument('--model_dir',
                     default='pretrained_models/CosyVoice-300M',
                     help='local path or modelscope repo id')
 args = parser.parse_args()
-cosyvoice = CosyVoice(args.model_dir)
-sft_spk = cosyvoice.list_avaliable_spks()
 prompt_sr, target_sr = 16000, 22050
 default_data = np.zeros(target_sr)
 
 if __name__ == '__main__':
     if args.webui:
+        model_manager.load_models()
+        sft_spk = model_manager.sft_spk
         main()
     else:
         try:

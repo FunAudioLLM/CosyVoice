@@ -26,7 +26,9 @@ For `SenseVoice`, visit [SenseVoice repo](https://github.com/FunAudioLLM/SenseVo
 
     - [ ] 25hz llama based llm model which supports lora finetune
     - [ ] Support more instruction mode
+    - [ ] Voice conversion
     - [ ] Music generation
+    - [ ] Training script sample based on Mandarin
     - [ ] CosyVoice-500M trained with more multi-lingual data
     - [ ] More...
 
@@ -111,7 +113,7 @@ from cosyvoice.cli.cosyvoice import CosyVoice
 from cosyvoice.utils.file_utils import load_wav
 import torchaudio
 
-cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-SFT', load_jit=True, load_onnx=False, fp16=True)
+cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-SFT')
 # sft usage
 print(cosyvoice.list_avaliable_spks())
 # change stream=True for chunk stream inference

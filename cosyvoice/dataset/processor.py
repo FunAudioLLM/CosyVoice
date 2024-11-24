@@ -40,18 +40,17 @@ def parquet_opener(data, mode='train', tts_data={}):
         assert 'src' in sample
         url = sample['src']
         try:
-            for df in pq.ParquetFile(url).iter_batches(batch_size=64):
-                df = df.to_pandas()
-                for i in range(len(df)):
-                    if mode == 'inference' and df.loc[i, 'utt'] not in tts_data:
-                        continue
-                    sample.update(dict(df.loc[i]))
-                    if mode == 'train':
-                        # NOTE do not return sample directly, must initialize a new dict
-                        yield {**sample}
-                    else:
-                        for index, text in enumerate(tts_data[df.loc[i, 'utt']]):
-                            yield {**sample, 'tts_index': index, 'tts_text': text}
+            df = pq.read_table(url).to_pandas()
+            for i in range(len(df)):
+                if mode == 'inference' and df.loc[i, 'utt'] not in tts_data:
+                    continue
+                sample.update(dict(df.loc[i]))
+                if mode == 'train':
+                    # NOTE do not return sample directly, must initialize a new dict
+                    yield {**sample}
+                else:
+                    for index, text in enumerate(tts_data[df.loc[i, 'utt']]):
+                        yield {**sample, 'tts_index': index, 'tts_text': text}
         except Exception as ex:
             logging.warning('Failed to open {}, ex info {}'.format(url, ex))
 
@@ -86,7 +85,6 @@ def filter(data,
     """
     for sample in data:
         sample['speech'], sample['sample_rate'] = torchaudio.load(BytesIO(sample['audio_data']))
-        sample['speech'] = sample['speech'].mean(dim=0, keepdim=True)
         del sample['audio_data']
         # sample['wav'] is torch.Tensor, we have 100 frames every second
         num_frames = sample['speech'].size(1) / sample['sample_rate'] * 100
@@ -136,27 +134,6 @@ def resample(data, resample_rate=22050, min_sample_rate=16000, mode='train'):
         yield sample
 
 
-def truncate(data, truncate_length=24576, mode='train'):
-    """ Truncate data.
-
-        Args:
-            data: Iterable[{key, wav, label, sample_rate}]
-            truncate_length: truncate length
-
-        Returns:
-            Iterable[{key, wav, label, sample_rate}]
-    """
-    for sample in data:
-        waveform = sample['speech']
-        if waveform.shape[1] > truncate_length:
-            start = random.randint(0, waveform.shape[1] - truncate_length)
-            waveform = waveform[:, start: start + truncate_length]
-        else:
-            waveform = torch.concat([waveform, torch.zeros(1, truncate_length - waveform.shape[1])], dim=1)
-        sample['speech'] = waveform
-        yield sample
-
-
 def compute_fbank(data,
                   feat_extractor,
                   mode='train'):
@@ -176,27 +153,7 @@ def compute_fbank(data,
         waveform = sample['speech']
         mat = feat_extractor(waveform).squeeze(dim=0).transpose(0, 1)
         sample['speech_feat'] = mat
-        yield sample
-
-
-def compute_f0(data, pitch_extractor, mode='train'):
-    """ Extract f0
-
-        Args:
-            data: Iterable[{key, wav, label, sample_rate}]
-
-        Returns:
-            Iterable[{key, feat, label}]
-    """
-    for sample in data:
-        assert 'sample_rate' in sample
-        assert 'speech' in sample
-        assert 'utt' in sample
-        assert 'text_token' in sample
-        waveform = sample['speech']
-        mat = pitch_extractor(waveform).transpose(1, 2)
-        mat = F.interpolate(mat, size=sample['speech_feat'].shape[0], mode='linear')
-        sample['pitch_feat'] = mat[0, 0]
+        del sample['speech']
         yield sample
 
 
@@ -352,7 +309,7 @@ def batch(data, batch_type='static', batch_size=16, max_frames_in_batch=12000, m
             logging.fatal('Unsupported batch type {}'.format(batch_type))
 
 
-def padding(data, use_spk_embedding, mode='train', gan=False):
+def padding(data, use_spk_embedding, mode='train'):
     """ Padding the data into training data
 
         Args:
@@ -368,9 +325,6 @@ def padding(data, use_spk_embedding, mode='train', gan=False):
         order = torch.argsort(speech_feat_len, descending=True)
 
         utts = [sample[i]['utt'] for i in order]
-        speech = [sample[i]['speech'].squeeze(dim=0) for i in order]
-        speech_len = torch.tensor([i.size(0) for i in speech], dtype=torch.int32)
-        speech = pad_sequence(speech, batch_first=True, padding_value=0)
         speech_token = [torch.tensor(sample[i]['speech_token']) for i in order]
         speech_token_len = torch.tensor([i.size(0) for i in speech_token], dtype=torch.int32)
         speech_token = pad_sequence(speech_token,
@@ -389,8 +343,6 @@ def padding(data, use_spk_embedding, mode='train', gan=False):
         spk_embedding = torch.stack([sample[i]['spk_embedding'] for i in order], dim=0)
         batch = {
             "utts": utts,
-            "speech": speech,
-            "speech_len": speech_len,
             "speech_token": speech_token,
             "speech_token_len": speech_token_len,
             "speech_feat": speech_feat,
@@ -401,19 +353,6 @@ def padding(data, use_spk_embedding, mode='train', gan=False):
             "utt_embedding": utt_embedding,
             "spk_embedding": spk_embedding,
         }
-        if gan is True:
-            # in gan train, we need pitch_feat
-            pitch_feat = [sample[i]['pitch_feat'] for i in order]
-            pitch_feat_len = torch.tensor([i.size(0) for i in pitch_feat], dtype=torch.int32)
-            pitch_feat = pad_sequence(pitch_feat,
-                                      batch_first=True,
-                                      padding_value=0)
-            batch["pitch_feat"] = pitch_feat
-            batch["pitch_feat_len"] = pitch_feat_len
-        else:
-            # only gan train needs speech, delete it to save memory
-            del batch["speech"]
-            del batch["speech_len"]
         if mode == 'inference':
             tts_text = [sample[i]['tts_text'] for i in order]
             tts_index = [sample[i]['tts_index'] for i in order]

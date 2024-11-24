@@ -1,0 +1,1 @@
+../Encodec_24k_32d/path.sh

@@ -481,8 +481,8 @@ async def seed_vc(
     用户自定义语音音色复刻接口。
     """
     try:
-        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p", 2.0)
-        source_wav_upload = await save_upload_to_wav(source_wav, "s", 2.0)
+        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p", 1.5)
+        source_wav_upload = await save_upload_to_wav(source_wav, "s", 1.0)
     except Exception as e:
         return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################
@@ -523,7 +523,7 @@ async def fast_copy(
     用户自定义音色语音合成接口。
     """
     try:
-        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p", 2.0)
+        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p", 1.5)
     except Exception as e:
         return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################
@@ -581,8 +581,8 @@ async def fast_copy(
     # 返回音频响应
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
 
-@app.post('/fast_copy_s')
-async def fast_copy_s(
+@app.post('/zero_shot')
+async def zero_shot(
     text:str = Form(..., description="输入合成文本"), 
     prompt_text:str = Form(..., description="请输入prompt文本，需与prompt音频内容一致，暂时不支持自动识别"), 
     prompt_wav:UploadFile = File(..., description="选择prompt音频文件，注意采样率不低于16khz"), 
@@ -592,7 +592,7 @@ async def fast_copy_s(
     用户自定义音色语音合成接口。
     """
     try:
-        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p", 2.0)
+        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p", 1.5)
     except Exception as e:
         return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################

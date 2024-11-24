@@ -327,19 +327,24 @@ def main():
     demo.queue(max_size=4, default_concurrency_limit=2)
     demo.launch(server_name='0.0.0.0', server_port=args.port, debug=False)
 
-def generate_wav(audio_data, sample_rate):
+def generate_wav(audio_data, sample_rate, delay=0.0):
     """
-    使用 pydub 将音频数据转换为 WAV 格式。
+    使用 pydub 将音频数据转换为 WAV 格式，并支持添加延迟。
     :param audio_data: numpy 数组，音频数据
     :param sample_rate: int，采样率
-    :return: BytesIO 对象，包含 WAV 数据
+    :param delay: float，延迟时间（单位：秒），默认为 0
+    :return: 文件路径，生成的 WAV 文件路径
     """
     # 确保 audio_data 是 numpy 数组
     if not isinstance(audio_data, np.ndarray):
         raise ValueError("audio_data 必须是 numpy 数组。")
-    # 检测音频数据类型
+    # 生成静音数据（如果有延迟需求）
+    if delay > 0:
+        num_silence_samples = int(delay * sample_rate)
+        silence = np.zeros(num_silence_samples, dtype=audio_data.dtype)
+        audio_data = np.concatenate((silence, audio_data), axis=0)
+    # 检测音频数据类型并转换
     sample_width = 2
-    # audio_data 是 NumPy 数组
     if audio_data.dtype == np.float32:
         # 如果是 float32 数据，量化到 int16
         audio_data = (audio_data * 32767).astype(np.int16)
@@ -352,31 +357,29 @@ def generate_wav(audio_data, sample_rate):
     else:
         raise ValueError("audio_data.dtype 不正确。")
     # 检测声道数
-    channels = 1        
-
     if len(audio_data.shape) == 1:  # 单声道
         channels = 1
     elif len(audio_data.shape) == 2:  # 多声道
         channels = audio_data.shape[1]
     else:
         raise ValueError("audio_data.shape 格式不正确，必须是 1D 或 2D numpy 数组。")
-
+    # 使用 pydub 生成音频段
     audio_segment = AudioSegment(
         audio_data.tobytes(),
-        frame_rate = sample_rate,
-        sample_width = sample_width,
-        channels = channels
+        frame_rate=sample_rate,
+        sample_width=sample_width,
+        channels=channels
     )
     # 指定保存文件的路径
     filename = f"{str(uuid.uuid4())}.wav"
-    wav_dir = "results\output"
+    wav_dir = "results/output"
     wav_path = os.path.join(wav_dir, filename)
     # 确保目录存在
     os.makedirs(wav_dir, exist_ok=True)
     # 如果文件已存在，先删除
     if os.path.exists(wav_path):
         os.remove(wav_path)
-
+    # 导出 WAV 文件
     audio_segment.export(wav_path, format="wav")
 
     return wav_path
@@ -479,7 +482,8 @@ async def fast_copy(
     text:str = Form(..., description="输入合成文本"), 
     prompt_text:str = Form(..., description="请输入prompt文本，需与prompt音频内容一致，暂时不支持自动识别"), 
     prompt_wav:UploadFile = File(..., description="选择prompt音频文件，注意采样率不低于16khz"), 
-    spaker:float = Form(1.0, description="语速调节(0.5-2.0)")
+    spaker:float = Form(1.0, description="语速调节(0.5-2.0)"),
+    delay: float = Form(0.5, description="文本音频前的延迟时间，单位秒（默认0.5秒）")
 ):
     """
     用户自定义音色语音合成接口。
@@ -516,7 +520,7 @@ async def fast_copy(
     # 获取音频数据
     target_sr, audio_data = audio
     # 使用自定义方法生成 WAV 格式
-    source_wav_upload = generate_wav(audio_data, target_sr)
+    source_wav_upload = generate_wav(audio_data, target_sr, delay)
     
     seed_data = generate_seed()
     seed = seed_data["value"]

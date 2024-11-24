@@ -34,6 +34,8 @@ from fastapi.responses import Response, StreamingResponse, JSONResponse, PlainTe
 from starlette.middleware.cors import CORSMiddleware  #引入 CORS中间件模块
 from contextlib import asynccontextmanager
 from pydub import AudioSegment
+from pydub.effects import normalize
+from math import log10
 from langdetect import detect
 
 # 全局模型管理器
@@ -49,6 +51,16 @@ instruct_dict = {'预训练音色': '1. 选择预训练音色\n2. 点击生成�
                  '语音复刻': '1. 选择source音频文件\n2. 选择prompt音频文件，或录入prompt音频，注意不超过30s，若同时提供，优先选择prompt音频文件\n3. 点击生成音频按钮'}
 stream_mode_list = [('否', False), ('是', True)]
 max_val = 0.8
+
+def volume_safely(audio, volume_multiplier = 1.0):
+    # 1. 归一化音频到最大范围，确保音频峰值不超过 0 dB
+    audio = normalize(audio)
+    # 2. 根据倍数计算增益的分贝值
+    gain_in_db = 20 * log10(volume_multiplier)  # 按倍数计算增益
+    # 3. 增加音量
+    audio = audio.apply_gain(gain_in_db)
+
+    return audio
 
 def detect_language(text):
     lang = detect(text)
@@ -327,12 +339,13 @@ def main():
     demo.queue(max_size=4, default_concurrency_limit=2)
     demo.launch(server_name='0.0.0.0', server_port=args.port, debug=False)
 
-def generate_wav(audio_data, sample_rate, delay=0.0):
+def generate_wav(audio_data, sample_rate, delay=0.0, volume_multiplier = 1.0):
     """
     使用 pydub 将音频数据转换为 WAV 格式，并支持添加延迟。
     :param audio_data: numpy 数组，音频数据
     :param sample_rate: int，采样率
     :param delay: float，延迟时间（单位：秒），默认为 0
+    :param volume_multiplier: float，音量倍数，默认为 1.0
     :return: 文件路径，生成的 WAV 文件路径
     """
     # 确保 audio_data 是 numpy 数组
@@ -370,6 +383,9 @@ def generate_wav(audio_data, sample_rate, delay=0.0):
         sample_width=sample_width,
         channels=channels
     )
+    if volume_multiplier != 1.0:
+        # 安全地增加音量
+        audio_segment = volume_safely(audio_segment, volume_multiplier)
     # 指定保存文件的路径
     filename = f"{str(uuid.uuid4())}.wav"
     wav_dir = "results/output"
@@ -520,7 +536,7 @@ async def fast_copy(
     # 获取音频数据
     target_sr, audio_data = audio
     # 使用自定义方法生成 WAV 格式
-    source_wav_upload = generate_wav(audio_data, target_sr, delay)
+    source_wav_upload = generate_wav(audio_data, target_sr, delay, 2.0)
     
     seed_data = generate_seed()
     seed = seed_data["value"]
@@ -543,7 +559,7 @@ async def fast_copy(
     # 获取音频数据
     target_sr, audio_data = audio
     # 使用自定义方法生成 WAV 格式
-    wav_path = generate_wav(audio_data, target_sr)
+    wav_path = generate_wav(audio_data, target_sr, 0.0, 2.0)
     # 返回音频响应
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
 

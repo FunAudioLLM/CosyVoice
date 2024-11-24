@@ -52,13 +52,24 @@ instruct_dict = {'预训练音色': '1. 选择预训练音色\n2. 点击生成�
 stream_mode_list = [('否', False), ('是', True)]
 max_val = 0.8
 
-def volume_safely(audio, volume_multiplier = 1.0):
-    # 1. 归一化音频到最大范围，确保音频峰值不超过 0 dB
-    audio = normalize(audio)
-    # 2. 根据倍数计算增益的分贝值
-    gain_in_db = 20 * log10(volume_multiplier)  # 按倍数计算增益
-    # 3. 增加音量
+def volume_safely(audio: AudioSegment, volume_multiplier: float = 1.0) -> AudioSegment:
+    """
+    安全地调整音频音量。
+    :param audio: AudioSegment 对象，音频数据。
+    :param volume_multiplier: float，音量倍数，1.0 为原音量，大于 1 提高音量，小于 1 降低音量。
+    :return: 调整后的 AudioSegment 对象。
+    """
+    if volume_multiplier <= 0:
+        raise ValueError("volume_multiplier 必须大于 0")
+
+    # 计算增益（分贝），根据倍数调整
+    gain_in_db = 20 * np.log10(volume_multiplier)
+
+    # 应用增益调整音量
     audio = audio.apply_gain(gain_in_db)
+
+    # 确保音频不削波（归一化到峰值 -0.1 dB 以下）
+    audio = audio.normalize(headroom=0.1)
 
     return audio
 
@@ -400,7 +411,7 @@ def generate_wav(audio_data, sample_rate, delay=0.0, volume_multiplier = 1.0):
 
     return wav_path
 
-async def save_upload_to_wav(upload_file: UploadFile, prefix: str):
+async def save_upload_to_wav(upload_file: UploadFile, prefix: str, volume_multiplier: float = 1.0):
     """保存上传文件并转换为 WAV 格式（如果需要）"""
     # 指定保存文件的路径
     input_wav_dir = "results\input"
@@ -425,6 +436,13 @@ async def save_upload_to_wav(upload_file: UploadFile, prefix: str):
             audio.export(wav_path, format="wav")
             os.remove(file_upload_path)  # 删除原始文件
             file_upload_path = wav_path
+
+        if volume_multiplier != 1.0:
+            # 加载音频并调整音量
+            audio = AudioSegment.from_file(file_upload_path)
+            audio = volume_safely(audio, volume_multiplier=volume_multiplier)
+            # 保存调整后音量的音频
+            audio.export(file_upload_path, format="wav")
 
         return file_upload_path
     except Exception as e:
@@ -463,8 +481,8 @@ async def seed_vc(
     用户自定义语音音色复刻接口。
     """
     try:
-        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p")
-        source_wav_upload = await save_upload_to_wav(source_wav, "s")
+        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p", 2.0)
+        source_wav_upload = await save_upload_to_wav(source_wav, "s", 2.0)
     except Exception as e:
         return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################
@@ -505,7 +523,7 @@ async def fast_copy(
     用户自定义音色语音合成接口。
     """
     try:
-        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p")
+        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p", 2.0)
     except Exception as e:
         return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################
@@ -574,7 +592,7 @@ async def fast_copy_s(
     用户自定义音色语音合成接口。
     """
     try:
-        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p")
+        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p", 2.0)
     except Exception as e:
         return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################

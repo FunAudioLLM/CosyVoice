@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 import time
+import torch
 import torchaudio
 import numpy as np
 from tqdm import tqdm
@@ -39,6 +40,10 @@ class CosyVoice:
                                           '{}/spk2info.pt'.format(model_dir),
                                           instruct,
                                           configs['allowed_special'])
+        if torch.cuda.is_available() is False and (fp16 is True or load_jit is True):
+            load_jit = False
+            fp16 = False
+            logging.warning('cpu do not support fp16 and jit, force set to False')
         self.model = CosyVoiceModel(configs['llm'], configs['flow'], configs['hift'], fp16)
         self.model.load('{}/llm.pt'.format(model_dir),
                         '{}/flow.pt'.format(model_dir),

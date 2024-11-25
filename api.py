@@ -175,6 +175,7 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
                 generated_audio_list.append(i['tts_speech'].numpy().flatten())
         elif mode_checkbox_group == '3s极速复刻':
             logging.info('get zero_shot inference request')
+            logging.info(f'prompt_text: {prompt_text}')
             prompt_speech_16k = postprocess(load_wav(prompt_wav, prompt_sr))
             set_all_random_seed(seed)
             for i in cosyvoice.inference_zero_shot(tts_text, prompt_text, prompt_speech_16k, stream=stream, speed=speed):

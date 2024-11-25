@@ -13,8 +13,6 @@
 # limitations under the License.
 import os
 import sys
-import datetime
-import traceback
 import argparse
 import gradio as gr
 import numpy as np
@@ -29,13 +27,13 @@ from cosyvoice.utils.file_utils import load_wav, logging
 from cosyvoice.utils.common import set_all_random_seed
 from cosyvoice.utils.ModelManager import ModelManager
 from cosyvoice.utils.AudioProcessor import AudioProcessor
+from cosyvoice.utils.TextProcessor import TextProcessor
 from fastapi import FastAPI, File, UploadFile, Query, Form
 from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.docs import get_swagger_ui_html
 from starlette.middleware.cors import CORSMiddleware  #引入 CORS中间件模块
 from contextlib import asynccontextmanager
-from langdetect import detect
 
 # 全局模型管理器
 model_manager = ModelManager()
@@ -53,11 +51,6 @@ instruct_dict = {'预训练音色': '1. 选择预训练音色\n2. 点击生成�
 stream_mode_list = [('否', False), ('是', True)]
 max_val = 0.8
 
-def detect_language(text):
-    lang = detect(text)
-    logging.info(f'lang: {lang}')
-    return lang
-    
 def generate_seed():
     seed = random.randint(1, 100000000)
     logging.info(f'seed: {seed}')
@@ -79,30 +72,6 @@ def postprocess(speech, top_db=60, hop_length=220, win_length=440):
 
 def change_instruction(mode_checkbox_group):
     return instruct_dict[mode_checkbox_group]
-
-def log_error(exception: Exception, log_dir='error'):
-    """
-    记录错误信息到指定目录，并按日期时间命名文件。
-
-    :param exception: 捕获的异常对象
-    :param log_dir: 错误日志存储的目录，默认为 'error'
-    """
-    # 确保日志目录存在
-    os.makedirs(log_dir, exist_ok=True)
-    # 获取当前时间戳，格式化为 YYYY-MM-DD_HH-MM-SS
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    # 创建日志文件路径
-    log_file_path = os.path.join(log_dir, f'error_{timestamp}.log')
-    # 使用 traceback 模块获取详细的错误信息
-    error_traceback = traceback.format_exc()
-    # 写入错误信息到文件
-    with open(log_file_path, 'w') as log_file:
-        log_file.write(f"错误发生时间: {timestamp}\n")
-        log_file.write(f"错误信息: {str(exception)}\n")
-        log_file.write("堆栈信息:\n")
-        log_file.write(error_traceback + '\n')
-    
-    logging.info(f"错误信息已保存至: {log_file_path}")
 
 # 定义一个函数进行显存清理
 def clear_cuda_cache():
@@ -193,7 +162,12 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
 
     generated_audio_list = []  # 用于存储生成的音频片段
 
-    try:
+    try:   
+        # 确保文本以适当的句号结尾
+        tts_text = TextProcessor.ensure_sentence_ends_with_period(tts_text)
+        prompt_text = TextProcessor.ensure_sentence_ends_with_period(prompt_text)
+        instruct_text = TextProcessor.ensure_sentence_ends_with_period(instruct_text)
+
         if mode_checkbox_group == '预训练音色':
             logging.info('get sft inference request')
             set_all_random_seed(seed)
@@ -237,7 +211,7 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
             errmsg = "音频生成失败，未收到有效的音频数据。"
             return errcode, errmsg, (target_sr, default_data)
     except Exception as e:
-        log_error(e)
+        TextProcessor.log_error(e)
         errcode = -1
         errmsg = f"音频生成失败，错误信息：{str(e)}"
         logging.error(errmsg)
@@ -374,8 +348,16 @@ async def seed_vc(
     用户自定义语音音色复刻接口。
     """
     try:
-        prompt_wav_upload = await audio_processor.save_upload_to_wav(prompt_wav, "p", 1.5, nonsilent = True)
-        source_wav_upload = await audio_processor.save_upload_to_wav(source_wav, "s", 1.0)
+        prompt_wav_upload = await audio_processor.save_upload_to_wav(
+                                upload_file = prompt_wav, 
+                                prefix = "p", 
+                                volume_multiplier = 1.5, 
+                                nonsilent = True
+                            )
+        source_wav_upload = await audio_processor.save_upload_to_wav(
+                                upload_file = source_wav, 
+                                prefix = "s"
+                            )
     except Exception as e:
         return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################
@@ -416,11 +398,16 @@ async def fast_copy(
     用户自定义音色语音合成接口。
     """
     try:
-        prompt_wav_upload = await audio_processor.save_upload_to_wav(prompt_wav, "p", 1.5, nonsilent = True)
+        prompt_wav_upload = await audio_processor.save_upload_to_wav(
+                                upload_file = prompt_wav, 
+                                prefix = "p", 
+                                volume_multiplier = 1.5, 
+                                nonsilent = True
+                            )
     except Exception as e:
         return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################
-    lang = detect_language(text)
+    lang = TextProcessor.detect_language(text)
     if lang == 'en':
         sft_dropdown = '英文男'
     else:
@@ -485,7 +472,12 @@ async def zero_shot(
     用户自定义音色语音合成接口。
     """
     try:
-        prompt_wav_upload = await audio_processor.save_upload_to_wav(prompt_wav, "p", 1.5, nonsilent = True)
+        prompt_wav_upload = await audio_processor.save_upload_to_wav(
+                                upload_file = prompt_wav, 
+                                prefix = "p", 
+                                volume_multiplier = 1.5, 
+                                nonsilent = True
+                            )
     except Exception as e:
         return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################
@@ -583,6 +575,6 @@ if __name__ == '__main__':
         try:
             uvicorn.run(app="api:app", host="0.0.0.0", port=args.port, workers=1, reload=True, log_level="info")
         except Exception as e:
-            log_error(e)
+            TextProcessor.log_error(e)
             print(e)
             exit(0)

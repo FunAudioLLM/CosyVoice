@@ -23,23 +23,24 @@ import torchaudio
 import random
 import librosa
 import uvicorn
-import uuid
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/third_party/Matcha-TTS'.format(ROOT_DIR))
 from cosyvoice.utils.file_utils import load_wav, logging
 from cosyvoice.utils.common import set_all_random_seed
 from cosyvoice.utils.ModelManager import ModelManager
-from fastapi import FastAPI, File, UploadFile, Query, Body, Form
-from fastapi.responses import Response, StreamingResponse, JSONResponse, PlainTextResponse, FileResponse
+from cosyvoice.utils.AudioProcessor import AudioProcessor
+from fastapi import FastAPI, File, UploadFile, Query, Form
+from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.docs import get_swagger_ui_html
 from starlette.middleware.cors import CORSMiddleware  #引入 CORS中间件模块
 from contextlib import asynccontextmanager
-from pydub import AudioSegment
-from pydub.effects import normalize
-from math import log10
 from langdetect import detect
 
 # 全局模型管理器
 model_manager = ModelManager()
+# 初始化处理器
+audio_processor = AudioProcessor()
 #设置允许访问的域名
 origins = ["*"]  #"*"，即为所有。
 
@@ -51,27 +52,6 @@ instruct_dict = {'预训练音色': '1. 选择预训练音色\n2. 点击生成�
                  '语音复刻': '1. 选择source音频文件\n2. 选择prompt音频文件，或录入prompt音频，注意不超过30s，若同时提供，优先选择prompt音频文件\n3. 点击生成音频按钮'}
 stream_mode_list = [('否', False), ('是', True)]
 max_val = 0.8
-
-def volume_safely(audio: AudioSegment, volume_multiplier: float = 1.0) -> AudioSegment:
-    """
-    安全地调整音频音量。
-    :param audio: AudioSegment 对象，音频数据。
-    :param volume_multiplier: float，音量倍数，1.0 为原音量，大于 1 提高音量，小于 1 降低音量。
-    :return: 调整后的 AudioSegment 对象。
-    """
-    if volume_multiplier <= 0:
-        raise ValueError("volume_multiplier 必须大于 0")
-
-    # 计算增益（分贝），根据倍数调整
-    gain_in_db = 20 * np.log10(volume_multiplier)
-
-    # 应用增益调整音量
-    audio = audio.apply_gain(gain_in_db)
-
-    # 确保音频不削波（归一化到峰值 -0.1 dB 以下）
-    audio = audio.normalize(headroom=0.1)
-
-    return audio
 
 def detect_language(text):
     lang = detect(text)
@@ -350,104 +330,6 @@ def main():
     demo.queue(max_size=4, default_concurrency_limit=2)
     demo.launch(server_name='0.0.0.0', server_port=args.port, debug=False)
 
-def generate_wav(audio_data, sample_rate, delay=0.0, volume_multiplier = 1.0):
-    """
-    使用 pydub 将音频数据转换为 WAV 格式，并支持添加延迟。
-    :param audio_data: numpy 数组，音频数据
-    :param sample_rate: int，采样率
-    :param delay: float，延迟时间（单位：秒），默认为 0
-    :param volume_multiplier: float，音量倍数，默认为 1.0
-    :return: 文件路径，生成的 WAV 文件路径
-    """
-    # 确保 audio_data 是 numpy 数组
-    if not isinstance(audio_data, np.ndarray):
-        raise ValueError("audio_data 必须是 numpy 数组。")
-    # 生成静音数据（如果有延迟需求）
-    if delay > 0:
-        num_silence_samples = int(delay * sample_rate)
-        silence = np.zeros(num_silence_samples, dtype=audio_data.dtype)
-        audio_data = np.concatenate((silence, audio_data), axis=0)
-    # 检测音频数据类型并转换
-    sample_width = 2
-    if audio_data.dtype == np.float32:
-        # 如果是 float32 数据，量化到 int16
-        audio_data = (audio_data * 32767).astype(np.int16)
-        sample_width = 2  # 16-bit (2 bytes per sample)
-    elif audio_data.dtype == np.int16:
-        sample_width = 2  # 16-bit (2 bytes per sample)
-    elif audio_data.dtype == np.int8:
-        audio_data = audio_data.astype(np.int16) * 256  # 转换为 int16
-        sample_width = 2  # 16-bit
-    else:
-        raise ValueError("audio_data.dtype 不正确。")
-    # 检测声道数
-    if len(audio_data.shape) == 1:  # 单声道
-        channels = 1
-    elif len(audio_data.shape) == 2:  # 多声道
-        channels = audio_data.shape[1]
-    else:
-        raise ValueError("audio_data.shape 格式不正确，必须是 1D 或 2D numpy 数组。")
-    # 使用 pydub 生成音频段
-    audio_segment = AudioSegment(
-        audio_data.tobytes(),
-        frame_rate=sample_rate,
-        sample_width=sample_width,
-        channels=channels
-    )
-    if volume_multiplier != 1.0:
-        # 安全地增加音量
-        audio_segment = volume_safely(audio_segment, volume_multiplier)
-    # 指定保存文件的路径
-    filename = f"{str(uuid.uuid4())}.wav"
-    wav_dir = "results/output"
-    wav_path = os.path.join(wav_dir, filename)
-    # 确保目录存在
-    os.makedirs(wav_dir, exist_ok=True)
-    # 如果文件已存在，先删除
-    if os.path.exists(wav_path):
-        os.remove(wav_path)
-    # 导出 WAV 文件
-    audio_segment.export(wav_path, format="wav")
-
-    return wav_path
-
-async def save_upload_to_wav(upload_file: UploadFile, prefix: str, volume_multiplier: float = 1.0):
-    """保存上传文件并转换为 WAV 格式（如果需要）"""
-    # 指定保存文件的路径
-    input_wav_dir = "results\input"
-    # 确保目录存在
-    os.makedirs(input_wav_dir, exist_ok=True)
-    # 构造文件路径
-    file_upload_path = os.path.join(input_wav_dir, f'{prefix}{upload_file.filename}')
-    # 删除同名已存在的文件
-    if os.path.exists(file_upload_path):
-        os.remove(file_upload_path)
-
-    logging.info(f"接收上传{upload_file.filename}请求 {file_upload_path}")
-
-    try:
-        # 保存上传的音频文件
-        with open(file_upload_path, "wb") as f:
-            f.write(await upload_file.read())
-        # 检查文件格式并转换为 WAV（如果需要）
-        if not file_upload_path.lower().endswith(".wav"):
-            audio = AudioSegment.from_file(file_upload_path)
-            wav_path = os.path.splitext(file_upload_path)[0] + ".wav"
-            audio.export(wav_path, format="wav")
-            os.remove(file_upload_path)  # 删除原始文件
-            file_upload_path = wav_path
-
-        if volume_multiplier != 1.0:
-            # 加载音频并调整音量
-            audio = AudioSegment.from_file(file_upload_path)
-            audio = volume_safely(audio, volume_multiplier=volume_multiplier)
-            # 保存调整后音量的音频
-            audio.export(file_upload_path, format="wav")
-
-        return file_upload_path
-    except Exception as e:
-        raise Exception(f"{upload_file.filename}音频文件保存或转换失败: {str(e)}")
-    
 # 定义 FastAPI 应用
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -463,6 +345,17 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],  # 设置允许跨域的http方法，比如 get、post、put等。
     allow_headers=["*"])  #允许跨域的headers，可以用来鉴别来源等作用。
+# 挂载静态文件
+app.mount("/static", StaticFiles(directory="static"), name="static")
+# 使用本地的 Swagger UI 静态资源
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title="Custom Swagger UI",
+        swagger_js_url="/static/swagger-ui/5.9.0/swagger-ui-bundle.js",
+        swagger_css_url="/static/swagger-ui/5.9.0/swagger-ui.css",
+    )
 
 @app.get('/test')
 async def test():
@@ -481,8 +374,8 @@ async def seed_vc(
     用户自定义语音音色复刻接口。
     """
     try:
-        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p", 1.5)
-        source_wav_upload = await save_upload_to_wav(source_wav, "s", 1.0)
+        prompt_wav_upload = await audio_processor.save_upload_to_wav(prompt_wav, "p", 1.5, nonsilent = True)
+        source_wav_upload = await audio_processor.save_upload_to_wav(source_wav, "s", 1.0)
     except Exception as e:
         return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################
@@ -507,7 +400,7 @@ async def seed_vc(
     # 获取音频数据
     target_sr, audio_data = audio
     # 使用自定义方法生成 WAV 格式
-    wav_path = generate_wav(audio_data, target_sr)
+    wav_path = audio_processor.generate_wav(audio_data, target_sr)
     # 返回音频响应
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
 
@@ -523,7 +416,7 @@ async def fast_copy(
     用户自定义音色语音合成接口。
     """
     try:
-        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p", 1.5)
+        prompt_wav_upload = await audio_processor.save_upload_to_wav(prompt_wav, "p", 1.5, nonsilent = True)
     except Exception as e:
         return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################
@@ -554,7 +447,7 @@ async def fast_copy(
     # 获取音频数据
     target_sr, audio_data = audio
     # 使用自定义方法生成 WAV 格式
-    source_wav_upload = generate_wav(audio_data, target_sr, delay, 1.0)
+    source_wav_upload = audio_processor.generate_wav(audio_data, target_sr, delay, 1.0)
     
     seed_data = generate_seed()
     seed = seed_data["value"]
@@ -577,7 +470,7 @@ async def fast_copy(
     # 获取音频数据
     target_sr, audio_data = audio
     # 使用自定义方法生成 WAV 格式
-    wav_path = generate_wav(audio_data, target_sr, 0.0, 3.0)
+    wav_path = audio_processor.generate_wav(audio_data, target_sr, 0.0, 3.0)
     # 返回音频响应
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
 
@@ -592,7 +485,7 @@ async def zero_shot(
     用户自定义音色语音合成接口。
     """
     try:
-        prompt_wav_upload = await save_upload_to_wav(prompt_wav, "p", 1.5)
+        prompt_wav_upload = await audio_processor.save_upload_to_wav(prompt_wav, "p", 1.5, nonsilent = True)
     except Exception as e:
         return JSONResponse({"errcode": -1, "errmsg": str(e)})
     ############################## generate ##############################
@@ -617,7 +510,7 @@ async def zero_shot(
     # 获取音频数据
     target_sr, audio_data = audio
     # 使用自定义方法生成 WAV 格式
-    wav_path = generate_wav(audio_data, target_sr, 0.0, 3.0)
+    wav_path = audio_processor.generate_wav(audio_data, target_sr, 0.0, 3.0)
     # 返回音频响应
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
 
@@ -652,7 +545,7 @@ async def tts(
   # 获取音频数据
     target_sr, audio_data = audio
     # 使用自定义方法生成 WAV 格式
-    wav_path = generate_wav(audio_data, target_sr)
+    wav_path = audio_processor.generate_wav(audio_data, target_sr)
     # 返回音频响应
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
 

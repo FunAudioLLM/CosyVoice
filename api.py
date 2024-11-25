@@ -309,7 +309,7 @@ def main():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 在应用启动时加载模型
-    model_manager.load_models()
+    model_manager.get_model("cosyvoice_instruct")
     logging.info("Models loaded successfully!")
     yield  # 这里是应用运行的时间段
     logging.info("Application shutting down...")  # 在这里可以释放资源    
@@ -569,7 +569,7 @@ default_data = np.zeros(target_sr)
 
 if __name__ == '__main__':
     if args.webui:
-        model_manager.load_models()
+        model_manager.get_model("cosyvoice_sft")
         sft_spk = model_manager.sft_spk
         main()
     else:

@@ -4,36 +4,49 @@ from cosyvoice.utils.file_utils import logging
 
 class ModelManager:
     def __init__(self):
-        self.cosyvoice = None
-        self.cosyvoice_sft = None
-        self.cosyvoice_instruct = None
+        self.models = {
+            "cosyvoice": None,
+            "cosyvoice_sft": None,
+            "cosyvoice_instruct": None,
+        }
         self.sft_spk = None
-        self.lock = threading.Lock()
+        self.locks = {
+            "cosyvoice": threading.Lock(),
+            "cosyvoice_sft": threading.Lock(),
+            "cosyvoice_instruct": threading.Lock(),
+        }
 
-    def load_models(self):
-        with self.lock:  # 确保线程安全
-            if self.cosyvoice is None:
-                self.cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M')
-            if self.cosyvoice_sft is None:
-                self.cosyvoice_sft = CosyVoice(
-                    'pretrained_models/CosyVoice-300M-SFT',
-                    load_jit=True, load_onnx=False, fp16=True)
-                self.sft_spk = self.cosyvoice_sft.list_avaliable_spks()
-            if self.cosyvoice_instruct is None:
-                self.cosyvoice_instruct = CosyVoice('pretrained_models/CosyVoice-300M-Instruct')
+    def _load_model(self, model_type: str):
+        """
+        内部方法：加载指定类型的模型。
+        """
+        logging.info(f"Loading model: {model_type}")
+        if model_type == "cosyvoice":
+            return CosyVoice('pretrained_models/CosyVoice-300M')
+        elif model_type == "cosyvoice_sft":
+            model = CosyVoice(
+                'pretrained_models/CosyVoice-300M-SFT',
+                load_jit=True, load_onnx=False, fp16=True
+            )
+            self.sft_spk = model.list_avaliable_spks()
+            return model
+        elif model_type == "cosyvoice_instruct":
+            return CosyVoice('pretrained_models/CosyVoice-300M-Instruct')
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
 
     def get_model(self, model_type: str):
         """
-        获取指定类型的模型实例。
-        model_type: str, 可选值为 "cosyvoice", "cosyvoice_sft", "cosyvoice_instruct"
+        获取指定类型的模型实例，按需加载，确保线程安全。
         """
-        logging.info(f'get_model: {model_type}')
-        
-        if model_type == "cosyvoice":
-            return self.cosyvoice
-        elif model_type == "cosyvoice_sft":
-            return self.cosyvoice_sft
-        elif model_type == "cosyvoice_instruct":
-            return self.cosyvoice_instruct
-        else:
+        logging.info(f"get_model: {model_type}")
+        if model_type not in self.models:
             raise ValueError(f"Unsupported model type: {model_type}")
+
+        # 如果模型尚未加载，则加载
+        if self.models[model_type] is None:
+            with self.locks[model_type]:  # 确保线程安全
+                if self.models[model_type] is None:  # 双重检查锁定
+                    self.models[model_type] = self._load_model(model_type)
+        
+        return self.models[model_type]

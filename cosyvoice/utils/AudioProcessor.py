@@ -158,7 +158,7 @@ class AudioProcessor:
                     y=audio_np,
                     sr=audio.frame_rate,
                     y_noise=noise_profile,
-                    n_std_thresh_stationary=1.5,  # 提高阈值，减少过度降噪
+                    n_std_thresh_stationary=2.0,  # 提高阈值，减少过度降噪
                     prop_decrease=0.8  # 降低噪声衰减比例
                 )
                 # 转换回 AudioSegment
@@ -166,7 +166,7 @@ class AudioProcessor:
             # 去除前后静音
             if nonsilent:
                 logging.info("nonsilent start")
-                nonsilent_ranges = detect_nonsilent(audio, min_silence_len=500, silence_thresh=audio.dBFS - 16)
+                nonsilent_ranges = detect_nonsilent(audio, min_silence_len=300, silence_thresh=audio.dBFS - 16)
                 if nonsilent_ranges:
                     start_trim = nonsilent_ranges[0][0]
                     end_trim = nonsilent_ranges[-1][1]

@@ -313,7 +313,7 @@ async def lifespan(app: FastAPI):
     logging.info("Models loaded successfully!")
     yield  # 这里是应用运行的时间段
     logging.info("Application shutting down...")  # 在这里可以释放资源    
-app = FastAPI(docs_url="/docs", lifespan=lifespan)
+app = FastAPI(docs_url=None, lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  #设置允许的origins来源
@@ -325,6 +325,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # 使用本地的 Swagger UI 静态资源
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
+    logging.info("Custom Swagger UI endpoint hit")
     return get_swagger_ui_html(
         openapi_url="/openapi.json",
         title="Custom Swagger UI",

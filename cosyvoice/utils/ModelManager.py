@@ -1,5 +1,6 @@
 import threading
 from cosyvoice.cli.cosyvoice import CosyVoice
+from cosyvoice.utils.file_utils import logging
 
 class ModelManager:
     def __init__(self):
@@ -26,6 +27,8 @@ class ModelManager:
         获取指定类型的模型实例。
         model_type: str, 可选值为 "cosyvoice", "cosyvoice_sft", "cosyvoice_instruct"
         """
+        logging.info(f'get_model: {model_type}')
+        
         if model_type == "cosyvoice":
             return self.cosyvoice
         elif model_type == "cosyvoice_sft":

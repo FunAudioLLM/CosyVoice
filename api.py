@@ -140,7 +140,7 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
     # 获取需要的模型
     if mode_checkbox_group == '预训练音色':
         cosyvoice = model_manager.get_model("cosyvoice_sft")
-    elif mode_checkbox_group in ['3s极速复刻', '跨语种复刻', '语音复刻']:
+    elif mode_checkbox_group in ['跨语种复刻', '语音复刻']: #'3s极速复刻',
         cosyvoice = model_manager.get_model("cosyvoice")
     else:
         cosyvoice = model_manager.get_model("cosyvoice_instruct")  
@@ -517,7 +517,7 @@ async def fast_copy(
     prompt_text:str = Form(..., description="请输入prompt文本，需与prompt音频内容一致，暂时不支持自动识别"), 
     prompt_wav:UploadFile = File(..., description="选择prompt音频文件，注意采样率不低于16khz"), 
     spaker:float = Form(1.0, description="语速调节(0.5-2.0)"),
-    delay: float = Form(0.5, description="文本音频前的延迟时间，单位秒（默认0.5秒）")
+    delay: float = Form(0.0, description="文本音频前的延迟时间，单位秒（默认0.0秒）")
 ):
     """
     用户自定义音色语音合成接口。
@@ -617,7 +617,7 @@ async def zero_shot(
     # 获取音频数据
     target_sr, audio_data = audio
     # 使用自定义方法生成 WAV 格式
-    wav_path = generate_wav(audio_data, target_sr)
+    wav_path = generate_wav(audio_data, target_sr, 0.0, 3.0)
     # 返回音频响应
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
 

@@ -125,26 +125,24 @@ class AudioProcessor:
         ):
         """保存上传文件并转换为 WAV 格式（如果需要）"""
         # 构造文件路径
-        file_upload_path = os.path.join(self.input_dir, f'{prefix}{upload_file.filename}')
+        upload_path = os.path.join(self.input_dir, f'{prefix}{upload_file.filename}')
         # 删除同名已存在的文件
-        if os.path.exists(file_upload_path):
-            os.remove(file_upload_path)
+        if os.path.exists(upload_path):
+            os.remove(upload_path)
+        # 检查文件格式并转换为 WAV（如果需要）
+        if not upload_path.lower().endswith(".wav"):
+            wav_path = f"{os.path.splitext(upload_path)[0]}_new.wav"
+        else:
+            wav_path = upload_path
 
-        logging.info(f"接收上传{upload_file.filename}请求 {file_upload_path}")
+        logging.info(f"接收上传{upload_file.filename}请求 {upload_path}")
 
         try:
             # 保存上传的音频文件
-            with open(file_upload_path, "wb") as f:
+            with open(upload_path, "wb") as f:
                 f.write(await upload_file.read())
-            # 检查文件格式并转换为 WAV（如果需要）
-            if not file_upload_path.lower().endswith(".wav"):
-                audio = AudioSegment.from_file(file_upload_path)
-                wav_path = os.path.splitext(file_upload_path)[0] + ".wav"
-                audio.export(wav_path, format="wav")
-                os.remove(file_upload_path)  # 删除原始文件
-                file_upload_path = wav_path
             # 加载音频
-            audio = AudioSegment.from_file(file_upload_path)        
+            audio = AudioSegment.from_file(upload_path)        
             # 降噪处理
             if reduce_noise_enabled:
                 logging.info("reduce noise start")
@@ -175,9 +173,9 @@ class AudioProcessor:
             if volume_multiplier != 1.0:
                 audio = self.volume_safely(audio, volume_multiplier=volume_multiplier)
             # 保存调整后的音频
-            audio.export(file_upload_path, format="wav")
+            audio.export(wav_path, format="wav")
 
-            return file_upload_path
+            return wav_path
         except Exception as e:
             raise Exception(f"{upload_file.filename}音频文件保存或转换失败: {str(e)}")
             

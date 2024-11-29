@@ -459,7 +459,7 @@ async def fast_copy(
     # 获取音频数据
     target_sr, audio_data = audio
     # 使用自定义方法生成 WAV 格式
-    wav_path = audio_processor.generate_wav(audio_data, target_sr, 0.0, 3.0)
+    wav_path = audio_processor.generate_wav(audio_data, target_sr, 0.0, 2.0)
     # 返回音频响应
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
 
@@ -504,7 +504,7 @@ async def zero_shot(
     # 获取音频数据
     target_sr, audio_data = audio
     # 使用自定义方法生成 WAV 格式
-    wav_path = audio_processor.generate_wav(audio_data, target_sr, 0.0, 3.0)
+    wav_path = audio_processor.generate_wav(audio_data, target_sr, 0.0, 2.0)
     # 返回音频响应
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
 

@@ -54,9 +54,18 @@ class CosyVoice:
             self.model.load_onnx('{}/flow.decoder.estimator.fp32.onnx'.format(model_dir))
         del configs
 
+    # 重写此方法，实时返回说话人列表
     def list_avaliable_spks(self):
-        spks = list(self.frontend.spk2info.keys())
+        # spks = list(self.frontend.spk2info.keys())
+        spk2info_path = os.path.join(self.model_dir, 'spk2info.pt')
+        spk2info = torch.load(spk2info_path)
+        spks = list(spk2info.keys())
         return spks
+
+    # 推理语音
+    def inference_voice(self,prompt_speech_16k,voice_name):
+        self.frontend.frontend_inference_voice(prompt_speech_16k,self.model_dir,voice_name)
+        return
 
     def inference_sft(self, tts_text, spk_id, stream=False, speed=1.0):
         for i in tqdm(self.frontend.text_normalize(tts_text, split=True)):

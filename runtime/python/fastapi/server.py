@@ -43,11 +43,11 @@ def generate_data(model_output):
         yield tts_audio
 
 
+# 根据音色ID、文本合成语音
 @app.get("/inference_sft")
 async def inference_sft(tts_text: str = Form(), spk_id: str = Form()):
     model_output = cosyvoice.inference_sft(tts_text, spk_id)
     return StreamingResponse(generate_data(model_output))
-
 
 @app.get("/inference_zero_shot")
 async def inference_zero_shot(tts_text: str = Form(), prompt_text: str = Form(), prompt_wav: UploadFile = File()):
@@ -55,19 +55,40 @@ async def inference_zero_shot(tts_text: str = Form(), prompt_text: str = Form(),
     model_output = cosyvoice.inference_zero_shot(tts_text, prompt_text, prompt_speech_16k)
     return StreamingResponse(generate_data(model_output))
 
-
 @app.get("/inference_cross_lingual")
 async def inference_cross_lingual(tts_text: str = Form(), prompt_wav: UploadFile = File()):
     prompt_speech_16k = load_wav(prompt_wav.file, 16000)
     model_output = cosyvoice.inference_cross_lingual(tts_text, prompt_speech_16k)
     return StreamingResponse(generate_data(model_output))
 
-
 @app.get("/inference_instruct")
 async def inference_instruct(tts_text: str = Form(), spk_id: str = Form(), instruct_text: str = Form()):
     model_output = cosyvoice.inference_instruct(tts_text, spk_id, instruct_text)
     return StreamingResponse(generate_data(model_output))
 
+
+# 新增接口，训练并保存音色
+# 传入音色名字和音色音频
+@app.post("/inference/voice")
+async def inference_voice(spk_id: str = Form(), audio: UploadFile = File()):
+    start = time.process_time()
+    prompt_speech = load_wav(audio.file, 16000)
+    prompt_audio = (prompt_speech.numpy() * (2**15)).astype(np.int16).tobytes()
+    prompt_speech_16k = torch.from_numpy(np.array(np.frombuffer(prompt_audio, dtype=np.int16))).unsqueeze(dim=0)
+    prompt_speech_16k = prompt_speech_16k.float() / (2**15)
+
+    app.cosyvoice.inference_voice(prompt_speech_16k,spk_id)
+
+    end = time.process_time()
+
+    logging.info("推理音色%s完成", spk_id)
+    logging.info("infer time is %s seconds", end - start)
+    return {"status": "success", "spk_id": spk_id, "processing_time": end - start}
+
+# 实时查看可用音色列表
+@app.get("/roles")
+async def roles():
+    return {"roles": app.cosyvoice.list_avaliable_spks()}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

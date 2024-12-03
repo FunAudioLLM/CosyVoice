@@ -55,8 +55,15 @@ class CosyVoice:
         del configs
 
     def list_avaliable_spks(self):
-        spks = list(self.frontend.spk2info.keys())
+        # spks = list(self.frontend.spk2info.keys())
+        spk2info_path = os.path.join(self.model_dir, 'spk2info.pt')
+        spk2info = torch.load(spk2info_path)
+        spks = list(spk2info.keys())
         return spks
+
+    def inference_voice(self,prompt_speech_16k,voice_name):
+        self.frontend.frontend_inference_voice(prompt_speech_16k,self.model_dir,voice_name)
+        return
 
     def inference_sft(self, tts_text, spk_id, stream=False, speed=1.0):
         for i in tqdm(self.frontend.text_normalize(tts_text, split=True)):

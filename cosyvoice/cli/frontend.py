@@ -186,3 +186,19 @@ class CosyVoiceFrontEnd:
                        'prompt_speech_feat': prompt_speech_feat, 'prompt_speech_feat_len': prompt_speech_feat_len,
                        'flow_embedding': embedding}
         return model_input
+
+    def frontend_inference_voice(self,prompt_speech_16k,pretrained_model_dir,voice_name):
+        prompt_speech_22050 = torchaudio.transforms.Resample(orig_freq=16000, new_freq=22050)(prompt_speech_16k)
+        speech_feat, speech_feat_len = self._extract_speech_feat(prompt_speech_22050)
+        speech_token, speech_token_len = self._extract_speech_token(prompt_speech_16k)
+        embedding = self._extract_spk_embedding(prompt_speech_16k)
+        voice_tone = {
+             'speech_token': speech_token,
+             'speech_feat': speech_feat,
+             'embedding': embedding
+        }
+        spk2info_path = os.path.join(pretrained_model_dir, 'spk2info.pt')
+        spk2info = torch.load(spk2info_path)
+        spk2info[voice_name]  = voice_tone
+        torch.save(spk2info, spk2info_path)
+        return

@@ -569,6 +569,9 @@ prompt_sr, target_sr = 16000, 22050
 default_data = np.zeros(target_sr)
 
 if __name__ == '__main__':
+    # 设置显存比例限制为 50%
+    torch.cuda.set_per_process_memory_fraction(0.5, 0)
+    
     if args.webui:
         model_manager.get_model("cosyvoice_sft")
         sft_spk = model_manager.sft_spk

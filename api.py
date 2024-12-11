@@ -75,8 +75,22 @@ def change_instruction(mode_checkbox_group):
 
 # 定义一个函数进行显存清理
 def clear_cuda_cache():
-    torch.cuda.empty_cache()
-    logging.info("CUDA cache cleared!")
+    """
+    清理PyTorch的显存和系统内存缓存。
+    """
+    if torch.cuda.is_available():
+        logging.info("Clearing GPU memory...")
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
+        # 打印显存日志
+        logging.info(f"[GPU Memory] Allocated: {torch.cuda.memory_allocated() / (1024 ** 2):.2f} MB")
+        logging.info(f"[GPU Memory] Max Allocated: {torch.cuda.max_memory_allocated() / (1024 ** 2):.2f} MB")
+        logging.info(f"[GPU Memory] Reserved: {torch.cuda.memory_reserved() / (1024 ** 2):.2f} MB")
+        logging.info(f"[GPU Memory] Max Reserved: {torch.cuda.max_memory_reserved() / (1024 ** 2):.2f} MB")
+
+        # 重置统计信息
+        torch.cuda.reset_peak_memory_stats()
 
 def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav, instruct_text,
                    seed, stream, speed, source_wav):

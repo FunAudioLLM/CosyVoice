@@ -352,8 +352,8 @@ async def global_exception_handler(request: Request, exc: Exception):
     TextProcessor.log_error(exc)
 
     return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"message": "Internal Server Error"}
+        errcode = 500,
+        errmsg = "Internal Server Error"
     )
 
 @app.get("/", response_class=HTMLResponse)

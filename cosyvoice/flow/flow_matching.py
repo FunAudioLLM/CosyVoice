@@ -89,17 +89,25 @@ class ConditionalCFM(BASECFM):
         sol = []
 
         for step in range(1, len(t_span)):
-            dphi_dt = self.forward_estimator(x, mask, mu, t, spks, cond)
             # Classifier-Free Guidance inference introduced in VoiceBox
             if self.inference_cfg_rate > 0:
-                cfg_dphi_dt = self.forward_estimator(
-                    x, mask,
-                    torch.zeros_like(mu), t,
-                    torch.zeros_like(spks) if spks is not None else None,
-                    torch.zeros_like(cond)
-                )
-                dphi_dt = ((1.0 + self.inference_cfg_rate) * dphi_dt -
-                           self.inference_cfg_rate * cfg_dphi_dt)
+                x_in = torch.concat([x, x], dim=0)
+                mask_in = torch.concat([mask, mask], dim=0)
+                mu_in = torch.concat([mu, torch.zeros_like(mu).to(x.device)], dim=0)
+                t_in = torch.concat([t, t], dim=0)
+                spks_in = torch.concat([spks, torch.zeros_like(spks).to(x.device)], dim=0) if spks is not None else None
+                cond_in = torch.concat([cond, torch.zeros_like(cond).to(x.device)], dim=0) if cond is not None else None
+            else:
+                x_in, mask_in, mu_in, t_in, spks_in, cond_in = x, mask, mu, t, spks, cond
+            dphi_dt = self.forward_estimator(
+                x_in, mask_in,
+                mu_in, t_in,
+                spks_in,
+                cond_in
+            )
+            if self.inference_cfg_rate > 0:
+                dphi_dt, cfg_dphi_dt = torch.split(dphi_dt, [x.size(0), x.size(0)], dim=0)
+                dphi_dt = ((1.0 + self.inference_cfg_rate) * dphi_dt - self.inference_cfg_rate * cfg_dphi_dt)
             x = x + dt * dphi_dt
             t = t + dt
             sol.append(x)
@@ -163,3 +171,37 @@ class ConditionalCFM(BASECFM):
         pred = self.estimator(y, mask, mu, t.squeeze(), spks, cond)
         loss = F.mse_loss(pred * mask, u * mask, reduction="sum") / (torch.sum(mask) * u.shape[1])
         return loss, y
+
+
+class CausalConditionalCFM(ConditionalCFM):
+    def __init__(self, in_channels, cfm_params, n_spks=1, spk_emb_dim=64, estimator: torch.nn.Module = None):
+        super().__init__(in_channels, cfm_params, n_spks, spk_emb_dim, estimator)
+        self.rand_noise = torch.randn([1, 80, 50 * 300])
+
+    @torch.inference_mode()
+    def forward(self, mu, mask, n_timesteps, temperature=1.0, spks=None, cond=None):
+        """Forward diffusion
+
+        Args:
+            mu (torch.Tensor): output of encoder
+                shape: (batch_size, n_feats, mel_timesteps)
+            mask (torch.Tensor): output_mask
+                shape: (batch_size, 1, mel_timesteps)
+            n_timesteps (int): number of diffusion steps
+            temperature (float, optional): temperature for scaling noise. Defaults to 1.0.
+            spks (torch.Tensor, optional): speaker ids. Defaults to None.
+                shape: (batch_size, spk_emb_dim)
+            cond: Not used but kept for future purposes
+
+        Returns:
+            sample: generated mel-spectrogram
+                shape: (batch_size, n_feats, mel_timesteps)
+        """
+
+        z = self.rand_noise[:, :, :mu.size(2)].to(mu.device) * temperature
+        z[:] = 0
+        # fix prompt and overlap part mu and z
+        t_span = torch.linspace(0, 1, n_timesteps + 1, device=mu.device, dtype=mu.dtype)
+        if self.t_scheduler == 'cosine':
+            t_span = 1 - torch.cos(t_span * 0.5 * torch.pi)
+        return self.solve_euler(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond), None

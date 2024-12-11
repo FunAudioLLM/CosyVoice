@@ -28,8 +28,8 @@ from cosyvoice.utils.common import set_all_random_seed
 from cosyvoice.utils.ModelManager import ModelManager
 from cosyvoice.utils.AudioProcessor import AudioProcessor
 from cosyvoice.utils.TextProcessor import TextProcessor
-from fastapi import FastAPI, File, UploadFile, Query, Form
-from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
+from fastapi import FastAPI, File, UploadFile, Query, Form, Request, status
+from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.docs import get_swagger_ui_html
 from starlette.middleware.cors import CORSMiddleware  #引入 CORS中间件模块
@@ -313,6 +313,8 @@ async def lifespan(app: FastAPI):
     logging.info("Models loaded successfully!")
     yield  # 这里是应用运行的时间段
     logging.info("Application shutting down...")  # 在这里可以释放资源    
+    clear_cuda_cache()
+
 app = FastAPI(docs_url=None, lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
@@ -333,6 +335,41 @@ async def custom_swagger_ui_html():
         swagger_css_url="/static/swagger-ui/5.9.0/swagger-ui.css",
     )
 
+@app.middleware("http")
+async def clear_gpu_after_request(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        clear_cuda_cache()
+# 自定义异常处理器
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logging.info(f"Exception during request {request.url}: {exc}")
+
+    clear_cuda_cache()
+    # 记录错误信息
+    TextProcessor.log_error(exc)
+
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"message": "Internal Server Error"}
+    )
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return """
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <meta charset=utf-8>
+            <title>Api information</title>
+        </head>
+        <body>
+            <a href='./docs'>Documents of API</a>
+        </body>
+    </html>
+    """
 @app.get('/test')
 async def test():
     """
@@ -578,8 +615,8 @@ if __name__ == '__main__':
         main()
     else:
         try:
-            uvicorn.run(app="api:app", host="0.0.0.0", port=args.port, workers=1, reload=True, log_level="info")
+            uvicorn.run(app="api:app", host="0.0.0.0", port=args.port, workers=1, reload=False, log_level="info")
         except Exception as e:
-            TextProcessor.log_error(e)
-            print(e)
+            clear_cuda_cache()
+            logging.error(e)
             exit(0)

@@ -213,7 +213,6 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
             for i in cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text, stream=stream, speed=speed):
                 generated_audio_list.append(i['tts_speech'].numpy().flatten())
 
-        clear_cuda_cache()
         # 合并所有音频片段为一整段
         if len(generated_audio_list) > 0:
             errcode = 0
@@ -244,6 +243,9 @@ def gradio_generate_audio(tts_text, mode_checkbox_group, sft_dropdown,
         instruct_text, seed, stream, speed,
         source_wav
     )
+            
+    clear_cuda_cache()
+
     # 根据结果返回 Gradio 的更新
     if errcode == 0:  # 正常
         return (

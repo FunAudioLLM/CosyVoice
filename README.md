@@ -1,10 +1,19 @@
 # CosyVoice
+
+## 👉🏻 [CosyVoice2 Demos](https://funaudiollm.github.io/cosyvoice2/) 👈🏻
+[[CosyVoice2 Paper](https://fun-audio-llm.github.io/pdf/CosyVoice_v1.pdf)][[CosyVoice2 Studio](https://www.modelscope.cn/studios/iic/CosyVoice-300M)]
+
 ## 👉🏻 [CosyVoice Demos](https://fun-audio-llm.github.io/) 👈🏻
 [[CosyVoice Paper](https://fun-audio-llm.github.io/pdf/CosyVoice_v1.pdf)][[CosyVoice Studio](https://www.modelscope.cn/studios/iic/CosyVoice-300M)][[CosyVoice Code](https://github.com/FunAudioLLM/CosyVoice)]
 
 For `SenseVoice`, visit [SenseVoice repo](https://github.com/FunAudioLLM/SenseVoice) and [SenseVoice space](https://www.modelscope.cn/studios/iic/SenseVoice).
 
 ## Roadmap
+
+- [x] 2024/12
+
+    - [x] CosyVoice2-0.5B model release
+    - [x] CosyVoice2-0.5B streaming inference with no quality degradation
 
 - [x] 2024/07
 
@@ -24,9 +33,8 @@ For `SenseVoice`, visit [SenseVoice repo](https://github.com/FunAudioLLM/SenseVo
 
 - [ ] TBD
 
-    - [ ] 25hz llama based llm model which supports lora finetune
-    - [ ] Support more instruction mode
-    - [ ] Music generation
+    - [ ] CosyVoice2-0.5B bistream inference support
+    - [ ] CosyVoice2-0.5B training and finetune recipie
     - [ ] CosyVoice-500M trained with more multi-lingual data
     - [ ] More...
 
@@ -46,7 +54,7 @@ git submodule update --init --recursive
 - Create Conda env:
 
 ``` sh
-conda create -n cosyvoice python=3.8
+conda create -n cosyvoice python=3.10
 conda activate cosyvoice
 # pynini is required by WeTextProcessing, use conda to install it as it can be executed on all platform.
 conda install -y -c conda-forge pynini==2.1.5
@@ -68,6 +76,7 @@ If you are expert in this field, and you are only interested in training your ow
 ``` python
 # SDK模型下载
 from modelscope import snapshot_download
+snapshot_download('iic/CosyVoice2-0.5B', local_dir='pretrained_models/CosyVoice2-0.5B')
 snapshot_download('iic/CosyVoice-300M', local_dir='pretrained_models/CosyVoice-300M')
 snapshot_download('iic/CosyVoice-300M-25Hz', local_dir='pretrained_models/CosyVoice-300M-25Hz')
 snapshot_download('iic/CosyVoice-300M-SFT', local_dir='pretrained_models/CosyVoice-300M-SFT')
@@ -78,6 +87,7 @@ snapshot_download('iic/CosyVoice-ttsfrd', local_dir='pretrained_models/CosyVoice
 ``` sh
 # git模型下载，请确保已安装git lfs
 mkdir -p pretrained_models
+git clone https://www.modelscope.cn/iic/CosyVoice2-0.5B.git pretrained_models/CosyVoice2-0.5B
 git clone https://www.modelscope.cn/iic/CosyVoice-300M.git pretrained_models/CosyVoice-300M
 git clone https://www.modelscope.cn/iic/CosyVoice-300M-25Hz.git pretrained_models/CosyVoice-300M-25Hz
 git clone https://www.modelscope.cn/iic/CosyVoice-300M-SFT.git pretrained_models/CosyVoice-300M-SFT
@@ -97,9 +107,11 @@ pip install ttsfrd-0.3.6-cp38-cp38-linux_x86_64.whl
 
 **Basic Usage**
 
-For zero_shot/cross_lingual inference, please use `CosyVoice-300M` model.
+For zero_shot/cross_lingual inference, please use `CosyVoice2-0.5B` or `CosyVoice-300M` model.
 For sft inference, please use `CosyVoice-300M-SFT` model.
 For instruct inference, please use `CosyVoice-300M-Instruct` model.
+We strongly recommend using `CosyVoice2-0.5B` model for better streaming performance.
+
 First, add `third_party/Matcha-TTS` to your `PYTHONPATH`.
 
 ``` sh
@@ -107,10 +119,18 @@ export PYTHONPATH=third_party/Matcha-TTS
 ```
 
 ``` python
-from cosyvoice.cli.cosyvoice import CosyVoice
+from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
 from cosyvoice.utils.file_utils import load_wav
 import torchaudio
 
+## cosyvoice2 usage
+cosyvoice2 = CosyVoice('pretrained_models/CosyVoice-300M-SFT', load_jit=True, load_onnx=False, load_trt=False)
+# sft usage
+prompt_speech_16k = load_wav('zero_shot_prompt.wav', 16000)
+for i, j in enumerate(cosyvoice2.inference_zero_shot('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。', '希望你以后能够做的比我还好呦。', prompt_speech_16k, stream=True)):
+    torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice2.sample_rate)
+
+## cosyvoice usage
 cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-SFT', load_jit=True, load_onnx=False, fp16=True)
 # sft usage
 print(cosyvoice.list_avaliable_spks())
@@ -188,6 +208,17 @@ You can also scan the QR code to join our official Dingding chat group.
 3. We borrowed a lot of code from [Matcha-TTS](https://github.com/shivammehta25/Matcha-TTS).
 4. We borrowed a lot of code from [AcademiCodec](https://github.com/yangdongchao/AcademiCodec).
 5. We borrowed a lot of code from [WeNet](https://github.com/wenet-e2e/wenet).
+
+## Citations
+
+``` bibtex
+@article{du2024cosyvoice,
+  title={Cosyvoice: A scalable multilingual zero-shot text-to-speech synthesizer based on supervised semantic tokens},
+  author={Du, Zhihao and Chen, Qian and Zhang, Shiliang and Hu, Kai and Lu, Heng and Yang, Yexin and Hu, Hangrui and Zheng, Siqi and Gu, Yue and Ma, Ziyang and others},
+  journal={arXiv preprint arXiv:2407.05407},
+  year={2024}
+}
+```
 
 ## Disclaimer
 The content provided above is for academic purposes only and is intended to demonstrate technical capabilities. Some examples are sourced from the internet. If any content infringes on your rights, please contact us to request its removal.

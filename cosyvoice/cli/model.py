@@ -287,8 +287,6 @@ class CosyVoice2Model:
     def load(self, llm_model, flow_model, hift_model):
         self.llm.load_state_dict(torch.load(llm_model, map_location=self.device), strict=True)
         self.llm.to(self.device).eval()
-        if self.fp16 is True:
-            self.llm.half()
         self.flow.load_state_dict(torch.load(flow_model, map_location=self.device), strict=True)
         self.flow.to(self.device).eval()
         self.flow.decoder.fp16 = False
@@ -319,8 +317,6 @@ class CosyVoice2Model:
         self.flow.decoder.fp16 = True
 
     def llm_job(self, text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):
-        if self.fp16 is True:
-            llm_embedding = llm_embedding.half()
         with self.llm_context:
             for i in self.llm.inference(text=text.to(self.device),
                                         text_len=torch.tensor([text.shape[1]], dtype=torch.int32).to(self.device),

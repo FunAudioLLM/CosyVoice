@@ -146,8 +146,10 @@ class CosyVoiceModel:
             llm_prompt_speech_token=torch.zeros(1, 0, dtype=torch.int32),
             flow_prompt_speech_token=torch.zeros(1, 0, dtype=torch.int32),
             prompt_speech_feat=torch.zeros(1, 0, 80), stream=False, speed=1.0, **kwargs):
+        # When generating text that contains only punctuation marks or whitespace characters
+        # - Returning 10ms of silence ensures consistent processing logic.
         if is_only_punctuation(text):
-            return {'tts_speech': torch.zeros(1, int(0.01 * 22050))}    #返回10ms空白音频，保证了一致的上下游处理逻辑
+            return {'tts_speech': torch.zeros(1, int(0.01 * 22050))}
         # this_uuid is used to track variables related to this inference thread
         this_uuid = str(uuid.uuid1())
         with self.lock:

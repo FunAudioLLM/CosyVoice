@@ -147,7 +147,6 @@ class CosyVoiceModel:
             flow_prompt_speech_token=torch.zeros(1, 0, dtype=torch.int32),
             prompt_speech_feat=torch.zeros(1, 0, 80), stream=False, speed=1.0, **kwargs):
         if is_only_punctuation(text):
-            logging.info('only punctuation, skip synthesis：{}'.format(text))
             return {'tts_speech': torch.zeros(1, int(0.01 * 22050))}    #返回10ms空白音频，保证了一致的上下游处理逻辑
         # this_uuid is used to track variables related to this inference thread
         this_uuid = str(uuid.uuid1())

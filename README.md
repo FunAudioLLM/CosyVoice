@@ -1,7 +1,7 @@
 # CosyVoice
 
 ## 👉🏻 [CosyVoice2 Demos](https://funaudiollm.github.io/cosyvoice2/) 👈🏻
-[[CosyVoice2 Paper](https://fun-audio-llm.github.io/pdf/CosyVoice_v1.pdf)][[CosyVoice2 Studio](https://www.modelscope.cn/studios/iic/CosyVoice-300M)]
+[[CosyVoice2 Paper](https://fun-audio-llm.github.io/pdf/CosyVoice_v1.pdf)][[CosyVoice2 Studio](https://www.modelscope.cn/studios/iic/CosyVoice2-0.5B)]
 
 ## 👉🏻 [CosyVoice Demos](https://fun-audio-llm.github.io/) 👈🏻
 [[CosyVoice Paper](https://fun-audio-llm.github.io/pdf/CosyVoice_v1.pdf)][[CosyVoice Studio](https://www.modelscope.cn/studios/iic/CosyVoice-300M)][[CosyVoice Code](https://github.com/FunAudioLLM/CosyVoice)]

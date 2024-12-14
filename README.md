@@ -1,9 +1,7 @@
 # CosyVoice
-## 👉🏻 [CosyVoice Demos](https://fun-audio-llm.github.io/) 👈🏻
-[[CosyVoice Paper](https://fun-audio-llm.github.io/pdf/CosyVoice_v1.pdf)][[CosyVoice Studio](https://www.modelscope.cn/studios/iic/CosyVoice-300M)][[CosyVoice Code](https://github.com/FunAudioLLM/CosyVoice)]
-
-For `SenseVoice`, visit [SenseVoice repo](https://github.com/FunAudioLLM/SenseVoice) and [SenseVoice space](https://www.modelscope.cn/studios/iic/SenseVoice).
-
+## 👉🏻 CosyVoice 👈🏻
+**CosyVoice 2.0**: [Demos](https://funaudiollm.github.io/cosyvoice2/); [Paper](https://fun-audio-llm.github.io/pdf/CosyVoice_v1.pdf); [Modelscope](https://www.modelscope.cn/studios/iic/CosyVoice2-0.5B)
+**CosyVoice 1.0**: [Demos](https://fun-audio-llm.github.io); [Paper](https://fun-audio-llm.github.io/pdf/CosyVoice_v1.pdf); [Modelscope](https://www.modelscope.cn/studios/iic/CosyVoice-300M)
 
 ## Highlight
 

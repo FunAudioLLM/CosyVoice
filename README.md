@@ -63,7 +63,7 @@ git submodule update --init --recursive
 - Create Conda env:
 
 ``` sh
-conda create -n cosyvoice python=3.8
+conda create -n cosyvoice python=3.10
 conda activate cosyvoice
 # pynini is required by WeTextProcessing, use conda to install it as it can be executed on all platform.
 conda install -y -c conda-forge pynini==2.1.5
@@ -78,7 +78,7 @@ sudo yum install sox sox-devel
 
 **Model download**
 
-We strongly recommend that you download our pretrained `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `CosyVoice-ttsfrd` resource.
+We strongly recommend that you download our pretrained `CosyVoice2-0.5B` `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `CosyVoice-ttsfrd` resource.
 
 If you are expert in this field, and you are only interested in training your own CosyVoice model from scratch, you can skip this step.
 

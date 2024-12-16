@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright 2024 Alibaba Inc. All Rights Reserved.
 # download tensorrt from https://developer.nvidia.com/tensorrt/download/10x, check your system and cuda for compatibability
 # for example for linux + cuda12.4, you can download https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.0.1/tars/TensorRT-10.0.1.6.Linux.x86_64-gnu.cuda-12.4.tar.gz
 TRT_DIR=<YOUR_TRT_DIR>

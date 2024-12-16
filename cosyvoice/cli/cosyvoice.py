@@ -85,7 +85,7 @@ class CosyVoice:
                 start_time = time.time()
 
     def inference_cross_lingual(self, tts_text, prompt_speech_16k, stream=False, speed=1.0):
-        if self.frontend.instruct is True:
+        if self.frontend.instruct is True and isinstance(self.model, CosyVoiceModel):
             raise ValueError('{} do not support cross_lingual inference'.format(self.model_dir))
         for i in tqdm(self.frontend.text_normalize(tts_text, split=True)):
             model_input = self.frontend.frontend_cross_lingual(i, prompt_speech_16k, self.sample_rate)

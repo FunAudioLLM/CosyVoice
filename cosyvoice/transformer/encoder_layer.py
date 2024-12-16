@@ -49,8 +49,8 @@ class TransformerEncoderLayer(nn.Module):
         super().__init__()
         self.self_attn = self_attn
         self.feed_forward = feed_forward
-        self.norm1 = nn.LayerNorm(size, eps=1e-5)
-        self.norm2 = nn.LayerNorm(size, eps=1e-5)
+        self.norm1 = nn.LayerNorm(size, eps=1e-12)
+        self.norm2 = nn.LayerNorm(size, eps=1e-12)
         self.dropout = nn.Dropout(dropout_rate)
         self.size = size
         self.normalize_before = normalize_before
@@ -142,17 +142,17 @@ class ConformerEncoderLayer(nn.Module):
         self.feed_forward = feed_forward
         self.feed_forward_macaron = feed_forward_macaron
         self.conv_module = conv_module
-        self.norm_ff = nn.LayerNorm(size, eps=1e-5)  # for the FNN module
-        self.norm_mha = nn.LayerNorm(size, eps=1e-5)  # for the MHA module
+        self.norm_ff = nn.LayerNorm(size, eps=1e-12)  # for the FNN module
+        self.norm_mha = nn.LayerNorm(size, eps=1e-12)  # for the MHA module
         if feed_forward_macaron is not None:
-            self.norm_ff_macaron = nn.LayerNorm(size, eps=1e-5)
+            self.norm_ff_macaron = nn.LayerNorm(size, eps=1e-12)
             self.ff_scale = 0.5
         else:
             self.ff_scale = 1.0
         if self.conv_module is not None:
-            self.norm_conv = nn.LayerNorm(size, eps=1e-5)  # for the CNN module
+            self.norm_conv = nn.LayerNorm(size, eps=1e-12)  # for the CNN module
             self.norm_final = nn.LayerNorm(
-                size, eps=1e-5)  # for the final output of the block
+                size, eps=1e-12)  # for the final output of the block
         self.dropout = nn.Dropout(dropout_rate)
         self.size = size
         self.normalize_before = normalize_before

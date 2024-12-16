@@ -1,4 +1,5 @@
---extra-index-url https://download.pytorch.org/whl/cu118
+--extra-index-url https://download.pytorch.org/whl/cu121
+--extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/ # https://github.com/microsoft/onnxruntime/issues/21684
 conformer==0.3.2
 deepspeed==0.14.2; sys_platform == 'linux'
 diffusers==0.27.2
@@ -17,16 +18,20 @@ modelscope==1.15.0
 networkx==3.1
 omegaconf==2.3.0
 onnx==1.16.0
-onnxruntime-gpu==1.16.0; sys_platform == 'linux'
-onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'
+onnxruntime-gpu==1.18.0; sys_platform == 'linux'
+onnxruntime==1.18.0; sys_platform == 'darwin' or sys_platform == 'windows'
 openai-whisper==20231117
 protobuf==4.25
 pydantic==2.7.0
 rich==13.7.1
 soundfile==0.12.1
 tensorboard==2.14.0
-torch==2.0.1
-torchaudio==2.0.2
+tensorrt-cu12==10.0.1
+tensorrt-cu12-bindings==10.0.1
+tensorrt-cu12-libs==10.0.1
+torch==2.3.1
+torchaudio==2.3.1
+transformers==4.40.1
 uvicorn==0.30.0
 wget==3.2
 fastapi==0.111.0

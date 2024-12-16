@@ -49,3 +49,4 @@ compile_commands.json
 pretrained_models/*
 *_pb2_grpc.py
 *_pb2.py
+*.tar

@@ -160,3 +160,15 @@ def is_only_punctuation(text):
     # Regular expression: Match strings that consist only of punctuation marks or are empty.
     punctuation_pattern = r'^[\p{P}\p{S}]*$'
     return bool(regex.fullmatch(punctuation_pattern, text))
+
+  
+def mask_to_bias(mask: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
+    assert mask.dtype == torch.bool
+    assert dtype in [torch.float32, torch.bfloat16, torch.float16]
+    mask = mask.to(dtype)
+    # attention mask bias
+    # NOTE(Mddct): torch.finfo jit issues
+    #     chunk_masks = (1.0 - chunk_masks) * torch.finfo(dtype).min
+    mask = (1.0 - mask) * torch.finfo(dtype).min
+    return mask
+

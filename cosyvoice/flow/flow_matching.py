@@ -150,12 +150,12 @@ class ConditionalCFM(BASECFM):
             self.estimator.set_input_shape('cond', (2, 80, x.size(2)))
             # run trt engine
             self.estimator.execute_v2([x.contiguous().data_ptr(),
-                                        mask.contiguous().data_ptr(),
-                                        mu.contiguous().data_ptr(),
-                                        t.contiguous().data_ptr(),
-                                        spks.contiguous().data_ptr(),
-                                        cond.contiguous().data_ptr(),
-                                        x.data_ptr()])
+                                       mask.contiguous().data_ptr(),
+                                       mu.contiguous().data_ptr(),
+                                       t.contiguous().data_ptr(),
+                                       spks.contiguous().data_ptr(),
+                                       cond.contiguous().data_ptr(),
+                                       x.data_ptr()])
             return x
 
     def compute_loss(self, x1, mask, mu, spks=None, cond=None):

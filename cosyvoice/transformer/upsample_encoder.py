@@ -54,10 +54,7 @@ class Upsample1D(nn.Module):
         self.out_channels = out_channels
         self.stride = stride
         # In this mode, first repeat interpolate, than conv with stride=1
-        self.conv = nn.Conv1d(
-            self.channels, self.out_channels, stride * 2 + 1, stride = 1,
-            padding=0,
-        )
+        self.conv = nn.Conv1d(self.channels, self.out_channels, stride * 2 + 1, stride=1, padding=0)
 
     def forward(self, inputs: torch.Tensor, input_lengths: torch.Tensor):
         outputs = F.interpolate(inputs, scale_factor=float(self.stride), mode="nearest")

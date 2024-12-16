@@ -149,6 +149,11 @@ class CosyVoiceFrontEnd:
         prompt_speech_resample = torchaudio.transforms.Resample(orig_freq=16000, new_freq=resample_rate)(prompt_speech_16k)
         speech_feat, speech_feat_len = self._extract_speech_feat(prompt_speech_resample)
         speech_token, speech_token_len = self._extract_speech_token(prompt_speech_16k)
+        if resample_rate == 24000:
+            # cosyvoice2, force speech_feat % speech_token = 2
+            token_len = min(int(speech_feat.shape[1] / 2), speech_token.shape[1])
+            speech_feat, speech_feat_len[:] = speech_feat[:, :2 * token_len], 2* token_len
+            speech_token, speech_token_len[:] = speech_token[:, :token_len], token_len
         embedding = self._extract_spk_embedding(prompt_speech_16k)
         model_input = {'text': tts_text_token, 'text_len': tts_text_token_len,
                        'prompt_text': prompt_text_token, 'prompt_text_len': prompt_text_token_len,

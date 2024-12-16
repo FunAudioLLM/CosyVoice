@@ -269,6 +269,7 @@ class QwenTokenizer():
         text = self.tokenizer.batch_decode([tokens], skip_special_tokens=self.skip_special_tokens)[0]
         return text
 
+
 @lru_cache(maxsize=None)
 def get_qwen_tokenizer(
     token_path: str,

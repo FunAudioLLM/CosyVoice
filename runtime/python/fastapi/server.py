@@ -88,7 +88,7 @@ VOICE_MAP = {
 }
 
 SPEED_MAP = {
-    '1': 0.9,
+    '1': 1.0,
     '2': 1.0,
     '3': 1.0,
     '4': 1.0,
@@ -98,7 +98,7 @@ SPEED_MAP = {
 }
 
 SPEECH_PROMPT_DURATION_MAP = {
-    '1': 5,
+    '1': 3,
     '2': 5,
     '3': 5,
     '4': 5,
@@ -138,10 +138,12 @@ class ChatCompletionsRequest(BaseModel):
     max_tokens: int
     stream: bool
 
+@app.post("chat/completions")
 @app.post("/v1/chat/completions")
 async def completions(completions_request: ChatCompletionsRequest):
     return ChatCompletionResponse()
 
+@app.post("/audio/speech", response_class=StreamingResponse)
 @app.post("/v1/audio/speech", response_class=StreamingResponse)
 async def tts(tts_request: GenerateSpeechRequest):
     logger.info(f"Generate speech request: {tts_request.dict()}")

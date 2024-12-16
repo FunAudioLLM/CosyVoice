@@ -80,7 +80,7 @@ examples = [
         "samples/atuan.wav"
     ],
     [
-        "Ban đầu những bác nông dân xung quanh mỗi lần nghe thấy đều nhanh chân chạy đến giúp đỡ. Tuy nhiên, sau khi bị lừa gạt nhiều lần họ dần không quan tâm tiếng hét của cậu nữa. Rồi một hôm gặp sói thật, cậu kêu cứu nhưng không ai đến giúp và thế là cả đàn cừu bị sói ăn mất sạch.",
+        "Ban đầu những bác nông dân xung quanh mỗi lần nghe thấy đều nhanh chân chạy đến giúp đỡ. Tuy nhiên, sau khi      bị lừa gạt nhiều lần họ dần không quan tâm tiếng hét của cậu nữa. Rồi một hôm gặp sói thật, cậu kêu cứu nhưng không ai đến giúp và thế là cả đàn cừu bị sói ăn mất sạch.",
         "Cross-lingual replication",
         "",
         "samples/nguyen-ngoc-ngan.wav"
@@ -306,7 +306,7 @@ def main():
                     seed = gr.Number(value=0, label="Random inference seed", visible=False)
 
                 with gr.Column():
-                    output_audio = gr.Audio(label='Generated audio', streaming=True)
+                    output_audio = gr.Audio(label='Generated audio', streaming=False)
                     generate_btn = gr.Button("Generate", variant="primary")
                     gr.Examples(examples, inputs=[tts_text, mode_checkbox_group, prompt_text, prompt_wav_upload])
 

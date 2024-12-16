@@ -19,7 +19,6 @@ from typing import Tuple
 
 import torch
 from torch import nn
-import torch.utils.checkpoint as ckpt
 from torch.nn import functional as F
 
 from cosyvoice.transformer.convolution import ConvolutionModule
@@ -49,14 +48,14 @@ class Upsample1D(nn.Module):
             number of output channels. Defaults to `channels`.
     """
 
-    def __init__(self, channels: int, out_channels: int, stride: int=2):
+    def __init__(self, channels: int, out_channels: int, stride: int = 2):
         super().__init__()
         self.channels = channels
         self.out_channels = out_channels
         self.stride = stride
         # In this mode, first repeat interpolate, than conv with stride=1
         self.conv = nn.Conv1d(
-            self.channels, self.out_channels, stride*2+1, stride=1,
+            self.channels, self.out_channels, stride * 2 + 1, stride = 1,
             padding=0,
         )
 
@@ -74,7 +73,7 @@ class PreLookaheadLayer(nn.Module):
         self.pre_lookahead_len = pre_lookahead_len
         self.conv1 = nn.Conv1d(
             channels, channels,
-            kernel_size=pre_lookahead_len+1,
+            kernel_size=pre_lookahead_len + 1,
             stride=1, padding=0,
         )
         self.conv2 = nn.Conv1d(
@@ -315,8 +314,8 @@ class UpsampleConformerEncoder(torch.nn.Module):
         return xs
 
     def forward_up_layers(self, xs: torch.Tensor, chunk_masks: torch.Tensor,
-                       pos_emb: torch.Tensor,
-                       mask_pad: torch.Tensor) -> torch.Tensor:
+                          pos_emb: torch.Tensor,
+                          mask_pad: torch.Tensor) -> torch.Tensor:
         for layer in self.up_encoders:
             xs, chunk_masks, _, _ = layer(xs, chunk_masks, pos_emb, mask_pad)
         return xs

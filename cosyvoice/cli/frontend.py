@@ -123,7 +123,7 @@ class CosyVoiceFrontEnd:
                 text = remove_bracket(text)
                 text = re.sub(r'[，,、]+$', '。', text)
                 texts = list(split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=80,
-                                            token_min_n=60, merge_len=20, comma_split=False))
+                                             token_min_n=60, merge_len=20, comma_split=False))
         else:
             if self.use_ttsfrd:
                 texts = [i["text"] for i in json.loads(self.frd.do_voicegen_frd(text))["sentences"]]
@@ -132,7 +132,7 @@ class CosyVoiceFrontEnd:
                 text = self.en_tn_model.normalize(text)
                 text = spell_out_number(text, self.inflect_parser)
                 texts = list(split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=80,
-                                            token_min_n=60, merge_len=20, comma_split=False))
+                                             token_min_n=60, merge_len=20, comma_split=False))
         if split is False:
             return text
         return texts

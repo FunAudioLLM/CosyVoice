@@ -330,13 +330,13 @@ class CosyVoice2Model:
 
     def token2wav(self, token, prompt_token, prompt_feat, embedding, uuid, token_offset, finalize=False, speed=1.0):
         tts_mel, _ = self.flow.inference(token=token.to(self.device),
-                                                  token_len=torch.tensor([token.shape[1]], dtype=torch.int32).to(self.device),
-                                                  prompt_token=prompt_token.to(self.device),
-                                                  prompt_token_len=torch.tensor([prompt_token.shape[1]], dtype=torch.int32).to(self.device),
-                                                  prompt_feat=prompt_feat.to(self.device),
-                                                  prompt_feat_len=torch.tensor([prompt_feat.shape[1]], dtype=torch.int32).to(self.device),
-                                                  embedding=embedding.to(self.device),
-                                                  finalize=finalize)
+                                         token_len=torch.tensor([token.shape[1]], dtype=torch.int32).to(self.device),
+                                         prompt_token=prompt_token.to(self.device),
+                                         prompt_token_len=torch.tensor([prompt_token.shape[1]], dtype=torch.int32).to(self.device),
+                                         prompt_feat=prompt_feat.to(self.device),
+                                         prompt_feat_len=torch.tensor([prompt_feat.shape[1]], dtype=torch.int32).to(self.device),
+                                         embedding=embedding.to(self.device),
+                                         finalize=finalize)
         tts_mel = tts_mel[:, :, token_offset * self.flow.token_mel_ratio:]
         # append hift cache
         if self.hift_cache_dict[uuid] is not None:

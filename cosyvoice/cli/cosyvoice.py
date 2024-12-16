@@ -120,6 +120,7 @@ class CosyVoice:
             yield model_output
             start_time = time.time()
 
+
 class CosyVoice2(CosyVoice):
 
     def __init__(self, model_dir, load_jit=False, load_onnx=False, load_trt=False):

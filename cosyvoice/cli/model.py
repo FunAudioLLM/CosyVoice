@@ -36,6 +36,8 @@ class CosyVoiceModel:
         self.token_min_hop_len = 2 * self.flow.input_frame_rate
         self.token_max_hop_len = 4 * self.flow.input_frame_rate
         self.token_overlap_len = 20
+        # here we fix set flow.decoder.estimator.static_chunk_size = 0 for compatibability
+        self.flow.decoder.estimator.static_chunk_size = 0
         # mel fade in out
         self.mel_overlap_len = int(self.token_overlap_len / self.flow.input_frame_rate * 22050 / 256)
         self.mel_window = np.hamming(2 * self.mel_overlap_len)

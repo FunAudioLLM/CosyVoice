@@ -59,8 +59,8 @@ class CosyVoice:
         spks = list(self.frontend.spk2info.keys())
         return spks
 
-    def inference_sft(self, tts_text, spk_id, stream=False, speed=1.0):
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True)):
+    def inference_sft(self, tts_text, spk_id, stream=False, speed=1.0, text_frontend=True):
+        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
             model_input = self.frontend.frontend_sft(i, spk_id)
             start_time = time.time()
             logging.info('synthesis text {}'.format(i))
@@ -70,9 +70,9 @@ class CosyVoice:
                 yield model_output
                 start_time = time.time()
 
-    def inference_zero_shot(self, tts_text, prompt_text, prompt_speech_16k, stream=False, speed=1.0):
-        prompt_text = self.frontend.text_normalize(prompt_text, split=False)
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True)):
+    def inference_zero_shot(self, tts_text, prompt_text, prompt_speech_16k, stream=False, speed=1.0, text_frontend=True):
+        prompt_text = self.frontend.text_normalize(prompt_text, split=False, text_frontend=text_frontend)
+        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
             if len(i) < 0.5 * len(prompt_text):
                 logging.warning('synthesis text {} too short than prompt text {}, this may lead to bad performance'.format(i, prompt_text))
             model_input = self.frontend.frontend_zero_shot(i, prompt_text, prompt_speech_16k, self.sample_rate)
@@ -84,10 +84,10 @@ class CosyVoice:
                 yield model_output
                 start_time = time.time()
 
-    def inference_cross_lingual(self, tts_text, prompt_speech_16k, stream=False, speed=1.0):
+    def inference_cross_lingual(self, tts_text, prompt_speech_16k, stream=False, speed=1.0, text_frontend=True):
         if self.frontend.instruct is True and isinstance(self.model, CosyVoiceModel):
             raise ValueError('{} do not support cross_lingual inference'.format(self.model_dir))
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True)):
+        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
             model_input = self.frontend.frontend_cross_lingual(i, prompt_speech_16k, self.sample_rate)
             start_time = time.time()
             logging.info('synthesis text {}'.format(i))
@@ -97,12 +97,12 @@ class CosyVoice:
                 yield model_output
                 start_time = time.time()
 
-    def inference_instruct(self, tts_text, spk_id, instruct_text, stream=False, speed=1.0):
+    def inference_instruct(self, tts_text, spk_id, instruct_text, stream=False, speed=1.0, text_frontend=True):
         assert isinstance(self.model, CosyVoiceModel)
         if self.frontend.instruct is False:
             raise ValueError('{} do not support instruct inference'.format(self.model_dir))
-        instruct_text = self.frontend.text_normalize(instruct_text, split=False)
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True)):
+        instruct_text = self.frontend.text_normalize(instruct_text, split=False, text_frontend=text_frontend)
+        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
             model_input = self.frontend.frontend_instruct(i, spk_id, instruct_text)
             start_time = time.time()
             logging.info('synthesis text {}'.format(i))
@@ -112,9 +112,9 @@ class CosyVoice:
                 yield model_output
                 start_time = time.time()
 
-    def inference_instruct2(self, tts_text, instruct_text, prompt_speech_16k, stream=False, speed=1.0):
+    def inference_instruct2(self, tts_text, instruct_text, prompt_speech_16k, stream=False, speed=1.0, text_frontend=True):
         assert isinstance(self.model, CosyVoice2Model)
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True)):
+        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
             model_input = self.frontend.frontend_instruct2(i, instruct_text, prompt_speech_16k, self.sample_rate)
             start_time = time.time()
             logging.info('synthesis text {}'.format(i))

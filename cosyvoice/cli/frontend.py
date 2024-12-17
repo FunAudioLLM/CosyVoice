@@ -107,12 +107,10 @@ class CosyVoiceFrontEnd:
         speech_feat_len = torch.tensor([speech_feat.shape[1]], dtype=torch.int32).to(self.device)
         return speech_feat, speech_feat_len
 
-    def text_normalize(self, text, split=True):
+    def text_normalize(self, text, split=True, text_frontend=True):
+        if text_frontend is False:
+            return [text] if split is True else text
         text = text.strip()
-        # NOTE(lyuxiang.lx) move this judgement into ttsfrd in the future
-        for token in self.tokenizer.special_tokens['additional_special_tokens']:
-            if token in text:
-                return text if split is False else [text]
         if contains_chinese(text):
             if self.use_ttsfrd:
                 texts = [i["text"] for i in json.loads(self.frd.do_voicegen_frd(text))["sentences"]]

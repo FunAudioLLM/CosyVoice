@@ -43,7 +43,7 @@
 - [x] 2024/07
 
     - [x] Flow matching training support
-    - [x] WeTextProcessing support when ttsfrd is not avaliable
+    - [x] WeTextProcessing support when ttsfrd is not available
     - [x] Fastapi server and client
 
 
@@ -104,7 +104,7 @@ git clone https://www.modelscope.cn/iic/CosyVoice-300M-Instruct.git pretrained_m
 git clone https://www.modelscope.cn/iic/CosyVoice-ttsfrd.git pretrained_models/CosyVoice-ttsfrd
 ```
 
-Optionaly, you can unzip `ttsfrd` resouce and install `ttsfrd` package for better text normalization performance.
+Optionally, you can unzip `ttsfrd` resouce and install `ttsfrd` package for better text normalization performance.
 
 Notice that this step is not necessary. If you do not install `ttsfrd` package, we will use WeTextProcessing by default.
 

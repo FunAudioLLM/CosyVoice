@@ -33,6 +33,7 @@ instruct_dict = {'预训练音色': '1. 选择预训练音色\n2. 点击生成�
                  '自然语言控制': '1. 选择预训练音色\n2. 输入instruct文本\n3. 点击生成音频按钮'}
 stream_mode_list = [('否', False), ('是', True)]
 max_val = 0.8
+v2 = True
 
 
 def generate_seed():
@@ -128,8 +129,13 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
     else:
         logging.info('get instruct inference request')
         set_all_random_seed(seed)
-        for i in cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text, stream=stream, speed=speed):
-            yield (cosyvoice.sample_rate, i['tts_speech'].numpy().flatten())
+        if v2:
+            prompt_speech_16k = postprocess(load_wav(prompt_wav, prompt_sr))
+            for i in cosyvoice.inference_instruct2(tts_text, instruct_text, prompt_speech_16k, stream=stream, speed=speed):
+                yield (cosyvoice.sample_rate, i['tts_speech'].numpy().flatten())
+        else:
+            for i in cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text, stream=stream, speed=speed):
+                yield (cosyvoice.sample_rate, i['tts_speech'].numpy().flatten())
 
 
 def main():
@@ -181,7 +187,7 @@ if __name__ == '__main__':
                         default='pretrained_models/CosyVoice2-0.5B',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
-    cosyvoice = CosyVoice2(args.model_dir) if 'CosyVoice2' in args.model_dir else CosyVoice(args.model_dir)
+    cosyvoice, v2 = (CosyVoice2(args.model_dir),True) if 'CosyVoice2' in args.model_dir else (CosyVoice(args.model_dir),False)
     sft_spk = cosyvoice.list_avaliable_spks()
     prompt_sr = 16000
     default_data = np.zeros(cosyvoice.sample_rate)

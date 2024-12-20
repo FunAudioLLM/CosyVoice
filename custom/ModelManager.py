@@ -1,6 +1,6 @@
 import threading
-from cosyvoice.cli.cosyvoice import CosyVoice
-from cosyvoice.utils.file_utils import logging
+from custom.CosyVoice import CosyVoice
+from custom.file_utils import logging
 
 class ModelManager:
     def __init__(self):

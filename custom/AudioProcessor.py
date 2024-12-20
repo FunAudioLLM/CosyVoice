@@ -5,7 +5,7 @@ from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 from noisereduce import reduce_noise
 from fastapi import UploadFile
-from cosyvoice.utils.file_utils import logging
+from custom.file_utils import logging
 
 class AudioProcessor:
     def __init__(self, input_dir="results/input", output_dir="results/output"):

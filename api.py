@@ -21,13 +21,14 @@ import torchaudio
 import random
 import librosa
 import uvicorn
+import gc
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/third_party/Matcha-TTS'.format(ROOT_DIR))
-from cosyvoice.utils.file_utils import load_wav, logging
 from cosyvoice.utils.common import set_all_random_seed
-from cosyvoice.utils.ModelManager import ModelManager
-from cosyvoice.utils.AudioProcessor import AudioProcessor
-from cosyvoice.utils.TextProcessor import TextProcessor
+from custom.file_utils import load_wav, logging
+from custom.ModelManager import ModelManager
+from custom.AudioProcessor import AudioProcessor
+from custom.TextProcessor import TextProcessor
 from fastapi import FastAPI, File, UploadFile, Query, Form, Request, status
 from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -77,20 +78,22 @@ def change_instruction(mode_checkbox_group):
 def clear_cuda_cache():
     """
     清理PyTorch的显存和系统内存缓存。
+    注意上下文，如果在异步执行，会导致清理不了
     """
+    logging.info("Clearing GPU memory...")
+    # 强制进行垃圾回收
+    gc.collect()
+
     if torch.cuda.is_available():
-        logging.info("Clearing GPU memory...")
         torch.cuda.empty_cache()
         torch.cuda.ipc_collect()
-
+        # 重置统计信息
+        torch.cuda.reset_peak_memory_stats()
         # 打印显存日志
         logging.info(f"[GPU Memory] Allocated: {torch.cuda.memory_allocated() / (1024 ** 2):.2f} MB")
         logging.info(f"[GPU Memory] Max Allocated: {torch.cuda.max_memory_allocated() / (1024 ** 2):.2f} MB")
         logging.info(f"[GPU Memory] Reserved: {torch.cuda.memory_reserved() / (1024 ** 2):.2f} MB")
         logging.info(f"[GPU Memory] Max Reserved: {torch.cuda.max_memory_reserved() / (1024 ** 2):.2f} MB")
-
-        # 重置统计信息
-        torch.cuda.reset_peak_memory_stats()
 
 def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav, instruct_text,
                    seed, stream, speed, source_wav):
@@ -230,6 +233,8 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
         errmsg = f"音频生成失败，错误信息：{str(e)}"
         logging.error(errmsg)
         return errcode, errmsg, (target_sr, default_data)
+    finally:
+        clear_cuda_cache()
     
 # 包装处理逻辑
 def gradio_generate_audio(tts_text, mode_checkbox_group, sft_dropdown, 
@@ -243,8 +248,6 @@ def gradio_generate_audio(tts_text, mode_checkbox_group, sft_dropdown,
         instruct_text, seed, stream, speed,
         source_wav
     )
-            
-    clear_cuda_cache()
 
     # 根据结果返回 Gradio 的更新
     if errcode == 0:  # 正常
@@ -329,7 +332,6 @@ async def lifespan(app: FastAPI):
     logging.info("Models loaded successfully!")
     yield  # 这里是应用运行的时间段
     logging.info("Application shutting down...")  # 在这里可以释放资源    
-    clear_cuda_cache()
 
 app = FastAPI(docs_url=None, lifespan=lifespan)
 app.add_middleware(
@@ -349,27 +351,6 @@ async def custom_swagger_ui_html():
         title="Custom Swagger UI",
         swagger_js_url="/static/swagger-ui/5.9.0/swagger-ui-bundle.js",
         swagger_css_url="/static/swagger-ui/5.9.0/swagger-ui.css",
-    )
-
-@app.middleware("http")
-async def clear_gpu_after_request(request: Request, call_next):
-    try:
-        response = await call_next(request)
-        return response
-    finally:
-        clear_cuda_cache()
-# 自定义异常处理器
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logging.info(f"Exception during request {request.url}: {exc}")
-
-    clear_cuda_cache()
-    # 记录错误信息
-    TextProcessor.log_error(exc)
-
-    return JSONResponse(
-        {"errcode": 500, "errmsg": "Internal Server Error"},
-        status_code=500
     )
 
 @app.get("/", response_class=HTMLResponse)
@@ -633,6 +614,5 @@ if __name__ == '__main__':
         try:
             uvicorn.run(app="api:app", host="0.0.0.0", port=args.port, workers=1, reload=False, log_level="info")
         except Exception as e:
-            clear_cuda_cache()
             logging.error(e)
             exit(0)

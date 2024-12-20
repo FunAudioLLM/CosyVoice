@@ -2,7 +2,7 @@ import os
 import datetime
 import traceback
 from langdetect import detect
-from cosyvoice.utils.file_utils import logging
+from custom.file_utils import logging
 
 class TextProcessor:
     """

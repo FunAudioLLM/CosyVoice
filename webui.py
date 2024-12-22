@@ -20,6 +20,11 @@ import torch
 import torchaudio
 import random
 import librosa
+import subprocess
+import tempfile
+from datetime import datetime
+import shutil
+
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/third_party/Matcha-TTS'.format(ROOT_DIR))
 from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
@@ -59,77 +64,122 @@ def change_instruction(mode_checkbox_group):
     return instruct_dict[mode_checkbox_group]
 
 
-def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text,
-                   seed, stream, speed):
+def stream_audio(generator):
+    """流式输出音频"""
+    for i in generator:
+        audio_data = i['tts_speech']
+        # 确保音频数据是 numpy array
+        if torch.is_tensor(audio_data):
+            audio_data = audio_data.numpy()
+        audio_data = audio_data.flatten()
+        
+        # 进行音频后处理（如果需要）
+        if np.abs(audio_data).max() > max_val:
+            audio_data = audio_data / np.abs(audio_data).max() * max_val
+            
+        yield (cosyvoice.sample_rate, audio_data)
+
+
+def save_complete_audio(generator, temp_dir):
+    """保存并合并完整音频"""
+    output_files = []
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_output = f'output_{timestamp}.wav'
+    
+    # 收集所有音频片段
+    for i in generator:
+        audio_data = i['tts_speech'].numpy().flatten()
+        temp_file = os.path.join(temp_dir, f'segment_{len(output_files)}.wav')
+        torchaudio.save(temp_file, torch.tensor(audio_data).unsqueeze(0), cosyvoice.sample_rate)
+        output_files.append(temp_file)
+    
+    if output_files:
+        try:
+            # 创建合并列表
+            concat_list = os.path.join(temp_dir, 'concat_list.txt')
+            with open(concat_list, 'w') as f:
+                for file in output_files:
+                    f.write(f"file '{file}'\n")
+            
+            # 使用ffmpeg合并
+            subprocess.run([
+                'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
+                '-i', concat_list,
+                '-c', 'copy',
+                final_output
+            ], check=True)
+            
+            return final_output
+            
+        except subprocess.CalledProcessError as e:
+            logging.error(f"FFmpeg error: {e}")
+            return None
+        finally:
+            shutil.rmtree(temp_dir)
+
+def get_prompt_wav(prompt_wav_upload, prompt_wav_record):
     if prompt_wav_upload is not None:
         prompt_wav = prompt_wav_upload
     elif prompt_wav_record is not None:
         prompt_wav = prompt_wav_record
     else:
         prompt_wav = None
-    # if instruct mode, please make sure that model is iic/CosyVoice-300M-Instruct and not cross_lingual mode
-    if mode_checkbox_group in ['自然语言控制']:
-        if cosyvoice.frontend.instruct is False:
-            gr.Warning('您正在使用自然语言控制模式, {}模型不支持此模式, 请使用iic/CosyVoice-300M-Instruct模型'.format(args.model_dir))
-            yield (cosyvoice.sample_rate, default_data)
-        if instruct_text == '':
-            gr.Warning('您正在使用自然语言控制模式, 请输入instruct文本')
-            yield (cosyvoice.sample_rate, default_data)
-        if prompt_wav is not None or prompt_text != '':
-            gr.Info('您正在使用自然语言控制模式, prompt音频/prompt文本会被忽略')
-    # if cross_lingual mode, please make sure that model is iic/CosyVoice-300M and tts_text prompt_text are different language
-    if mode_checkbox_group in ['跨语种复刻']:
-        if cosyvoice.frontend.instruct is True:
-            gr.Warning('您正在使用跨语种复刻模式, {}模型不支持此模式, 请使用iic/CosyVoice-300M模型'.format(args.model_dir))
-            yield (cosyvoice.sample_rate, default_data)
-        if instruct_text != '':
-            gr.Info('您正在使用跨语种复刻模式, instruct文本会被忽略')
-        if prompt_wav is None:
-            gr.Warning('您正在使用跨语种复刻模式, 请提供prompt音频')
-            yield (cosyvoice.sample_rate, default_data)
-        gr.Info('您正在使用跨语种复刻模式, 请确保合成文本和prompt文本为不同语言')
-    # if in zero_shot cross_lingual, please make sure that prompt_text and prompt_wav meets requirements
-    if mode_checkbox_group in ['3s极速复刻', '跨语种复刻']:
-        if prompt_wav is None:
-            gr.Warning('prompt音频为空，您是否忘记输入prompt音频？')
-            yield (cosyvoice.sample_rate, default_data)
-        if torchaudio.info(prompt_wav).sample_rate < prompt_sr:
-            gr.Warning('prompt音频采样率{}低于{}'.format(torchaudio.info(prompt_wav).sample_rate, prompt_sr))
-            yield (cosyvoice.sample_rate, default_data)
-    # sft mode only use sft_dropdown
-    if mode_checkbox_group in ['预训练音色']:
-        if instruct_text != '' or prompt_wav is not None or prompt_text != '':
-            gr.Info('您正在使用预训练音色模式，prompt文本/prompt音频/instruct文本会被忽略！')
-    # zero_shot mode only use prompt_wav prompt text
-    if mode_checkbox_group in ['3s极速复刻']:
-        if prompt_text == '':
-            gr.Warning('prompt文本为空，您是否忘记输入prompt文本？')
-            yield (cosyvoice.sample_rate, default_data)
-        if instruct_text != '':
-            gr.Info('您正在使用3s极速复刻模式，预训练音色/instruct文本会被忽略！')
+    return prompt_wav
 
+
+def generate_audio_stream(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, 
+                         prompt_wav_upload, prompt_wav_record, instruct_text,
+                         seed, stream, speed):
+    prompt_wav = get_prompt_wav(prompt_wav_upload, prompt_wav_record)
+    """处理流式音频输出"""
     if mode_checkbox_group == '预训练音色':
-        logging.info('get sft inference request')
         set_all_random_seed(seed)
-        for i in cosyvoice.inference_sft(tts_text, sft_dropdown, stream=stream, speed=speed):
-            yield (cosyvoice.sample_rate, i['tts_speech'].numpy().flatten())
+        generator = cosyvoice.inference_sft(tts_text, sft_dropdown, stream=True, speed=speed)
+        for sample_rate, audio_data in stream_audio(generator):
+            yield (sample_rate, audio_data)
     elif mode_checkbox_group == '3s极速复刻':
-        logging.info('get zero_shot inference request')
         prompt_speech_16k = postprocess(load_wav(prompt_wav, prompt_sr))
         set_all_random_seed(seed)
-        for i in cosyvoice.inference_zero_shot(tts_text, prompt_text, prompt_speech_16k, stream=stream, speed=speed):
-            yield (cosyvoice.sample_rate, i['tts_speech'].numpy().flatten())
+        generator = cosyvoice.inference_zero_shot(tts_text, prompt_text, prompt_speech_16k, stream=True, speed=speed)
+        for sample_rate, audio_data in stream_audio(generator):
+            yield (sample_rate, audio_data)
     elif mode_checkbox_group == '跨语种复刻':
-        logging.info('get cross_lingual inference request')
         prompt_speech_16k = postprocess(load_wav(prompt_wav, prompt_sr))
         set_all_random_seed(seed)
-        for i in cosyvoice.inference_cross_lingual(tts_text, prompt_speech_16k, stream=stream, speed=speed):
-            yield (cosyvoice.sample_rate, i['tts_speech'].numpy().flatten())
+        generator = cosyvoice.inference_cross_lingual(tts_text, prompt_speech_16k, stream=True, speed=speed)
+        for sample_rate, audio_data in stream_audio(generator):
+            yield (sample_rate, audio_data)
     else:
-        logging.info('get instruct inference request')
         set_all_random_seed(seed)
-        for i in cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text, stream=stream, speed=speed):
-            yield (cosyvoice.sample_rate, i['tts_speech'].numpy().flatten())
+        generator = cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text, stream=True, speed=speed)
+        for sample_rate, audio_data in stream_audio(generator):
+            yield (sample_rate, audio_data)
+
+
+def generate_audio_complete(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, 
+                          prompt_wav_upload, prompt_wav_record, instruct_text,
+                          seed, stream, speed):
+    prompt_wav = get_prompt_wav(prompt_wav_upload, prompt_wav_record)
+    """处理完整音频文件"""
+    temp_dir = tempfile.mkdtemp()
+    if mode_checkbox_group == '预训练音色':
+        set_all_random_seed(seed)
+        generator = cosyvoice.inference_sft(tts_text, sft_dropdown, stream=False, speed=speed)
+        return save_complete_audio(generator, temp_dir)
+    elif mode_checkbox_group == '3s极速复刻':
+        prompt_speech_16k = postprocess(load_wav(prompt_wav, prompt_sr))
+        set_all_random_seed(seed)
+        generator = cosyvoice.inference_zero_shot(tts_text, prompt_text, prompt_speech_16k, stream=False, speed=speed)
+        return save_complete_audio(generator, temp_dir)
+    elif mode_checkbox_group == '跨语种复刻':
+        prompt_speech_16k = postprocess(load_wav(prompt_wav, prompt_sr))
+        set_all_random_seed(seed)
+        generator = cosyvoice.inference_cross_lingual(tts_text, prompt_speech_16k, stream=False, speed=speed)
+        return save_complete_audio(generator, temp_dir)
+    else:
+        set_all_random_seed(seed)
+        generator = cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text, stream=False, speed=speed)
+        return save_complete_audio(generator, temp_dir)
 
 
 def main():
@@ -159,13 +209,33 @@ def main():
 
         generate_button = gr.Button("生成音频")
 
-        audio_output = gr.Audio(label="合成音频", autoplay=True, streaming=True)
+        # 分离流式输出和文件下载
+        with gr.Row():
+            audio_stream = gr.Audio(
+                label="实时预览", 
+                autoplay=True,
+                streaming=True
+            )
+            audio_download = gr.File(
+                label="下载完整音频"
+            )
 
         seed_button.click(generate_seed, inputs=[], outputs=seed)
-        generate_button.click(generate_audio,
-                              inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text,
-                                      seed, stream, speed],
-                              outputs=[audio_output])
+        generate_button.click(
+            fn=generate_audio_stream,
+            inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text, 
+                   prompt_wav_upload, prompt_wav_record, instruct_text,
+                   seed, stream, speed],
+            outputs=audio_stream,
+            api_name="generate_stream"
+        ).then(
+            fn=generate_audio_complete,
+            inputs=[tts_text, mode_checkbox_group, sft_dropdown, prompt_text, 
+                   prompt_wav_upload, prompt_wav_record, instruct_text,
+                   seed, stream, speed],
+            outputs=audio_download,
+            api_name="generate_complete"
+        )
         mode_checkbox_group.change(fn=change_instruction, inputs=[mode_checkbox_group], outputs=[instruction_text])
     demo.queue(max_size=4, default_concurrency_limit=2)
     demo.launch(server_name='0.0.0.0', server_port=args.port)

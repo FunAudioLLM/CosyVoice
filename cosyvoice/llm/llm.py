@@ -279,10 +279,13 @@ class Qwen2LM(torch.nn.Module):
             decoded_tokens: List,
             sampling: int,
             ignore_eos: bool = True,
+            max_sample_count:int = 10,
     ):
+        count = 0
         while True:
+            count += 1
             top_ids = self.sampling(weighted_scores, decoded_tokens, sampling)
-            if (not ignore_eos) or (self.speech_token_size not in top_ids):
+            if (not ignore_eos) or (self.speech_token_size not in top_ids) or (count > max_sample_count):
                 break
         return top_ids
 

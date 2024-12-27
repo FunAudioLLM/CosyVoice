@@ -9,7 +9,7 @@
 
 **CosyVoice 2.0** has been released! Compared to version 1.0, the new version offers more accurate, more stable, faster, and better speech generation capabilities.
 ### Multilingual
-- **Support Language**: Chinese, English, Japanese, Korean, Chinese dialects (Cantonese, Sichuanese, Shanghainese, Tianjinese, Wuhanese, etc.)
+- **Supported Language**: Chinese, English, Japanese, Korean, Chinese dialects (Cantonese, Sichuanese, Shanghainese, Tianjinese, Wuhanese, etc.)
 - **Crosslingual & Mixlingual**：Support zero-shot voice cloning for cross-lingual and code-switching scenarios.
 ### Ultra-Low Latency
 - **Bidirectional Streaming Support**: CosyVoice 2.0 integrates offline and streaming modeling technologies.

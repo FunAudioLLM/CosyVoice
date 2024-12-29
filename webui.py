@@ -182,7 +182,7 @@ if __name__ == '__main__':
                         help='local path or modelscope repo id')
     args = parser.parse_args()
     cosyvoice = CosyVoice2(args.model_dir) if 'CosyVoice2' in args.model_dir else CosyVoice(args.model_dir)
-    sft_spk = cosyvoice.list_avaliable_spks()
+    sft_spk = cosyvoice.list_available_spks()
     prompt_sr = 16000
     default_data = np.zeros(cosyvoice.sample_rate)
     main()

@@ -55,7 +55,7 @@ class CosyVoice:
             self.model.load_onnx('{}/flow.decoder.estimator.fp32.onnx'.format(model_dir))
         del configs
 
-    def list_avaliable_spks(self):
+    def list_available_spks(self):
         spks = list(self.frontend.spk2info.keys())
         return spks
 

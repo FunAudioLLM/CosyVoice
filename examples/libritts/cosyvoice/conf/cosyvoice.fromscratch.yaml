@@ -133,6 +133,25 @@ hift: !new:cosyvoice.hifigan.generator.HiFTGenerator
         in_channels: 80
         cond_channels: 512
 
+# gan related module
+mel_spec_transform1: !name:matcha.utils.audio.mel_spectrogram
+    n_fft: 1024
+    num_mels: 80
+    sampling_rate: !ref <sample_rate>
+    hop_size: 256
+    win_size: 1024
+    fmin: 0
+    fmax: null
+    center: False
+hifigan: !new:cosyvoice.hifigan.hifigan.HiFiGan
+    generator: !ref <hift>
+    discriminator: !new:cosyvoice.hifigan.discriminator.MultipleDiscriminator
+        mpd: !new:matcha.hifigan.models.MultiPeriodDiscriminator
+        mrd: !new:cosyvoice.hifigan.discriminator.MultiResolutionDiscriminator
+    mel_spec_transform: [
+        !ref <mel_spec_transform1>
+    ]
+
 # processor functions
 parquet_opener: !name:cosyvoice.dataset.processor.parquet_opener
 get_tokenizer: !name:whisper.tokenizer.get_tokenizer # change to !name:cosyvoice.tokenizer.tokenizer.get_tokenizer if you want to train with CosyVoice-300M-25Hz recipe
@@ -151,6 +170,8 @@ filter: !name:cosyvoice.dataset.processor.filter
     token_min_length: 1
 resample: !name:cosyvoice.dataset.processor.resample
     resample_rate: !ref <sample_rate>
+truncate: !name:cosyvoice.dataset.processor.truncate
+    truncate_length: 24576 # must be a multiplier of hop_size
 feat_extractor: !name:matcha.utils.audio.mel_spectrogram
     n_fft: 1024
     num_mels: 80
@@ -162,6 +183,12 @@ feat_extractor: !name:matcha.utils.audio.mel_spectrogram
     center: False
 compute_fbank: !name:cosyvoice.dataset.processor.compute_fbank
     feat_extractor: !ref <feat_extractor>
+pitch_extractor: !name:torchaudio.functional.compute_kaldi_pitch
+    sample_rate: !ref <sample_rate>
+    frame_length: 46.4 # match feat_extractor win_size/sampling_rate
+    frame_shift: 11.6 # match feat_extractor hop_size/sampling_rate
+compute_f0: !name:cosyvoice.dataset.processor.compute_f0
+    pitch_extractor: !ref <pitch_extractor>
 parse_embedding: !name:cosyvoice.dataset.processor.parse_embedding
     normalize: True
 shuffle: !name:cosyvoice.dataset.processor.shuffle
@@ -187,8 +214,22 @@ data_pipeline: [
     !ref <batch>,
     !ref <padding>,
 ]
+data_pipeline_gan: [
+    !ref <parquet_opener>,
+    !ref <tokenize>,
+    !ref <filter>,
+    !ref <resample>,
+    !ref <truncate>,
+    !ref <compute_fbank>,
+    !ref <compute_f0>,
+    !ref <parse_embedding>,
+    !ref <shuffle>,
+    !ref <sort>,
+    !ref <batch>,
+    !ref <padding>,
+]
 
-# train conf
+# llm flow train conf
 train_conf:
     optim: adam
     optim_conf:
@@ -199,5 +240,21 @@ train_conf:
     max_epoch: 200
     grad_clip: 5
     accum_grad: 2
+    log_interval: 100
+    save_per_step: -1
+
+# gan train conf
+train_conf_gan:
+    optim: adam
+    optim_conf:
+        lr: 0.0002 # use small lr for gan training
+    scheduler: constantlr
+    optim_d: adam
+    optim_conf_d:
+        lr: 0.0002 # use small lr for gan training
+    scheduler_d: constantlr
+    max_epoch: 200
+    grad_clip: 5
+    accum_grad: 1 # in gan training, accum_grad must be 1
     log_interval: 100
     save_per_step: -1

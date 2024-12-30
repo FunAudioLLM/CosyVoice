@@ -31,7 +31,7 @@ except ImportError:
     from tn.chinese.normalizer import Normalizer as ZhNormalizer
     from tn.english.normalizer import Normalizer as EnNormalizer
     use_ttsfrd = False
-from cosyvoice.utils.frontend_utils import contains_chinese, replace_blank, replace_corner_mark, remove_bracket, spell_out_number, split_paragraph
+from cosyvoice.utils.frontend_utils import contains_chinese, replace_blank, replace_corner_mark, remove_bracket, spell_out_number, split_paragraph, is_only_punctuation
 
 
 class CosyVoiceFrontEnd:
@@ -111,6 +111,10 @@ class CosyVoiceFrontEnd:
         if text_frontend is False:
             return [text] if split is True else text
         text = text.strip()
+        # When generating text that contains only punctuation marks or whitespace characters
+        # - Returning empty texts ensures consistent processing logic.
+        if is_only_punctuation(text):
+            return []
         if contains_chinese(text):
             if self.use_ttsfrd:
                 texts = [i["text"] for i in json.loads(self.frd.do_voicegen_frd(text))["sentences"]]

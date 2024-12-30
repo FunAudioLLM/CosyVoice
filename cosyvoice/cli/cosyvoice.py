@@ -20,23 +20,24 @@ import torch
 from cosyvoice.cli.frontend import CosyVoiceFrontEnd
 from cosyvoice.cli.model import CosyVoiceModel, CosyVoice2Model
 from cosyvoice.utils.file_utils import logging
+from cosyvoice.utils.class_utils import get_model_type
 
 
 class CosyVoice:
 
     def __init__(self, model_dir, load_jit=True, load_onnx=False, fp16=True):
-        instruct = True if '-Instruct' in model_dir else False
+        self.instruct = True if '-Instruct' in model_dir else False
         self.model_dir = model_dir
         if not os.path.exists(model_dir):
             model_dir = snapshot_download(model_dir)
         with open('{}/cosyvoice.yaml'.format(model_dir), 'r') as f:
             configs = load_hyperpyyaml(f)
+        assert get_model_type(configs) == CosyVoiceModel, 'do not use {} for CosyVoice initialization!'.format(model_dir)
         self.frontend = CosyVoiceFrontEnd(configs['get_tokenizer'],
                                           configs['feat_extractor'],
                                           '{}/campplus.onnx'.format(model_dir),
                                           '{}/speech_tokenizer_v1.onnx'.format(model_dir),
                                           '{}/spk2info.pt'.format(model_dir),
-                                          instruct,
                                           configs['allowed_special'])
         self.sample_rate = configs['sample_rate']
         if torch.cuda.is_available() is False and (fp16 is True or load_jit is True):
@@ -85,8 +86,6 @@ class CosyVoice:
                 start_time = time.time()
 
     def inference_cross_lingual(self, tts_text, prompt_speech_16k, stream=False, speed=1.0, text_frontend=True):
-        if self.frontend.instruct is True and isinstance(self.model, CosyVoiceModel):
-            raise ValueError('{} do not support cross_lingual inference'.format(self.model_dir))
         for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
             model_input = self.frontend.frontend_cross_lingual(i, prompt_speech_16k, self.sample_rate)
             start_time = time.time()
@@ -98,24 +97,12 @@ class CosyVoice:
                 start_time = time.time()
 
     def inference_instruct(self, tts_text, spk_id, instruct_text, stream=False, speed=1.0, text_frontend=True):
-        assert isinstance(self.model, CosyVoiceModel)
-        if self.frontend.instruct is False:
+        assert isinstance(self.model, CosyVoiceModel), 'inference_instruct is only implemented for CosyVoice!'
+        if self.instruct is False:
             raise ValueError('{} do not support instruct inference'.format(self.model_dir))
         instruct_text = self.frontend.text_normalize(instruct_text, split=False, text_frontend=text_frontend)
         for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
             model_input = self.frontend.frontend_instruct(i, spk_id, instruct_text)
-            start_time = time.time()
-            logging.info('synthesis text {}'.format(i))
-            for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
-                speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
-                logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
-                yield model_output
-                start_time = time.time()
-
-    def inference_instruct2(self, tts_text, instruct_text, prompt_speech_16k, stream=False, speed=1.0, text_frontend=True):
-        assert isinstance(self.model, CosyVoice2Model)
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
-            model_input = self.frontend.frontend_instruct2(i, instruct_text, prompt_speech_16k, self.sample_rate)
             start_time = time.time()
             logging.info('synthesis text {}'.format(i))
             for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
@@ -137,18 +124,18 @@ class CosyVoice:
 class CosyVoice2(CosyVoice):
 
     def __init__(self, model_dir, load_jit=False, load_onnx=False, load_trt=False):
-        instruct = True if '-Instruct' in model_dir else False
+        self.instruct = True if '-Instruct' in model_dir else False
         self.model_dir = model_dir
         if not os.path.exists(model_dir):
             model_dir = snapshot_download(model_dir)
         with open('{}/cosyvoice.yaml'.format(model_dir), 'r') as f:
             configs = load_hyperpyyaml(f, overrides={'qwen_pretrain_path': os.path.join(model_dir, 'CosyVoice-BlankEN')})
+        assert get_model_type(configs) == CosyVoice2Model, 'do not use {} for CosyVoice2 initialization!'.format(model_dir)
         self.frontend = CosyVoiceFrontEnd(configs['get_tokenizer'],
                                           configs['feat_extractor'],
                                           '{}/campplus.onnx'.format(model_dir),
                                           '{}/speech_tokenizer_v2.onnx'.format(model_dir),
                                           '{}/spk2info.pt'.format(model_dir),
-                                          instruct,
                                           configs['allowed_special'])
         self.sample_rate = configs['sample_rate']
         if torch.cuda.is_available() is False and load_jit is True:
@@ -168,3 +155,18 @@ class CosyVoice2(CosyVoice):
         if load_trt:
             self.model.load_trt('{}/flow.decoder.estimator.fp16.Volta.plan'.format(model_dir))
         del configs
+
+    def inference_instruct(self, *args, **kwargs):
+        raise NotImplementedError('inference_instruct is not implemented for CosyVoice2!')
+
+    def inference_instruct2(self, tts_text, instruct_text, prompt_speech_16k, stream=False, speed=1.0, text_frontend=True):
+        assert isinstance(self.model, CosyVoice2Model), 'inference_instruct2 is only implemented for CosyVoice2!'
+        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
+            model_input = self.frontend.frontend_instruct2(i, instruct_text, prompt_speech_16k, self.sample_rate)
+            start_time = time.time()
+            logging.info('synthesis text {}'.format(i))
+            for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
+                speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
+                logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
+                yield model_output
+                start_time = time.time()

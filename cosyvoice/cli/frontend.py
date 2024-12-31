@@ -42,7 +42,6 @@ class CosyVoiceFrontEnd:
                  campplus_model: str,
                  speech_tokenizer_model: str,
                  spk2info: str = '',
-                 instruct: bool = False,
                  allowed_special: str = 'all'):
         self.tokenizer = get_tokenizer()
         self.feat_extractor = feat_extractor
@@ -58,9 +57,7 @@ class CosyVoiceFrontEnd:
             self.spk2info = torch.load(spk2info, map_location=self.device)
         else:
             self.spk2info = {}
-        self.instruct = instruct
         self.allowed_special = allowed_special
-        self.inflect_parser = inflect.engine()
         self.use_ttsfrd = use_ttsfrd
         if self.use_ttsfrd:
             self.frd = ttsfrd.TtsFrontendEngine()
@@ -71,6 +68,7 @@ class CosyVoiceFrontEnd:
         else:
             self.zh_tn_model = ZhNormalizer(remove_erhua=False, full_to_half=False, overwrite_cache=True)
             self.en_tn_model = EnNormalizer()
+            self.inflect_parser = inflect.engine()
 
     def _extract_text_token(self, text):
         text_token = self.tokenizer.encode(text, allowed_special=self.allowed_special)
@@ -111,15 +109,11 @@ class CosyVoiceFrontEnd:
         if text_frontend is False:
             return [text] if split is True else text
         text = text.strip()
-        # When generating text that contains only punctuation marks or whitespace characters
-        # - Returning empty texts ensures consistent processing logic.
-        if is_only_punctuation(text):
-            return []
-        if contains_chinese(text):
-            if self.use_ttsfrd:
-                texts = [i["text"] for i in json.loads(self.frd.do_voicegen_frd(text))["sentences"]]
-                text = ''.join(texts)
-            else:
+        if self.use_ttsfrd:
+            texts = [i["text"] for i in json.loads(self.frd.do_voicegen_frd(text))["sentences"]]
+            text = ''.join(texts)
+        else:
+            if contains_chinese(text):
                 text = self.zh_tn_model.normalize(text)
                 text = text.replace("\n", "")
                 text = replace_blank(text)
@@ -130,18 +124,13 @@ class CosyVoiceFrontEnd:
                 text = re.sub(r'[，,、]+$', '。', text)
                 texts = list(split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=80,
                                              token_min_n=60, merge_len=20, comma_split=False))
-        else:
-            if self.use_ttsfrd:
-                texts = [i["text"] for i in json.loads(self.frd.do_voicegen_frd(text))["sentences"]]
-                text = ''.join(texts)
             else:
                 text = self.en_tn_model.normalize(text)
                 text = spell_out_number(text, self.inflect_parser)
                 texts = list(split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "en", token_max_n=80,
                                              token_min_n=60, merge_len=20, comma_split=False))
-        if split is False:
-            return text
-        return texts
+        texts = [i for i in texts if not is_only_punctuation(i)]
+        return texts if split is True else text
 
     def frontend_sft(self, tts_text, spk_id):
         tts_text_token, tts_text_token_len = self._extract_text_token(tts_text)
@@ -188,22 +177,9 @@ class CosyVoiceFrontEnd:
         return model_input
 
     def frontend_instruct2(self, tts_text, instruct_text, prompt_speech_16k, resample_rate):
-        tts_text_token, tts_text_token_len = self._extract_text_token(tts_text)
-        prompt_text_token, prompt_text_token_len = self._extract_text_token(instruct_text + '<|endofprompt|>')
-        prompt_speech_resample = torchaudio.transforms.Resample(orig_freq=16000, new_freq=resample_rate)(prompt_speech_16k)
-        speech_feat, speech_feat_len = self._extract_speech_feat(prompt_speech_resample)
-        speech_token, speech_token_len = self._extract_speech_token(prompt_speech_16k)
-        if resample_rate == 24000:
-            # cosyvoice2, force speech_feat % speech_token = 2
-            token_len = min(int(speech_feat.shape[1] / 2), speech_token.shape[1])
-            speech_feat, speech_feat_len[:] = speech_feat[:, :2 * token_len], 2 * token_len
-            speech_token, speech_token_len[:] = speech_token[:, :token_len], token_len
-        embedding = self._extract_spk_embedding(prompt_speech_16k)
-        model_input = {'text': tts_text_token, 'text_len': tts_text_token_len,
-                       'prompt_text': prompt_text_token, 'prompt_text_len': prompt_text_token_len,
-                       'flow_prompt_speech_token': speech_token, 'flow_prompt_speech_token_len': speech_token_len,
-                       'prompt_speech_feat': speech_feat, 'prompt_speech_feat_len': speech_feat_len,
-                       'llm_embedding': embedding, 'flow_embedding': embedding}
+        model_input = self.frontend_zero_shot(tts_text, instruct_text + '<|endofprompt|>', prompt_speech_16k, resample_rate)
+        del model_input['llm_prompt_speech_token']
+        del model_input['llm_prompt_speech_token_len']
         return model_input
 
     def frontend_vc(self, source_speech_16k, prompt_speech_16k, resample_rate):

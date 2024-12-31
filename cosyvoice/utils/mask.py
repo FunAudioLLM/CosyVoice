@@ -86,7 +86,7 @@ def subsequent_mask(
     return mask
 
 
-def subsequent_chunk_mask(
+def subsequent_chunk_mask_deprecated(
         size: int,
         chunk_size: int,
         num_left_chunks: int = -1,
@@ -121,6 +121,41 @@ def subsequent_chunk_mask(
             start = max((i // chunk_size - num_left_chunks) * chunk_size, 0)
         ending = min((i // chunk_size + 1) * chunk_size, size)
         ret[i, start:ending] = True
+    return ret
+
+
+def subsequent_chunk_mask(
+        size: int,
+        chunk_size: int,
+        num_left_chunks: int = -1,
+        device: torch.device = torch.device("cpu"),
+) -> torch.Tensor:
+    """Create mask for subsequent steps (size, size) with chunk size,
+       this is for streaming encoder
+
+    Args:
+        size (int): size of mask
+        chunk_size (int): size of chunk
+        num_left_chunks (int): number of left chunks
+            <0: use full chunk
+            >=0: use num_left_chunks
+        device (torch.device): "cpu" or "cuda" or torch.Tensor.device
+
+    Returns:
+        torch.Tensor: mask
+
+    Examples:
+        >>> subsequent_chunk_mask(4, 2)
+        [[1, 1, 0, 0],
+         [1, 1, 0, 0],
+         [1, 1, 1, 1],
+         [1, 1, 1, 1]]
+    """
+    # NOTE this modified implementation meets onnx export requirements, but it doesn't support num_left_chunks
+    # actually this is not needed after we have inference cache implemented, will remove it later
+    pos_idx = torch.arange(size, device=device)
+    block_value = (torch.div(pos_idx, chunk_size, rounding_mode='trunc') + 1) * chunk_size
+    ret = pos_idx.unsqueeze(0) < block_value.unsqueeze(1)
     return ret
 
 

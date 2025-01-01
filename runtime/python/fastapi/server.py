@@ -54,7 +54,7 @@ async def inference_sft(tts_text: str = Form(), spk_id: str = Form()):
 
 @app.post("/stream/inference_sft")
 async def inference_sft(tts_text: str = Form(), spk_id: str = Form()):
-    model_output = cosyvoice.inference_sft(tts_text, spk_id)
+    model_output = cosyvoice.inference_sft(tts_text, spk_id, stream = True)
     return StreamingResponse(generate_stream(model_output))
 
 @app.post("/inference_zero_shot")
@@ -66,7 +66,7 @@ async def inference_zero_shot(tts_text: str = Form(), prompt_text: str = Form(),
 @app.post("/stream/inference_zero_shot")
 async def inference_zero_shot(tts_text: str = Form(), prompt_text: str = Form(), prompt_wav: UploadFile = File()):
     prompt_speech_16k = load_wav(prompt_wav.file, 16000)
-    model_output = cosyvoice.inference_zero_shot(tts_text, prompt_text, prompt_speech_16k)
+    model_output = cosyvoice.inference_zero_shot(tts_text, prompt_text, prompt_speech_16k, stream = True)
     return StreamingResponse(generate_stream(model_output))
 
 @app.post("/inference_cross_lingual")
@@ -78,7 +78,7 @@ async def inference_cross_lingual(tts_text: str = Form(), prompt_wav: UploadFile
 @app.post("/stream/inference_cross_lingual")
 async def inference_cross_lingual(tts_text: str = Form(), prompt_wav: UploadFile = File()):
     prompt_speech_16k = load_wav(prompt_wav.file, 16000)
-    model_output = cosyvoice.inference_cross_lingual(tts_text, prompt_speech_16k)
+    model_output = cosyvoice.inference_cross_lingual(tts_text, prompt_speech_16k, stream = True)
     return StreamingResponse(generate_stream(model_output))
 
 @app.post("/inference_instruct")
@@ -88,7 +88,7 @@ async def inference_instruct(tts_text: str = Form(), spk_id: str = Form(), instr
 
 @app.post("/stream/inference_instruct")
 async def inference_instruct(tts_text: str = Form(), spk_id: str = Form(), instruct_text: str = Form()):
-    model_output = cosyvoice.inference_instruct(tts_text, spk_id, instruct_text)
+    model_output = cosyvoice.inference_instruct(tts_text, spk_id, instruct_text, stream = True)
     return StreamingResponse(generate_stream(model_output))
 
 if __name__ == '__main__':
@@ -101,5 +101,5 @@ if __name__ == '__main__':
                         default='iic/CosyVoice-300M',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
-    cosyvoice = CosyVoice(args.model_dir)
+    cosyvoice = CosyVoice2(args.model_dir) if 'CosyVoice2' in args.model_dir else CosyVoice(args.model_dir)
     uvicorn.run(app, host="0.0.0.0", port=args.port)

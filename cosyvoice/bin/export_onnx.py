@@ -58,10 +58,10 @@ def main():
 
     try:
         model = CosyVoice(args.model_dir)
-    except:
+    except Exception:
         try:
             model = CosyVoice2(args.model_dir)
-        except:
+        except Exception:
             raise TypeError('no valid model_type!')
 
     # 1. export flow decoder estimator

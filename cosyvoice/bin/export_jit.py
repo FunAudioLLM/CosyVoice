@@ -46,6 +46,7 @@ def get_optimized_script(model, preserved_attrs=[]):
     script = torch.jit.optimize_for_inference(script)
     return script
 
+
 def main():
     args = get_args()
     logging.basicConfig(level=logging.DEBUG,
@@ -57,10 +58,10 @@ def main():
 
     try:
         model = CosyVoice(args.model_dir)
-    except:
+    except Exception:
         try:
             model = CosyVoice2(args.model_dir)
-        except:
+        except Exception:
             raise TypeError('no valid model_type!')
 
     if not isinstance(model, CosyVoice2):

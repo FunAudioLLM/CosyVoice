@@ -116,9 +116,7 @@ pip install ttsfrd-0.4.2-cp310-cp310-linux_x86_64.whl
 **Basic Usage**
 
 We strongly recommend using `CosyVoice2-0.5B` for better performance.
-For zero_shot/cross_lingual inference, please use `CosyVoice2-0.5B` `CosyVoice-300M` model.
-For sft inference, please use `CosyVoice-300M-SFT` model.
-For instruct inference, please use `CosyVoice-300M-Instruct` model.
+Follow code below for detailed usage of each model.
 
 ``` python
 import sys

@@ -34,6 +34,6 @@ torchaudio==2.3.1
 transformers==4.40.1
 uvicorn==0.30.0
 wget==3.2
-fastapi==0.111.0
+fastapi==0.115.6
 fastapi-cli==0.0.4
 WeTextProcessing==1.0.3

@@ -128,6 +128,8 @@ import torchaudio
 
 **CosyVoice2 Usage**
 ```python
+# NOTE if you want to use tensorRT to accerlate the flow matching inference, please set load_trt=True.
+# if you don't want to save tensorRT model on disk, please set environment variable `NOT_SAVE_TRT=1`.
 cosyvoice = CosyVoice2('pretrained_models/CosyVoice2-0.5B', load_jit=False, load_trt=False, fp16=False)
 
 # NOTE if you want to reproduce the results on https://funaudiollm.github.io/cosyvoice2, please add text_frontend=False during inference

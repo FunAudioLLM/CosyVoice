@@ -89,7 +89,6 @@ examples = [
 stream_mode_list = [('No', False), ('Yes', True)]
 max_val = 0.8
 
-
 def generate_seed():
     seed = random.randint(1, 100000000)
     return {
@@ -119,7 +118,6 @@ def preprocess_prompt_audio(
         speech = speech[:, :int(max_duration*prompt_sr)]
     # speech = fade_in_out_audio(speech)
     return speech
-
 
 def change_instruction(mode_checkbox_group):
     return instruct_dict[mode_checkbox_group]
@@ -199,10 +197,32 @@ def generate_audio(
         if instruct_text != '':
             gr.Info('You are using 3-second fast replication mode, the pre-trained voice/instruct text will be ignored!')
 
-    if mode_checkbox_group == '预训练音色':
-        logging.info('get sft inference request')
+    # Cross-lingual Mode
+    if mode_checkbox_group in ['Cross-lingual replication']:
+        if cosyvoice.frontend.instruct is True:
+            gr.Warning('You are using cross-lingual replication mode, the {} model does not support this mode, please use the iic/CosyVoice-300M model.'.format(args.model_dir))
+            yield (target_sr, default_data)
+        if prompt_wav is None:
+            gr.Warning('You are using cross-lingual replication mode, please provide the prompt audio.')
+            yield (target_sr, default_data)
+
+    # 3-second Fast Replication Mode
+    if mode_checkbox_group in ['3-second fast replication', 'Cross-lingual replication']:
+        if prompt_wav is None:
+            gr.Warning('Audio reference must not be empty.')
+            yield (target_sr, default_data)
+
+    # Pre-trained Voice Mode
+    # 3-second Fast Replication Mode
+    if mode_checkbox_group in ['3-second fast replication']:
+        if prompt_text == '':
+            gr.Warning('Reference text must not be empty.')
+            yield (target_sr, default_data)
+
+    if mode_checkbox_group == 'Pre-trained voice':
+        logging.info('Get SFT inference request')
         set_all_random_seed(seed)
-        for i in cosyvoice.inference_sft(tts_text, sft_dropdown, stream=stream, speed=speed):
+        for i in cosyvoice.inference_sft(tts_text, stream=stream, speed=speed):
             yield (target_sr, i['tts_speech'].numpy().flatten())
     elif mode_checkbox_group == '3-second fast replication':
         logging.info('Get zero-shot inference request')
@@ -215,7 +235,7 @@ def generate_audio(
         for i in cosyvoice.inference_cross_lingual(tts_text, prompt_wav, stream=stream, speed=speed):
             yield (target_sr, i['tts_speech'].numpy().flatten())
     else:
-        logging.info('get instruct inference request')
+        logging.info('Get instruct inference request')
         set_all_random_seed(seed)
         for i in cosyvoice.inference_instruct(tts_text, prompt_wav, prompt_text, stream=stream, speed=speed):
             yield (target_sr, i['tts_speech'].numpy().flatten())

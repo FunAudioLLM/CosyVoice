@@ -94,15 +94,15 @@ class Executor:
         # torch.nn.parallel.DistributedDataParallel to be able to train
         # with uneven inputs across participating processes.
         model.train()
-        model_context = model.join if info_dict['train_engine'] == 'torch_ddp' else nullcontext
-        with model_context():
-            for batch_idx, batch_dict in enumerate(train_data_loader):
-                info_dict["tag"] = "TRAIN"
-                info_dict["step"] = self.step
-                info_dict["epoch"] = self.epoch
-                info_dict["batch_idx"] = batch_idx
-                if cosyvoice_join(group_join, info_dict):
-                    break
+        # model_context = model.join if info_dict['train_engine'] == 'torch_ddp' else nullcontext
+        # with model_context():
+        for batch_idx, batch_dict in enumerate(train_data_loader):
+            info_dict["tag"] = "TRAIN"
+            info_dict["step"] = self.step
+            info_dict["epoch"] = self.epoch
+            info_dict["batch_idx"] = batch_idx
+            # if cosyvoice_join(group_join, info_dict):
+            #     break
 
                 # Disable gradient synchronizations across DDP processes.
                 # Within this context, gradients will be accumulated on module

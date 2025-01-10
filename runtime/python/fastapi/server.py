@@ -24,7 +24,7 @@ import numpy as np
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/../../..'.format(ROOT_DIR))
 sys.path.append('{}/../../../third_party/Matcha-TTS'.format(ROOT_DIR))
-from cosyvoice.cli.cosyvoice import CosyVoice
+from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
 from cosyvoice.utils.file_utils import load_wav
 
 app = FastAPI()
@@ -79,5 +79,11 @@ if __name__ == '__main__':
                         default='iic/CosyVoice-300M',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
-    cosyvoice = CosyVoice(args.model_dir)
+    try:
+        cosyvoice = CosyVoice(args.model_dir)
+    except Exception:
+        try:
+            cosyvoice = CosyVoice2(args.model_dir)
+        except Exception:
+            raise TypeError('no valid model_type!')
     uvicorn.run(app, host="0.0.0.0", port=args.port)

@@ -184,7 +184,14 @@ if __name__ == '__main__':
                         default='pretrained_models/CosyVoice2-0.5B',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
-    cosyvoice = CosyVoice2(args.model_dir) if 'CosyVoice2' in args.model_dir else CosyVoice(args.model_dir)
+    try:
+        cosyvoice = CosyVoice(args.model_dir)
+    except Exception:
+        try:
+            cosyvoice = CosyVoice2(args.model_dir)
+        except Exception:
+            raise TypeError('no valid model_type!')
+
     sft_spk = cosyvoice.list_available_spks()
     prompt_sr = 16000
     default_data = np.zeros(cosyvoice.sample_rate)

@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import json
-import tensorrt as trt
 import torchaudio
 import logging
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
@@ -49,6 +48,7 @@ def load_wav(wav, target_sr):
 
 
 def convert_onnx_to_trt(trt_model, onnx_model, fp16):
+    import tensorrt as trt
     _min_shape = [(2, 80, 4), (2, 1, 4), (2, 80, 4), (2,), (2, 80), (2, 80, 4)]
     _opt_shape = [(2, 80, 193), (2, 1, 193), (2, 80, 193), (2,), (2, 80), (2, 80, 193)]
     _max_shape = [(2, 80, 6800), (2, 1, 6800), (2, 80, 6800), (2,), (2, 80), (2, 80, 6800)]

@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import torch
+from cosyvoice.utils.file_utils import logging
 '''
 def subsequent_mask(
         size: int,
@@ -230,6 +231,10 @@ def add_optional_chunk_mask(xs: torch.Tensor,
         chunk_masks = masks & chunk_masks  # (B, L, L)
     else:
         chunk_masks = masks
+    assert chunk_masks.dtype == torch.bool
+    if (chunk_masks.sum(dim=-1) == 0).sum().item() != 0:
+        logging.warning('get chunk_masks all false at some timestep, force set to true, make sure they are masked in futuer computation!')
+        chunk_masks[chunk_masks.sum(dim=-1)==0] = True
     return chunk_masks
 
 

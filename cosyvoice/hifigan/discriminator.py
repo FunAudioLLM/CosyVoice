@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils.parametrizations import weight_norm
+try:
+    from torch.nn.utils.parametrizations import weight_norm
+except ImportError:
+    from torch.nn.utils import weight_norm
 from typing import List, Optional, Tuple
 from einops import rearrange
 from torchaudio.transforms import Spectrogram

@@ -56,7 +56,7 @@ flow: !new:cosyvoice.flow.flow.CausalMaskedDiffWithXvec
         input_size: 512
         use_cnn_module: False
         macaron_style: False
-        use_dynamic_chunk: True
+        static_chunk_size: !ref <token_frame_rate> # 试试UpsampleConformerEncoder也是static
     decoder: !new:cosyvoice.flow.flow_matching.CausalConditionalCFM
         in_channels: 240
         n_spks: 1
@@ -154,12 +154,9 @@ feat_extractor: !name:matcha.utils.audio.mel_spectrogram
     center: False
 compute_fbank: !name:cosyvoice.dataset.processor.compute_fbank
     feat_extractor: !ref <feat_extractor>
-# pitch_extractor: !name:torchaudio.functional.compute_kaldi_pitch # TODO need to replace it
-#     sample_rate: !ref <sample_rate>
-#     frame_length: 46.4 # match feat_extractor win_size/sampling_rate
-#     frame_shift: 11.6 # match feat_extractor hop_size/sampling_rate
-# compute_f0: !name:cosyvoice.dataset.processor.compute_f0
-#     pitch_extractor: !ref <pitch_extractor>
+compute_f0: !name:cosyvoice.dataset.processor.compute_f0
+    sample_rate: !ref <sample_rate>
+    hop_size: 480
 parse_embedding: !name:cosyvoice.dataset.processor.parse_embedding
     normalize: True
 shuffle: !name:cosyvoice.dataset.processor.shuffle
@@ -186,20 +183,20 @@ data_pipeline: [
     !ref <batch>,
     !ref <padding>,
 ]
-# data_pipeline_gan: [
-#     !ref <parquet_opener>,
-#     !ref <tokenize>,
-#     !ref <filter>,
-#     !ref <resample>,
-#     !ref <truncate>,
-#     !ref <compute_fbank>,
-#     !ref <compute_f0>,
-#     !ref <parse_embedding>,
-#     !ref <shuffle>,
-#     !ref <sort>,
-#     !ref <batch>,
-#     !ref <padding>,
-# ]
+data_pipeline_gan: [
+    !ref <parquet_opener>,
+    !ref <tokenize>,
+    !ref <filter>,
+    !ref <resample>,
+    !ref <truncate>,
+    !ref <compute_fbank>,
+    !ref <compute_f0>,
+    !ref <parse_embedding>,
+    !ref <shuffle>,
+    !ref <sort>,
+    !ref <batch>,
+    !ref <padding>,
+]
 
 # llm flow train conf
 train_conf:

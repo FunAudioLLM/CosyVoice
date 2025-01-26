@@ -44,12 +44,14 @@ def generate_data(model_output):
 
 
 @app.get("/inference_sft")
+@app.post("/inference_sft")
 async def inference_sft(tts_text: str = Form(), spk_id: str = Form()):
     model_output = cosyvoice.inference_sft(tts_text, spk_id)
     return StreamingResponse(generate_data(model_output))
 
 
 @app.get("/inference_zero_shot")
+@app.post("/inference_zero_shot")
 async def inference_zero_shot(tts_text: str = Form(), prompt_text: str = Form(), prompt_wav: UploadFile = File()):
     prompt_speech_16k = load_wav(prompt_wav.file, 16000)
     model_output = cosyvoice.inference_zero_shot(tts_text, prompt_text, prompt_speech_16k)
@@ -57,6 +59,7 @@ async def inference_zero_shot(tts_text: str = Form(), prompt_text: str = Form(),
 
 
 @app.get("/inference_cross_lingual")
+@app.post("/inference_cross_lingual")
 async def inference_cross_lingual(tts_text: str = Form(), prompt_wav: UploadFile = File()):
     prompt_speech_16k = load_wav(prompt_wav.file, 16000)
     model_output = cosyvoice.inference_cross_lingual(tts_text, prompt_speech_16k)
@@ -64,6 +67,7 @@ async def inference_cross_lingual(tts_text: str = Form(), prompt_wav: UploadFile
 
 
 @app.get("/inference_instruct")
+@app.post("/inference_instruct")
 async def inference_instruct(tts_text: str = Form(), spk_id: str = Form(), instruct_text: str = Form()):
     model_output = cosyvoice.inference_instruct(tts_text, spk_id, instruct_text)
     return StreamingResponse(generate_data(model_output))

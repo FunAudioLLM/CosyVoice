@@ -382,7 +382,10 @@ class Qwen2LM(TransformerLM):
                     if text_cache.size(1) >= self.mix_ratio[0]:
                         lm_input_text = text_cache[:, :self.mix_ratio[0]]
                         logging.info('append {} text token'.format(lm_input_text.size(1)))
-                        lm_input = torch.concat([lm_input, lm_input_text], dim=1)
+                        if len(out_tokens) != 0 and out_tokens[-1] == self.speech_token_size + 2:
+                            lm_input = lm_input_text
+                        else:
+                            lm_input = torch.concat([lm_input, lm_input_text], dim=1)
                         text_cache = text_cache[:, self.mix_ratio[0]:]
                     else:
                         logging.info('not enough text token to decode, wait for more')

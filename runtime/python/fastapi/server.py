@@ -72,6 +72,14 @@ async def inference_instruct(tts_text: str = Form(), spk_id: str = Form(), instr
     model_output = cosyvoice.inference_instruct(tts_text, spk_id, instruct_text)
     return StreamingResponse(generate_data(model_output))
 
+@app.get("/inference_instruct2")
+@app.post("/inference_instruct2")
+async def inference_instruct2(tts_text: str = Form(), instruct_text: str = Form(), prompt_wav: UploadFile = File()):
+    prompt_speech_16k = load_wav(prompt_wav.file, 16000)
+    model_output = cosyvoice.inference_instruct2(tts_text, instruct_text, prompt_speech_16k)
+    return StreamingResponse(generate_data(model_output))
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -80,14 +88,14 @@ if __name__ == '__main__':
                         default=50000)
     parser.add_argument('--model_dir',
                         type=str,
-                        default='iic/CosyVoice-300M',
+                        default='pretrained_models/CosyVoice2-0.5B',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
     try:
         cosyvoice = CosyVoice(args.model_dir)
     except Exception:
         try:
-            cosyvoice = CosyVoice2(args.model_dir)
+            cosyvoice = CosyVoice2(args.model_dir, load_jit=True, load_trt=False)
         except Exception:
             raise TypeError('no valid model_type!')
     uvicorn.run(app, host="0.0.0.0", port=args.port)

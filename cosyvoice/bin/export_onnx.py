@@ -99,7 +99,7 @@ def main():
         option.intra_op_num_threads = 1
         providers = ['CUDAExecutionProvider' if torch.cuda.is_available() else 'CPUExecutionProvider']
         estimator_onnx = onnxruntime.InferenceSession('{}/flow.decoder.estimator.fp32.onnx'.format(args.model_dir),
-                                                    sess_options=option, providers=providers)
+                                                      sess_options=option, providers=providers)
 
         for _ in tqdm(range(10)):
             x, mask, mu, t, spks, cond = get_dummy_input(batch_size, random.randint(16, 512), out_channels, device)
@@ -131,31 +131,33 @@ def main():
         torch.onnx.export(
             estimator,
             (x, mask, mu, t, spks, cond,
-            cache['down_blocks_conv_cache'],
-            cache['down_blocks_kv_cache'],
-            cache['mid_blocks_conv_cache'],
-            cache['mid_blocks_kv_cache'],
-            cache['up_blocks_conv_cache'],
-            cache['up_blocks_kv_cache'],
-            cache['final_blocks_conv_cache']),
+             cache['down_blocks_conv_cache'],
+             cache['down_blocks_kv_cache'],
+             cache['mid_blocks_conv_cache'],
+             cache['mid_blocks_kv_cache'],
+             cache['up_blocks_conv_cache'],
+             cache['up_blocks_kv_cache'],
+             cache['final_blocks_conv_cache']),
             '{}/flow.decoder.estimator.fp32.onnx'.format(args.model_dir),
             export_params=True,
             opset_version=18,
             do_constant_folding=True,
-            input_names=['x', 'mask', 'mu', 't', 'spks', 'cond', 'down_blocks_conv_cache', 'down_blocks_kv_cache', 'mid_blocks_conv_cache', 'mid_blocks_kv_cache', 'up_blocks_conv_cache', 'up_blocks_kv_cache', 'final_blocks_conv_cache'],
-            output_names=['estimator_out', 'down_blocks_conv_cache_out', 'down_blocks_kv_cache_out', 'mid_blocks_conv_cache_out', 'mid_blocks_kv_cache_out', 'up_blocks_conv_cache_out', 'up_blocks_kv_cache_out', 'final_blocks_conv_cache_out'],
+            input_names=['x', 'mask', 'mu', 't', 'spks', 'cond', 'down_blocks_conv_cache', 'down_blocks_kv_cache', 'mid_blocks_conv_cache', 'mid_blocks_kv_cache',
+                         'up_blocks_conv_cache', 'up_blocks_kv_cache', 'final_blocks_conv_cache'],
+            output_names=['estimator_out', 'down_blocks_conv_cache_out', 'down_blocks_kv_cache_out', 'mid_blocks_conv_cache_out', 'mid_blocks_kv_cache_out',
+                          'up_blocks_conv_cache_out', 'up_blocks_kv_cache_out', 'final_blocks_conv_cache_out'],
             dynamic_axes={
                 'x': {2: 'seq_len'},
                 'mask': {2: 'seq_len'},
                 'mu': {2: 'seq_len'},
                 'cond': {2: 'seq_len'},
-                'down_blocks_kv_cache': {3: 'seq_len'},
-                'mid_blocks_kv_cache': {3: 'seq_len'},
-                'up_blocks_kv_cache': {3: 'seq_len'},
+                'down_blocks_kv_cache': {3: 'cache_in_len'},
+                'mid_blocks_kv_cache': {3: 'cache_in_len'},
+                'up_blocks_kv_cache': {3: 'cache_in_len'},
                 'estimator_out': {2: 'seq_len'},
-                'down_blocks_kv_cache_out': {3: 'seq_len'},
-                'mid_blocks_kv_cache_out': {3: 'seq_len'},
-                'up_blocks_kv_cache_out': {3: 'seq_len'},
+                'down_blocks_kv_cache_out': {3: 'cache_out_len'},
+                'mid_blocks_kv_cache_out': {3: 'cache_out_len'},
+                'up_blocks_kv_cache_out': {3: 'cache_out_len'},
             }
         )
 
@@ -165,7 +167,7 @@ def main():
         option.intra_op_num_threads = 1
         providers = ['CUDAExecutionProvider' if torch.cuda.is_available() else 'CPUExecutionProvider']
         estimator_onnx = onnxruntime.InferenceSession('{}/flow.decoder.estimator.fp32.onnx'.format(args.model_dir),
-                                                    sess_options=option, providers=providers)
+                                                      sess_options=option, providers=providers)
 
         for _ in tqdm(range(10)):
             x, mask, mu, t, spks, cond = get_dummy_input(batch_size, random.randint(16, 512), out_channels, device)

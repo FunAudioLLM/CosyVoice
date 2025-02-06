@@ -75,7 +75,7 @@ def main():
         print('Processing {}'.format(path))
         states = torch.load(path, map_location=torch.device('cpu'))
         for k in states.keys():
-            if k not in avg.keys():
+            if k not in avg.keys() and k not in ['step', 'epoch']:
                 avg[k] = states[k].clone()
             else:
                 avg[k] += states[k]

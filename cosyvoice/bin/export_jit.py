@@ -98,5 +98,6 @@ def main():
         script.save('{}/flow.encoder.fp16.zip'.format(args.model_dir))
         logging.info('successfully export flow_encoder')
 
+
 if __name__ == '__main__':
     main()

@@ -36,8 +36,6 @@ class CosyVoiceModel:
         self.flow = flow
         self.hift = hift
         self.fp16 = fp16
-        self.llm.fp16 = fp16
-        self.flow.fp16 = fp16
         if self.fp16 is True:
             self.llm.half()
             self.flow.half()
@@ -85,19 +83,25 @@ class CosyVoiceModel:
     def load_trt(self, flow_decoder_estimator_model, flow_decoder_onnx_model, fp16):
         assert torch.cuda.is_available(), 'tensorrt only supports gpu!'
         if not os.path.exists(flow_decoder_estimator_model):
-            convert_onnx_to_trt(flow_decoder_estimator_model, flow_decoder_onnx_model, fp16)
+            convert_onnx_to_trt(flow_decoder_estimator_model, self.get_trt_kwargs(), flow_decoder_onnx_model, fp16)
         if os.path.getsize(flow_decoder_estimator_model) == 0:
             raise ValueError('{} is empty file, delete it and export again!'.format(flow_decoder_estimator_model))
         del self.flow.decoder.estimator
         import tensorrt as trt
         with open(flow_decoder_estimator_model, 'rb') as f:
             self.flow.decoder.estimator_engine = trt.Runtime(trt.Logger(trt.Logger.INFO)).deserialize_cuda_engine(f.read())
-        if self.flow.decoder.estimator_engine is None:
-            raise ValueError('failed to load trt {}'.format(flow_decoder_estimator_model))
+        assert self.flow.decoder.estimator_engine is not None, 'failed to load trt {}'.format(flow_decoder_estimator_model)
         self.flow.decoder.estimator = self.flow.decoder.estimator_engine.create_execution_context()
 
+    def get_trt_kwargs(self):
+        min_shape = [(2, 80, 4), (2, 1, 4), (2, 80, 4), (2, 80, 4)]
+        opt_shape = [(2, 80, 200), (2, 1, 200), (2, 80, 200), (2, 80, 200)]
+        max_shape = [(2, 80, 3000), (2, 1, 3000), (2, 80, 3000), (2, 80, 3000)]
+        input_names = ["x", "mask", "mu", "cond"]
+        return {'min_shape': min_shape, 'opt_shape': opt_shape, 'max_shape': max_shape, 'input_names': input_names}
+
     def llm_job(self, text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):
-        with self.llm_context:
+        with self.llm_context, torch.cuda.amp.autocast(self.fp16):
             if isinstance(text, Generator):
                 assert isinstance(self, CosyVoice2Model), 'streaming input text is only implemented for CosyVoice2!'
                 for i in self.llm.inference_bistream(text=text,
@@ -119,14 +123,15 @@ class CosyVoiceModel:
         self.llm_end_dict[uuid] = True
 
     def token2wav(self, token, prompt_token, prompt_feat, embedding, uuid, finalize=False, speed=1.0):
-        tts_mel, self.flow_cache_dict[uuid] = self.flow.inference(token=token.to(self.device),
-                                                                  token_len=torch.tensor([token.shape[1]], dtype=torch.int32).to(self.device),
-                                                                  prompt_token=prompt_token.to(self.device),
-                                                                  prompt_token_len=torch.tensor([prompt_token.shape[1]], dtype=torch.int32).to(self.device),
-                                                                  prompt_feat=prompt_feat.to(self.device),
-                                                                  prompt_feat_len=torch.tensor([prompt_feat.shape[1]], dtype=torch.int32).to(self.device),
-                                                                  embedding=embedding.to(self.device),
-                                                                  flow_cache=self.flow_cache_dict[uuid])
+        with torch.cuda.amp.autocast(self.fp16):
+            tts_mel, self.flow_cache_dict[uuid] = self.flow.inference(token=token.to(self.device),
+                                                                      token_len=torch.tensor([token.shape[1]], dtype=torch.int32).to(self.device),
+                                                                      prompt_token=prompt_token.to(self.device),
+                                                                      prompt_token_len=torch.tensor([prompt_token.shape[1]], dtype=torch.int32).to(self.device),
+                                                                      prompt_feat=prompt_feat.to(self.device),
+                                                                      prompt_feat_len=torch.tensor([prompt_feat.shape[1]], dtype=torch.int32).to(self.device),
+                                                                      embedding=embedding.to(self.device),
+                                                                      flow_cache=self.flow_cache_dict[uuid])
 
         # mel overlap fade in out
         if self.mel_overlap_dict[uuid].shape[2] != 0:
@@ -289,21 +294,18 @@ class CosyVoice2Model(CosyVoiceModel):
         self.flow = flow
         self.hift = hift
         self.fp16 = fp16
-        self.llm.fp16 = fp16
-        self.flow.fp16 = fp16
         if self.fp16 is True:
             self.llm.half()
             self.flow.half()
-        self.token_hop_len = 2 * self.flow.input_frame_rate
+        self.token_hop_len = self.flow.encoder.static_chunk_size
         # flow decoder required_cache_size
-        self.flow_decoder_required_cache_size = self.flow.decoder.estimator.num_decoding_left_chunks * self.flow.input_frame_rate * self.flow.token_mel_ratio
+        self.flow_decoder_required_cache_size = self.flow.decoder.estimator.num_decoding_left_chunks * self.flow.decoder.estimator.static_chunk_size
         # hift cache
         self.mel_cache_len = 8
         self.source_cache_len = int(self.mel_cache_len * 480)
         # speech fade in out
         self.speech_window = np.hamming(2 * self.source_cache_len)
         # rtf and decoding related
-        self.stream_scale_factor = 1
         self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device)) if torch.cuda.is_available() else nullcontext()
         self.lock = threading.Lock()
         # dict used to store session related variable
@@ -327,6 +329,11 @@ class CosyVoice2Model(CosyVoiceModel):
                          'up_blocks_conv_cache': torch.zeros(10, 1, 2, 1024, 2).to(self.device),
                          'up_blocks_kv_cache': torch.zeros(10, 1, 4, 2, 0, 512, 2).to(self.device),
                          'final_blocks_conv_cache': torch.zeros(10, 2, 256, 2).to(self.device)}
+        if self.fp16 is True:
+            for cache in [encoder_cache, decoder_cache]:
+                for k, v in cache.items():
+                    if isinstance(v, torch.Tensor):
+                        cache[k] = v.half()
         cache = {'encoder_cache': encoder_cache, 'decoder_cache': decoder_cache}
         return cache
 
@@ -341,16 +348,24 @@ class CosyVoice2Model(CosyVoiceModel):
         flow_encoder = torch.jit.load(flow_encoder_model, map_location=self.device)
         self.flow.encoder = flow_encoder
 
+    def get_trt_kwargs(self):
+        min_shape = [(2, 80, 4), (2, 1, 4), (2, 80, 4), (2, 80, 4), (1, 4, 2, 0, 512, 2), (12, 4, 2, 0, 512, 2), (1, 4, 2, 0, 512, 2)]
+        opt_shape = [(2, 80, 200), (2, 1, 200), (2, 80, 200), (2, 80, 200), (1, 4, 2, 100, 512, 2), (12, 4, 2, 100, 512, 2), (1, 4, 2, 100, 512, 2)]
+        max_shape = [(2, 80, 1500), (2, 1, 1500), (2, 80, 1500), (2, 80, 1500), (1, 4, 2, 200, 512, 2), (12, 4, 2, 200, 512, 2), (1, 4, 2, 200, 512, 2)]
+        input_names = ["x", "mask", "mu", "cond", 'down_blocks_kv_cache', 'mid_blocks_kv_cache', 'up_blocks_kv_cache']
+        return {'min_shape': min_shape, 'opt_shape': opt_shape, 'max_shape': max_shape, 'input_names': input_names}
+
     def token2wav(self, token, prompt_token, prompt_feat, embedding, uuid, finalize=False, speed=1.0):
-        tts_mel, self.flow_cache_dict[uuid] = self.flow.inference(token=token.to(self.device),
-                                                                  token_len=torch.tensor([token.shape[1]], dtype=torch.int32).to(self.device),
-                                                                  prompt_token=prompt_token.to(self.device),
-                                                                  prompt_token_len=torch.tensor([prompt_token.shape[1]], dtype=torch.int32).to(self.device),
-                                                                  prompt_feat=prompt_feat.to(self.device),
-                                                                  prompt_feat_len=torch.tensor([prompt_feat.shape[1]], dtype=torch.int32).to(self.device),
-                                                                  embedding=embedding.to(self.device),
-                                                                  cache=self.flow_cache_dict[uuid],
-                                                                  finalize=finalize)
+        with torch.cuda.amp.autocast(self.fp16):
+            tts_mel, self.flow_cache_dict[uuid] = self.flow.inference(token=token.to(self.device),
+                                                                      token_len=torch.tensor([token.shape[1]], dtype=torch.int32).to(self.device),
+                                                                      prompt_token=prompt_token.to(self.device),
+                                                                      prompt_token_len=torch.tensor([prompt_token.shape[1]], dtype=torch.int32).to(self.device),
+                                                                      prompt_feat=prompt_feat.to(self.device),
+                                                                      prompt_feat_len=torch.tensor([prompt_feat.shape[1]], dtype=torch.int32).to(self.device),
+                                                                      embedding=embedding.to(self.device),
+                                                                      cache=self.flow_cache_dict[uuid],
+                                                                      finalize=finalize)
         self.flow_cache_dict[uuid] = self.trim_flow_cache(self.flow_cache_dict[uuid])
         # append hift cache
         if self.hift_cache_dict[uuid] is not None:

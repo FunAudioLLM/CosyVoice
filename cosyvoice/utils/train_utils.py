@@ -286,11 +286,15 @@ def update_parameter_and_lr(model, optimizer, scheduler, scaler, info_dict):
             # optimizer.step().
             if torch.isfinite(grad_norm):
                 scaler.step(optimizer)
+            else:
+                logging.warning('get infinite grad_norm, check your code/data if it appears frequently')
             scaler.update()
         else:
             grad_norm = clip_grad_norm_(model.parameters(), info_dict['grad_clip'])
             if torch.isfinite(grad_norm):
                 optimizer.step()
+            else:
+                logging.warning('get infinite grad_norm, check your code/data if it appears frequently')
         optimizer.zero_grad()
         scheduler.step()
     info_dict["lr"] = optimizer.param_groups[0]['lr']

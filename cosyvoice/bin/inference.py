@@ -78,6 +78,7 @@ def main():
                            tts_file=args.tts_text, prompt_utt2data=args.prompt_utt2data)
     test_data_loader = DataLoader(test_dataset, batch_size=None, num_workers=0)
 
+    sample_rate = configs['sample_rate']
     del configs
     os.makedirs(args.result_dir, exist_ok=True)
     fn = os.path.join(args.result_dir, 'wav.scp')
@@ -113,7 +114,7 @@ def main():
             tts_speeches = torch.concat(tts_speeches, dim=1)
             tts_key = '{}_{}'.format(utts[0], tts_index[0])
             tts_fn = os.path.join(args.result_dir, '{}.wav'.format(tts_key))
-            torchaudio.save(tts_fn, tts_speeches, sample_rate=configs['sample_rate'], backend='soundfile')
+            torchaudio.save(tts_fn, tts_speeches, sample_rate=sample_rate, backend='soundfile')
             f.write('{} {}\n'.format(tts_key, tts_fn))
             f.flush()
     f.close()

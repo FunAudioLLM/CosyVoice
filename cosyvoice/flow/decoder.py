@@ -57,7 +57,7 @@ class CausalConv1d(torch.nn.Conv1d):
         assert stride == 1
         self.causal_padding = kernel_size - 1
 
-    def forward(self, x: torch.Tensor, cache: torch.Tensor=torch.zeros(0, 0, 0)) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, cache: torch.Tensor = torch.zeros(0, 0, 0)) -> Tuple[torch.Tensor, torch.Tensor]:
         if cache.size(2) == 0:
             x = F.pad(x, (self.causal_padding, 0), value=0.0)
         else:
@@ -79,7 +79,7 @@ class CausalBlock1D(Block1D):
             nn.Mish(),
         )
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor, cache: torch.Tensor=torch.zeros(0, 0, 0)) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor, cache: torch.Tensor = torch.zeros(0, 0, 0)) -> Tuple[torch.Tensor, torch.Tensor]:
         output, cache = self.block[0](x * mask, cache)
         for i in range(1, len(self.block)):
             output = self.block[i](output)
@@ -92,7 +92,9 @@ class CausalResnetBlock1D(ResnetBlock1D):
         self.block1 = CausalBlock1D(dim, dim_out)
         self.block2 = CausalBlock1D(dim_out, dim_out)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor, time_emb: torch.Tensor, block1_cache: torch.Tensor=torch.zeros(0, 0, 0), block2_cache: torch.Tensor=torch.zeros(0, 0, 0)) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor, time_emb: torch.Tensor,
+                block1_cache: torch.Tensor = torch.zeros(0, 0, 0), block2_cache: torch.Tensor = torch.zeros(0, 0, 0)
+                ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         h, block1_cache = self.block1(x, mask, block1_cache)
         h += self.mlp(time_emb).unsqueeze(-1)
         h, block2_cache = self.block2(h, mask, block2_cache)
@@ -120,7 +122,8 @@ class CausalAttnProcessor2_0(AttnProcessor2_0):
         **kwargs,
     ) -> Tuple[torch.FloatTensor, torch.Tensor]:
         if len(args) > 0 or kwargs.get("scale", None) is not None:
-            deprecation_message = "The `scale` argument is deprecated and will be ignored. Please remove it, as passing it will raise an error in the future. `scale` should directly be passed while calling the underlying pipeline component i.e., via `cross_attention_kwargs`."
+            deprecation_message = "The `scale` argument is deprecated and will be ignored. Please remove it, as passing it will raise an error in the future. \
+                `scale` should directly be passed while calling the underlying pipeline component i.e., via `cross_attention_kwargs`."
             deprecate("scale", "1.0.0", deprecation_message)
 
         residual = hidden_states
@@ -224,8 +227,10 @@ class CausalAttention(Attention):
         processor: Optional["AttnProcessor2_0"] = None,
         out_dim: int = None,
     ):
-        super(CausalAttention, self).__init__(query_dim, cross_attention_dim, heads, dim_head, dropout, bias, upcast_attention, upcast_softmax, cross_attention_norm, cross_attention_norm_num_groups, qk_norm,
-                                              added_kv_proj_dim, norm_num_groups, spatial_norm_dim, out_bias, scale_qk, only_cross_attention, eps, rescale_output_factor, residual_connection, _from_deprecated_attn_block, processor, out_dim)
+        super(CausalAttention, self).__init__(query_dim, cross_attention_dim, heads, dim_head, dropout, bias, upcast_attention, upcast_softmax,
+                                              cross_attention_norm, cross_attention_norm_num_groups, qk_norm, added_kv_proj_dim, norm_num_groups,
+                                              spatial_norm_dim, out_bias, scale_qk, only_cross_attention, eps, rescale_output_factor, residual_connection,
+                                              _from_deprecated_attn_block, processor, out_dim)
         processor = CausalAttnProcessor2_0()
         self.set_processor(processor)
 
@@ -294,8 +299,10 @@ class CausalBasicTransformerBlock(BasicTransformerBlock):
         norm_type: str = "layer_norm",
         final_dropout: bool = False,
     ):
-        super(CausalBasicTransformerBlock, self).__init__(dim, num_attention_heads, attention_head_dim, dropout, cross_attention_dim, activation_fn, num_embeds_ada_norm,
-                                                          attention_bias, only_cross_attention, double_self_attention, upcast_attention, norm_elementwise_affine, norm_type, final_dropout)
+        super(CausalBasicTransformerBlock, self).__init__(dim, num_attention_heads, attention_head_dim, dropout,
+                                                          cross_attention_dim, activation_fn, num_embeds_ada_norm,
+                                                          attention_bias, only_cross_attention, double_self_attention,
+                                                          upcast_attention, norm_elementwise_affine, norm_type, final_dropout)
         self.attn1 = CausalAttention(
             query_dim=dim,
             heads=num_attention_heads,
@@ -364,9 +371,8 @@ class CausalBasicTransformerBlock(BasicTransformerBlock):
         if self._chunk_size is not None:
             # "feed_forward_chunk_size" can be used to save memory
             if norm_hidden_states.shape[self._chunk_dim] % self._chunk_size != 0:
-                raise ValueError(
-                    f"`hidden_states` dimension to be chunked: {norm_hidden_states.shape[self._chunk_dim]} has to be divisible by chunk size: {self._chunk_size}. Make sure to set an appropriate `chunk_size` when calling `unet.enable_forward_chunking`."
-                )
+                raise ValueError(f"`hidden_states` dimension to be chunked: {norm_hidden_states.shape[self._chunk_dim]} has to be divisible by chunk size: \
+                                 {self._chunk_size}. Make sure to set an appropriate `chunk_size` when calling `unet.enable_forward_chunking`.")
 
             num_chunks = norm_hidden_states.shape[self._chunk_dim] // self._chunk_size
             ff_output = torch.cat(
@@ -794,14 +800,14 @@ class CausalConditionalDecoder(ConditionalDecoder):
         return output * mask
 
     def forward_chunk(self, x, mask, mu, t, spks=None, cond=None,
-        down_blocks_conv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
-        down_blocks_kv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0, 0, 0),
-        mid_blocks_conv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
-        mid_blocks_kv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0, 0, 0),
-        up_blocks_conv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
-        up_blocks_kv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0, 0, 0),
-        final_blocks_conv_cache: torch.Tensor = torch.zeros(0, 0, 0)
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+                      down_blocks_conv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
+                      down_blocks_kv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0, 0, 0),
+                      mid_blocks_conv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
+                      mid_blocks_kv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0, 0, 0),
+                      up_blocks_conv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
+                      up_blocks_kv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0, 0, 0),
+                      final_blocks_conv_cache: torch.Tensor = torch.zeros(0, 0, 0)
+                      ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Forward pass of the UNet1DConditional model.
 
         Args:
@@ -838,7 +844,8 @@ class CausalConditionalDecoder(ConditionalDecoder):
         up_blocks_kv_cache_new = torch.zeros(1, 4, 2, x.size(2), 512, 2).to(x.device)
         for index, (resnet, transformer_blocks, downsample) in enumerate(self.down_blocks):
             mask_down = masks[-1]
-            x, down_blocks_conv_cache[index][:, :320], down_blocks_conv_cache[index][:, 320: 576] = resnet(x, mask_down, t, down_blocks_conv_cache[index][:, :320], down_blocks_conv_cache[index][:, 320: 576])
+            x, down_blocks_conv_cache[index][:, :320], down_blocks_conv_cache[index][:, 320: 576] = \
+                resnet(x, mask_down, t, down_blocks_conv_cache[index][:, :320], down_blocks_conv_cache[index][:, 320: 576])
             x = rearrange(x, "b c t -> b t c").contiguous()
             attn_mask = torch.ones(x.size(0), x.size(1), x.size(1) + down_blocks_kv_cache.size(3), device=x.device).bool()
             attn_mask = mask_to_bias(attn_mask, x.dtype)
@@ -857,7 +864,8 @@ class CausalConditionalDecoder(ConditionalDecoder):
         mask_mid = masks[-1]
 
         for index, (resnet, transformer_blocks) in enumerate(self.mid_blocks):
-            x, mid_blocks_conv_cache[index][:, :256], mid_blocks_conv_cache[index][:, 256:] = resnet(x, mask_mid, t, mid_blocks_conv_cache[index][:, :256], mid_blocks_conv_cache[index][:, 256:])
+            x, mid_blocks_conv_cache[index][:, :256], mid_blocks_conv_cache[index][:, 256:] = \
+                resnet(x, mask_mid, t, mid_blocks_conv_cache[index][:, :256], mid_blocks_conv_cache[index][:, 256:])
             x = rearrange(x, "b c t -> b t c").contiguous()
             attn_mask = torch.ones(x.size(0), x.size(1), x.size(1) + mid_blocks_kv_cache.size(3), device=x.device).bool()
             attn_mask = mask_to_bias(attn_mask, x.dtype)
@@ -874,7 +882,8 @@ class CausalConditionalDecoder(ConditionalDecoder):
             mask_up = masks.pop()
             skip = hiddens.pop()
             x = pack([x[:, :, :skip.shape[-1]], skip], "b * t")[0]
-            x, up_blocks_conv_cache[index][:, :512], up_blocks_conv_cache[index][:, 512: 768] = resnet(x, mask_up, t, up_blocks_conv_cache[index][:, :512], up_blocks_conv_cache[index][:, 512: 768])
+            x, up_blocks_conv_cache[index][:, :512], up_blocks_conv_cache[index][:, 512: 768] = \
+                resnet(x, mask_up, t, up_blocks_conv_cache[index][:, :512], up_blocks_conv_cache[index][:, 512: 768])
             x = rearrange(x, "b c t -> b t c").contiguous()
             attn_mask = torch.ones(x.size(0), x.size(1), x.size(1) + up_blocks_kv_cache.size(3), device=x.device).bool()
             attn_mask = mask_to_bias(attn_mask, x.dtype)
@@ -889,4 +898,5 @@ class CausalConditionalDecoder(ConditionalDecoder):
             x, up_blocks_conv_cache[index][:, 768:] = upsample(x * mask_up, up_blocks_conv_cache[index][:, 768:])
         x, final_blocks_conv_cache = self.final_block(x, mask_up, final_blocks_conv_cache)
         output = self.final_proj(x * mask_up)
-        return output * mask, down_blocks_conv_cache, down_blocks_kv_cache_new, mid_blocks_conv_cache, mid_blocks_kv_cache_new, up_blocks_conv_cache, up_blocks_kv_cache_new, final_blocks_conv_cache
+        return output * mask, down_blocks_conv_cache, down_blocks_kv_cache_new, mid_blocks_conv_cache, mid_blocks_kv_cache_new, \
+            up_blocks_conv_cache, up_blocks_kv_cache_new, final_blocks_conv_cache

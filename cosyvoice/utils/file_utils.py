@@ -47,13 +47,8 @@ def load_wav(wav, target_sr):
     return speech
 
 
-def convert_onnx_to_trt(trt_model, onnx_model, fp16):
+def convert_onnx_to_trt(trt_model, trt_kwargs, onnx_model, fp16):
     import tensorrt as trt
-    _min_shape = [(2, 80, 4), (2, 1, 4), (2, 80, 4), (2,), (2, 80), (2, 80, 4)]
-    _opt_shape = [(2, 80, 193), (2, 1, 193), (2, 80, 193), (2,), (2, 80), (2, 80, 193)]
-    _max_shape = [(2, 80, 6800), (2, 1, 6800), (2, 80, 6800), (2,), (2, 80), (2, 80, 6800)]
-    input_names = ["x", "mask", "mu", "t", "spks", "cond"]
-
     logging.info("Converting onnx to trt...")
     network_flags = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
     logger = trt.Logger(trt.Logger.INFO)
@@ -72,8 +67,8 @@ def convert_onnx_to_trt(trt_model, onnx_model, fp16):
                 print(parser.get_error(error))
             raise ValueError('failed to parse {}'.format(onnx_model))
     # set input shapes
-    for i in range(len(input_names)):
-        profile.set_shape(input_names[i], _min_shape[i], _opt_shape[i], _max_shape[i])
+    for i in range(len(trt_kwargs['input_names'])):
+        profile.set_shape(trt_kwargs['input_names'][i], trt_kwargs['min_shape'][i], trt_kwargs['opt_shape'][i], trt_kwargs['max_shape'][i])
     tensor_dtype = trt.DataType.HALF if fp16 else trt.DataType.FLOAT
     # set input and output data type
     for i in range(network.num_inputs):
@@ -87,3 +82,4 @@ def convert_onnx_to_trt(trt_model, onnx_model, fp16):
     # save trt engine
     with open(trt_model, "wb") as f:
         f.write(engine_bytes)
+    logging.info("Succesfully convert onnx to trt...")

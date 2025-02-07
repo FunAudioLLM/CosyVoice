@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
 ARG VENV_NAME="cosyvoice"
 ENV VENV=$VENV_NAME
@@ -34,7 +34,7 @@ RUN conda config --add channels conda-forge && \
 # ~conda
 # ==================================================================
 
-RUN conda create -y -n ${VENV} python=3.8
+RUN conda create -y -n ${VENV} python=3.10
 ENV CONDA_DEFAULT_ENV=${VENV}
 ENV PATH /opt/conda/bin:/opt/conda/envs/${VENV}/bin:$PATH
 

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import re
+import regex
 chinese_char_pattern = re.compile(r'[\u4e00-\u9fff]+')
 
 
@@ -127,3 +128,9 @@ def replace_blank(text: str):
         else:
             out_str.append(c)
     return "".join(out_str)
+
+
+def is_only_punctuation(text):
+    # Regular expression: Match strings that consist only of punctuation marks or are empty.
+    punctuation_pattern = r'^[\p{P}\p{S}]*$'
+    return bool(regex.fullmatch(punctuation_pattern, text))

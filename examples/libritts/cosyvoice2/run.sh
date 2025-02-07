@@ -7,7 +7,7 @@ stop_stage=3
 
 data_url=www.openslr.org/resources/60
 data_dir=/mnt/lyuxiang.lx/data/tts/openslr/libritts
-pretrained_model_dir=/mnt/lyuxiang.lx/data/tts/models/IIC/CosyVoice2-0.5B/
+pretrained_model_dir=../../../pretrained_models/CosyVoice2-0.5B
 
 if [ ${stage} -le -1 ] && [ ${stop_stage} -ge -1 ]; then
   echo "Data Download"
@@ -86,7 +86,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
   cat data/{train-clean-100,train-clean-360,train-other-500}/parquet/data.list > data/train.data.list
   cat data/{dev-clean,dev-other}/parquet/data.list > data/dev.data.list
   # NOTE will update llm/hift training later
-  for model in flow; do
+  for model in llm flow; do
     torchrun --nnodes=1 --nproc_per_node=$num_gpus \
         --rdzv_id=$job_id --rdzv_backend="c10d" --rdzv_endpoint="localhost:1234" \
       cosyvoice/bin/train.py \

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import random
 from typing import Dict, Optional, Callable, List, Generator
 import torch
 from torch import nn
@@ -21,6 +22,7 @@ from cosyvoice.utils.common import IGNORE_ID
 from cosyvoice.transformer.label_smoothing_loss import LabelSmoothingLoss
 from cosyvoice.utils.common import th_accuracy
 from cosyvoice.utils.file_utils import logging
+from cosyvoice.utils.mask import make_pad_mask
 
 
 class TransformerLM(torch.nn.Module):
@@ -226,6 +228,17 @@ class Qwen2Encoder(torch.nn.Module):
         super().__init__()
         self.model = Qwen2ForCausalLM.from_pretrained(pretrain_path)
 
+    def forward(self, xs: torch.Tensor, xs_lens: torch.Tensor):
+        T = xs.size(1)
+        masks = ~make_pad_mask(xs_lens, T)
+        outs = self.model(
+            inputs_embeds=xs,
+            attention_mask=masks,
+            output_hidden_states=True,
+            return_dict=True,
+        )
+        return outs.hidden_states[-1], masks.unsqueeze(1)
+
     def forward_one_step(self, xs, masks, cache=None):
         input_masks = masks[:, -1, :]
         outs = self.model(
@@ -279,6 +292,58 @@ class Qwen2LM(TransformerLM):
         # 4. sampling method
         self.sampling = sampling
         self.mix_ratio = mix_ratio
+
+    def pad_unpad_sequence(self, sos_eos_emb, text_token, text_token_len, task_id_emb, speech_token, speech_token_len, bistream):
+        text_token = unpad_sequence(text_token, text_token_len.cpu(), batch_first=True)
+        speech_token = unpad_sequence(speech_token, speech_token_len.cpu(), batch_first=True)
+        lm_input = [torch.concat([sos_eos_emb.squeeze(dim=0), text_token[i], task_id_emb.squeeze(dim=0), speech_token[i]], dim=0)
+                    for i in range(len(text_token))]
+        lm_input_len = torch.tensor([i.size(0) for i in lm_input], dtype=torch.int32)
+        lm_input = pad_sequence(lm_input, batch_first=True, padding_value=IGNORE_ID)
+        return lm_input, lm_input_len
+
+    def forward(
+            self,
+            batch: dict,
+            device: torch.device,
+    ) -> Dict[str, Optional[torch.Tensor]]:
+        """
+        Args:
+            text: (B, L, D)
+            text_lengths: (B,)
+            audio: (B, T, N) or (B, T)
+            audio_lengths: (B,)
+        """
+        text_token = batch['text_token'].to(device)
+        text_token_len = batch['text_token_len'].to(device)
+        speech_token = batch['speech_token'].to(device)
+        speech_token_len = batch['speech_token_len'].to(device)
+
+        # 1. prepare llm_target
+        bistream = True if random.random() < 0.5 else False
+        lm_target = [torch.tensor([IGNORE_ID] * (1 + text_token_len[i]) + speech_token[i, :speech_token_len[i]].tolist() +
+                                  [self.speech_token_size]) for i in range(text_token.size(0))]
+        lm_target = pad_sequence(lm_target, batch_first=True, padding_value=IGNORE_ID).to(device)
+
+        # 1. encode text_token
+        text_token = self.llm.model.model.embed_tokens(text_token)
+
+        # 3. eos and task_id
+        sos_eos_emb = self.llm_embedding.weight[self.sos_eos].reshape(1, 1, -1)
+        task_id_emb = self.llm_embedding.weight[self.task_id].reshape(1, 1, -1)
+
+        # 4. encode speech_token
+        speech_token = self.speech_embedding(speech_token)
+
+        # 5. unpad and pad
+        lm_input, lm_input_len = self.pad_unpad_sequence(sos_eos_emb, text_token, text_token_len, task_id_emb, speech_token, speech_token_len, bistream)
+
+        # 6. run lm forward
+        lm_output, lm_output_mask = self.llm(lm_input, lm_input_len.to(device))
+        logits = self.llm_decoder(lm_output)
+        loss = self.criterion_ce(logits, lm_target)
+        acc = th_accuracy(logits.view(-1, self.speech_token_size + 3), lm_target, ignore_label=IGNORE_ID)
+        return {'loss': loss, 'acc': acc}
 
     @torch.inference_mode()
     def inference(

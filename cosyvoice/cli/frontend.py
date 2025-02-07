@@ -22,11 +22,12 @@ import torchaudio
 import os
 import re
 import inflect
+import logging
 try:
     import ttsfrd
     use_ttsfrd = True
 except ImportError:
-    print("failed to import ttsfrd, use WeTextProcessing instead")
+    logging.warning("failed to import ttsfrd, use WeTextProcessing instead")
     from tn.chinese.normalizer import Normalizer as ZhNormalizer
     from tn.english.normalizer import Normalizer as EnNormalizer
     use_ttsfrd = False
@@ -54,7 +55,7 @@ class CosyVoiceFrontEnd:
                                                                      providers=["CUDAExecutionProvider" if torch.cuda.is_available() else
                                                                                 "CPUExecutionProvider"])
         if os.path.exists(spk2info):
-            self.spk2info = torch.load(spk2info, map_location=self.device)
+            self.spk2info = torch.load(spk2info, map_location=self.device,weights_only=True)
         else:
             self.spk2info = {}
         self.instruct = instruct
@@ -121,7 +122,8 @@ class CosyVoiceFrontEnd:
             text = text.replace(".", "。")
             text = text.replace(" - ", "，")
             text = remove_bracket(text)
-            text = re.sub(r'[，,、]+$', '。', text)
+            text = text.replace(r"、","[breath]")
+            text = re.sub(r'[，,]+$', '。', text)
             texts = list(split_paragraph(text, partial(self.tokenizer.encode, allowed_special=self.allowed_special), "zh", token_max_n=80,
                                          token_min_n=60, merge_len=20, comma_split=False))
         else:

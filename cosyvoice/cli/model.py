@@ -398,6 +398,10 @@ class CosyVoice2Model(CosyVoiceModel):
             prompt_speech_feat=torch.zeros(1, 0, 80), stream=False, speed=1.0, **kwargs):
         # this_uuid is used to track variables related to this inference thread
         this_uuid = str(uuid.uuid1())
+        # NOTE flow model is only trained with static_chunk_size, so we need to trim flow prompt
+        n_chunk = int(flow_prompt_speech_token.size(1) / self.token_hop_len)
+        flow_prompt_speech_token = flow_prompt_speech_token[:, :n_chunk * self.token_hop_len]
+        prompt_speech_feat = prompt_speech_feat[:, :n_chunk * self.token_hop_len * 2]
         with self.lock:
             self.tts_speech_token_dict[this_uuid], self.llm_end_dict[this_uuid] = [], False
             self.hift_cache_dict[this_uuid] = None

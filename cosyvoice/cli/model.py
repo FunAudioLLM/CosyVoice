@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from loguru import logger
 import torch
 import numpy as np
@@ -20,6 +21,7 @@ from torch.nn import functional as F
 from contextlib import nullcontext
 import uuid
 from cosyvoice.utils.common import fade_in_out, fade_in_out_audio
+from cosyvoice.utils.file_utils import convert_onnx_to_trt
 
 class CosyVoiceModel:
 
@@ -35,6 +37,9 @@ class CosyVoiceModel:
         self.fp16 = fp16
         self.llm.fp16 = fp16
         self.flow.fp16 = fp16
+        if self.fp16 is True:
+            self.llm.half()
+            self.flow.half()
         self.token_min_hop_len = 2 * self.flow.input_frame_rate
         self.token_max_hop_len = 4 * self.flow.input_frame_rate
         self.token_overlap_len = 20
@@ -69,9 +74,6 @@ class CosyVoiceModel:
         hift_state_dict = {k.replace('generator.', ''): v for k, v in torch.load(hift_model, map_location=self.device).items()}
         self.hift.load_state_dict(hift_state_dict, strict=True)
         self.hift.to(self.device).eval()
-        if self.fp16 is True:
-            self.llm.half()
-            self.flow.half()
 
     def load_jit(self, llm_text_encoder_model, llm_llm_model, flow_encoder_model):
         llm_text_encoder = torch.jit.load(llm_text_encoder_model, map_location=self.device)
@@ -81,7 +83,12 @@ class CosyVoiceModel:
         flow_encoder = torch.jit.load(flow_encoder_model, map_location=self.device)
         self.flow.encoder = flow_encoder
 
-    def load_trt(self, flow_decoder_estimator_model):
+    def load_trt(self, flow_decoder_estimator_model, flow_decoder_onnx_model, fp16):
+        assert torch.cuda.is_available(), 'tensorrt only supports gpu!'
+        if not os.path.exists(flow_decoder_estimator_model):
+            convert_onnx_to_trt(flow_decoder_estimator_model, flow_decoder_onnx_model, fp16)
+        if os.path.getsize(flow_decoder_estimator_model) == 0:
+            raise ValueError('{} is empty file, delete it and export again!'.format(flow_decoder_estimator_model))
         del self.flow.decoder.estimator
         import tensorrt as trt
         with open(flow_decoder_estimator_model, 'rb') as f:
@@ -92,14 +99,24 @@ class CosyVoiceModel:
 
     def llm_job(self, text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):
         with self.llm_context:
-            for i in self.llm.inference(text=text.to(self.device),
-                                        text_len=torch.tensor([text.shape[1]], dtype=torch.int32).to(self.device),
-                                        prompt_text=prompt_text.to(self.device),
-                                        prompt_text_len=torch.tensor([prompt_text.shape[1]], dtype=torch.int32).to(self.device),
-                                        prompt_speech_token=llm_prompt_speech_token.to(self.device),
-                                        prompt_speech_token_len=torch.tensor([llm_prompt_speech_token.shape[1]], dtype=torch.int32).to(self.device),
-                                        embedding=llm_embedding.to(self.device)):
-                self.tts_speech_token_dict[uuid].append(i)
+            if isinstance(text, Generator):
+                assert isinstance(self, CosyVoice2Model), 'streaming input text is only implemented for CosyVoice2!'
+                for i in self.llm.inference_bistream(text=text,
+                                                     prompt_text=prompt_text.to(self.device),
+                                                     prompt_text_len=torch.tensor([prompt_text.shape[1]], dtype=torch.int32).to(self.device),
+                                                     prompt_speech_token=llm_prompt_speech_token.to(self.device),
+                                                     prompt_speech_token_len=torch.tensor([llm_prompt_speech_token.shape[1]], dtype=torch.int32).to(self.device),
+                                                     embedding=llm_embedding.to(self.device)):
+                    self.tts_speech_token_dict[uuid].append(i)
+            else:
+                for i in self.llm.inference(text=text.to(self.device),
+                                            text_len=torch.tensor([text.shape[1]], dtype=torch.int32).to(self.device),
+                                            prompt_text=prompt_text.to(self.device),
+                                            prompt_text_len=torch.tensor([prompt_text.shape[1]], dtype=torch.int32).to(self.device),
+                                            prompt_speech_token=llm_prompt_speech_token.to(self.device),
+                                            prompt_speech_token_len=torch.tensor([llm_prompt_speech_token.shape[1]], dtype=torch.int32).to(self.device),
+                                            embedding=llm_embedding.to(self.device)):
+                    self.tts_speech_token_dict[uuid].append(i)
         self.llm_end_dict[uuid] = True
 
     def token2wav(self, token, prompt_token, prompt_feat, embedding, uuid, finalize=False, speed=1.0):
@@ -207,6 +224,7 @@ class CosyVoiceModel:
             self.mel_overlap_dict.pop(this_uuid)
             self.hift_cache_dict.pop(this_uuid)
             self.flow_cache_dict.pop(this_uuid)
+        torch.cuda.empty_cache()
 
     def vc(self, source_speech_token, flow_prompt_speech_token, prompt_speech_feat, flow_embedding, stream=False, speed=1.0, **kwargs):
         # this_uuid is used to track variables related to this inference thread
@@ -260,6 +278,7 @@ class CosyVoiceModel:
             self.llm_end_dict.pop(this_uuid)
             self.mel_overlap_dict.pop(this_uuid)
             self.hift_cache_dict.pop(this_uuid)
+        torch.cuda.empty_cache()
 
 
 class CosyVoice2Model(CosyVoiceModel):
@@ -276,6 +295,9 @@ class CosyVoice2Model(CosyVoiceModel):
         self.fp16 = fp16
         self.llm.fp16 = fp16
         self.flow.fp16 = fp16
+        if self.fp16 is True:
+            self.llm.half()
+            self.flow.half()
         self.token_hop_len = 2 * self.flow.input_frame_rate
         # here we fix flow encoder/decoder decoding_chunk_size, in the future we will send it as arguments, or use cache
         self.flow.encoder.static_chunk_size = 2 * self.flow.input_frame_rate
@@ -388,3 +410,4 @@ class CosyVoice2Model(CosyVoiceModel):
         with self.lock:
             self.tts_speech_token_dict.pop(this_uuid)
             self.llm_end_dict.pop(this_uuid)
+        torch.cuda.empty_cache()

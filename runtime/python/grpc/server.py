@@ -25,7 +25,7 @@ import numpy as np
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/../../..'.format(ROOT_DIR))
 sys.path.append('{}/../../../third_party/Matcha-TTS'.format(ROOT_DIR))
-from cosyvoice.cli.cosyvoice import CosyVoice
+from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -33,7 +33,13 @@ logging.basicConfig(level=logging.DEBUG,
 
 class CosyVoiceServiceImpl(cosyvoice_pb2_grpc.CosyVoiceServicer):
     def __init__(self, args):
-        self.cosyvoice = CosyVoice(args.model_dir)
+        try:
+            self.cosyvoice = CosyVoice(args.model_dir)
+        except Exception:
+            try:
+                self.cosyvoice = CosyVoice2(args.model_dir)
+            except Exception:
+                raise TypeError('no valid model_type!')
         logging.info('grpc service initialized')
 
     def Inference(self, request, context):

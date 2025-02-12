@@ -22,6 +22,7 @@ onnxruntime==1.18.0; sys_platform == 'darwin' or sys_platform == 'windows'
 openai-whisper==20231117
 protobuf==4.25
 pydantic==2.7.0
+pyworld==0.3.4
 rich==13.7.1
 soundfile==0.12.1
 tensorboard==2.14.0

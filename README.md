@@ -53,20 +53,27 @@
 
 - Clone the repo
 ``` sh
-git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
+git clone --recursive https://github.com/DDXDB/CosyVoice-XPU.git
 # If you failed to clone submodule due to network failures, please run following command until success
-cd CosyVoice
+cd CosyVoice-XPU
 git submodule update --init --recursive
 ```
 
+- Install `Intel® Deep Learning Essentials` or `Intel® oneAPI Base Toolkit`
+- please see：https://pytorch.org/docs/main/notes/get_start_xpu.html
 - Install Conda: please see https://docs.conda.io/en/latest/miniconda.html
 - Create Conda env:
 
 ``` sh
-conda create -n cosyvoice -y python=3.10
-conda activate cosyvoice
+conda create -n cosyvoice-XPU -y python=3.10
+conda activate cosyvoice-XPU
 # pynini is required by WeTextProcessing, use conda to install it as it can be executed on all platform.
 conda install -y -c conda-forge pynini==2.1.5
+# Start oneAPI env and Install pytorch+XPU
+call C:\Program Files (x86)\Intel\oneAPI\compiler\2025.0\env\vars.bat
+call C:\Program Files (x86)\Intel\oneAPI\ocloc\2025.0\env\vars.bat
+pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/xpu
+
 pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
 
 # If you encounter sox compatibility issues

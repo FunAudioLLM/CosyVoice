@@ -14,6 +14,11 @@
 import os
 from typing import Generator
 import torch
+try:
+    import intel_extension_for_pytorch as ipex
+except Exception:
+    pass
+
 import numpy as np
 import threading
 import time

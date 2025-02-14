@@ -18,6 +18,11 @@ from tqdm import tqdm
 from hyperpyyaml import load_hyperpyyaml
 from modelscope import snapshot_download
 import torch
+try:
+    import intel_extension_for_pytorch as ipex
+except Exception:
+    pass
+
 from cosyvoice.cli.frontend import CosyVoiceFrontEnd
 from cosyvoice.cli.model import CosyVoiceModel, CosyVoice2Model
 from cosyvoice.utils.file_utils import logging

@@ -16,6 +16,11 @@ from typing import Generator
 import json
 import onnxruntime
 import torch
+try:
+    import intel_extension_for_pytorch as ipex
+except Exception:
+    pass
+
 import numpy as np
 import whisper
 from typing import Callable

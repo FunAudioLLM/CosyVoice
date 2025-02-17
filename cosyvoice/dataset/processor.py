@@ -356,7 +356,7 @@ def batch(data, batch_type='static', batch_size=16, max_frames_in_batch=12000, m
             logging.fatal('Unsupported batch type {}'.format(batch_type))
 
 
-def padding(data, use_spk_embedding, mode='train', gan=False):
+def padding(data, use_spk_embedding, mode='train', gan=False, dpo=False):
     """ Padding the data into training data
 
         Args:
@@ -405,6 +405,14 @@ def padding(data, use_spk_embedding, mode='train', gan=False):
             "utt_embedding": utt_embedding,
             "spk_embedding": spk_embedding,
         }
+        if dpo:
+            reject_speech_token = [torch.tensor(sample[i]['reject_speech_token']) for i in order]
+            reject_speech_token_len = torch.tensor([i.size(0) for i in reject_speech_token], dtype=torch.int32)
+            reject_speech_token = pad_sequence(reject_speech_token,
+                                                batch_first=True,
+                                                padding_value=0)
+            batch['reject_speech_token'] = reject_speech_token
+            batch['reject_speech_token_len'] = reject_speech_token_len
         if gan is True:
             # in gan train, we need pitch_feat
             pitch_feat = [sample[i]['pitch_feat'] for i in order]

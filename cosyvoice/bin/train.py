@@ -81,6 +81,14 @@ def get_args():
                         default=60,
                         type=int,
                         help='timeout (in seconds) of cosyvoice_join.')
+    parser.add_argument('--dpo',
+                        action='store_true',
+                        default=False,
+                        help='Use Direct Preference Optimization')
+    parser.add_argument('--beta',
+                        default=0.01,
+                        type=float,
+                        help='beta of dpo training')
     parser = deepspeed.add_config_arguments(parser)
     args = parser.parse_args()
     return args
@@ -118,11 +126,16 @@ def main():
 
     # load checkpoint
     model = configs[args.model]
+    ref_model = None
+    if args.dpo:
+        ref_model = deepcopy(model)
     start_step, start_epoch = 0, -1
     if args.checkpoint is not None:
         if os.path.exists(args.checkpoint):
             state_dict = torch.load(args.checkpoint, map_location='cpu')
             model.load_state_dict(state_dict, strict=False)
+            if args.dpo:
+                ref_model.load_state_dict(state_dict, strict=False)
             if 'step' in state_dict:
                 start_step = state_dict['step']
             if 'epoch' in state_dict:
@@ -132,9 +145,13 @@ def main():
 
     # Dispatch model from cpu to gpu
     model = wrap_cuda_model(args, model)
+    if args.dpo:
+        ref_model = wrap_cuda_model(args, ref_model)
 
     # Get optimizer & scheduler
     model, optimizer, scheduler, optimizer_d, scheduler_d = init_optimizer_and_scheduler(args, configs, model, gan)
+    if args.dpo:
+        ref_model, _, _, _, _ = init_optimizer_and_scheduler(args, configs, ref_model, gan)
     scheduler.set_step(start_step)
     if scheduler_d is not None:
         scheduler_d.set_step(start_step)
@@ -146,7 +163,7 @@ def main():
     save_model(model, 'init', info_dict)
 
     # Get executor
-    executor = Executor(gan=gan)
+    executor = Executor(gan=gan, dpo=args.dpo, beta=args.beta)
     executor.step = start_step
 
     # Init scaler, used for pytorch amp mixed precision training
@@ -162,7 +179,7 @@ def main():
             executor.train_one_epoc_gan(model, optimizer, scheduler, optimizer_d, scheduler_d, train_data_loader, cv_data_loader,
                                         writer, info_dict, scaler, group_join)
         else:
-            executor.train_one_epoc(model, optimizer, scheduler, train_data_loader, cv_data_loader, writer, info_dict, scaler, group_join)
+            executor.train_one_epoc(model, optimizer, scheduler, train_data_loader, cv_data_loader, writer, info_dict, scaler, group_join, ref_model)
         dist.destroy_process_group(group_join)
 
 

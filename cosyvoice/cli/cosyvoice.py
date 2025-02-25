@@ -158,7 +158,7 @@ class CosyVoice2(CosyVoice):
                          skip_tokenizer_init=True,
                          gpu_memory_utilization=0.1)
             self.vllm_codec_engine = LLMEngine.from_engine_args(engine_args)
-            self.model.llm.vllm_codec_engine = self.vllm_codec_engine
+            self.model.vllm_codec_engine = self.vllm_codec_engine
 
         if load_jit:
             self.model.load_jit('{}/flow.encoder.{}.zip'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'))

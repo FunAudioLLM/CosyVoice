@@ -282,7 +282,6 @@ class Qwen2LM(TransformerLM):
         # 4. sampling method
         self.sampling = sampling
         self.mix_ratio = mix_ratio
-        self.vllm_codec_engine = None
 
     @torch.inference_mode()
     def inference(
@@ -297,6 +296,7 @@ class Qwen2LM(TransformerLM):
             sampling: int = 25,
             max_token_text_ratio: float = 20,
             min_token_text_ratio: float = 2,
+            vllm_codec_engine=None,
     ) -> Generator[torch.Tensor, None, None]:
         device = text.device
         text = torch.concat([prompt_text, text], dim=1)
@@ -317,22 +317,48 @@ class Qwen2LM(TransformerLM):
         max_len = int((text_len - prompt_text_len) * max_token_text_ratio)
 
         # 5. step by step decode
-        out_tokens = []
-        cache = None
-        for i in range(max_len):
-            y_pred, cache = self.llm.forward_one_step(lm_input,
-                                                      masks=torch.tril(torch.ones((1, lm_input.shape[1], lm_input.shape[1]), device=lm_input.device)).to(torch.bool),
-                                                      cache=cache)
-            logp = self.llm_decoder(y_pred[:, -1]).log_softmax(dim=-1)
-            top_ids = self.sampling_ids(logp.squeeze(dim=0), out_tokens, sampling, ignore_eos=True if i < min_len else False).item()
-            if top_ids == self.speech_token_size:
-                break
-            if top_ids > self.speech_token_size:
-                continue
-            # in stream mode, yield token one by one
-            yield top_ids
-            out_tokens.append(top_ids)
-            lm_input = self.speech_embedding.weight[top_ids].reshape(1, 1, -1)
+        if vllm_codec_engine is None:
+            out_tokens = []
+            cache = None
+            for i in range(max_len):
+                y_pred, cache = self.llm.forward_one_step(lm_input,
+                                                        masks=torch.tril(torch.ones((1, lm_input.shape[1], lm_input.shape[1]), device=lm_input.device)).to(torch.bool),
+                                                        cache=cache)
+                logp = self.llm_decoder(y_pred[:, -1]).log_softmax(dim=-1)
+                top_ids = self.sampling_ids(logp.squeeze(dim=0), out_tokens, sampling, ignore_eos=True if i < min_len else False).item()
+                if top_ids == self.speech_token_size:
+                    break
+                if top_ids > self.speech_token_size:
+                    continue
+                # in stream mode, yield token one by one
+                yield top_ids
+                out_tokens.append(top_ids)
+                lm_input = self.speech_embedding.weight[top_ids].reshape(1, 1, -1)
+        else:
+            from vllm import SamplingParams, RequestOutput
+            import uuid
+            sampling_params = SamplingParams(top_k=sampling,
+                                            stop_token_ids=[6561, 6563],
+                                            min_tokens=min_len,
+                                            max_tokens=max_len)
+            request_id = uuid.uuid4()
+            vllm_codec_engine.add_request(request_id,
+                                        {"prompt_embeds": lm_input.to(torch.bfloat16).to(device)},
+                                        sampling_params)
+            ## generator
+            out_token_ids = []
+            while True:
+                request_outputs: List[RequestOutput] = vllm_codec_engine.step()
+                for request_output in request_outputs:
+                    if str(request_output.request_id) != str(request_id):
+                        continue
+                    if not request_output.finished:
+                        print(f"Partial request output: {request_output}")
+                        out_token = list(request_output.outputs[0].token_ids)[-1]
+                        yield out_token
+                        out_token_ids.append(out_token)
+                    else:
+                        break
 
     @torch.inference_mode()
     def inference_bistream(

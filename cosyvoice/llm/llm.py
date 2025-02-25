@@ -282,6 +282,7 @@ class Qwen2LM(TransformerLM):
         # 4. sampling method
         self.sampling = sampling
         self.mix_ratio = mix_ratio
+        self.vllm_codec_engine = None
 
     @torch.inference_mode()
     def inference(

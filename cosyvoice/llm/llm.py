@@ -343,7 +343,7 @@ class Qwen2LM(TransformerLM):
                                             max_tokens=max_len)
             request_id = uuid.uuid4()
             vllm_codec_engine.add_request(request_id,
-                                        {"prompt_embeds": lm_input.to(torch.bfloat16).to(device)},
+                                        {"prompt_embeds": lm_input.squeeze(0).to(torch.bfloat16).to(device)},
                                         sampling_params)
             ## generator
             out_token_ids = []

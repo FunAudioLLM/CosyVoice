@@ -347,6 +347,9 @@ class CosyVoice2Model(CosyVoiceModel):
         self.llm.llm.model.to(dtype)
         tmp_vocab_size = self.llm.llm.model.config.vocab_size
         tmp_tie_embedding = self.llm.llm.model.config.tie_word_embeddings
+        del self.llm.llm.model.generation_config.eos_token_id
+        del self.llm.llm.model.config.bos_token_id
+        del self.llm.llm.model.config.eos_token_id
         self.llm.llm.model.config.vocab_size = pad_vocab_size
         self.llm.llm.model.config.tie_word_embeddings = False
         self.llm.llm.model.config.use_bias = True

@@ -156,7 +156,7 @@ class CosyVoice2(CosyVoice):
             self.model.export_codec_vllm(''.join([model_dir, '/codec_vllm_model']))
             engine_args = EngineArgs(model=''.join([model_dir, '/codec_vllm_model']),
                          skip_tokenizer_init=True,
-                         gpu_memory_utilization=0.1)
+                         gpu_memory_utilization=0.2)
             self.vllm_codec_engine = LLMEngine.from_engine_args(engine_args)
             self.model.vllm_codec_engine = self.vllm_codec_engine
 

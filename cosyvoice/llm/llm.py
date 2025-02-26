@@ -353,12 +353,14 @@ class Qwen2LM(TransformerLM):
                     if str(request_output.request_id) != str(request_id):
                         continue
                     if not request_output.finished:
-                        print(f"Partial request output: {request_output}")
+                        # print(f"Partial request output: {request_output}")
                         out_token = list(request_output.outputs[0].token_ids)[-1]
                         yield out_token
                         out_token_ids.append(out_token)
                     else:
                         break
+                if not vllm_codec_engine.has_unfinished_requests():
+                    break
 
     @torch.inference_mode()
     def inference_bistream(

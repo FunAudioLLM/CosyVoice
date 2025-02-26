@@ -331,6 +331,7 @@ class CosyVoice2Model(CosyVoiceModel):
         pad_vocab_size = ((vocab_size + pad_to - 1) // pad_to) * pad_to
 
         dtype = torch.bfloat16
+        # lm_head
         new_lm_head = nn.Linear(in_features=feature_size, out_features=pad_vocab_size, bias=True)
         with torch.no_grad():
             new_lm_head.weight[:vocab_size] = self.llm.llm_decoder.weight
@@ -339,6 +340,8 @@ class CosyVoice2Model(CosyVoiceModel):
             new_lm_head.bias[vocab_size:] = 0
         self.llm.llm.model.lm_head = new_lm_head
         new_codec_embed = nn.Linear(in_features=feature_size, out_features=pad_vocab_size)
+        # embed_tokens
+        embed_tokens = self.llm.llm.model.model.embed_tokens
         with torch.no_grad():
             new_codec_embed.weight[:vocab_size] = self.llm.speech_embedding.weight
             new_codec_embed.weight[vocab_size:] = 0
@@ -356,6 +359,7 @@ class CosyVoice2Model(CosyVoiceModel):
         self.llm.llm.model.save_pretrained(model_path)
         self.llm.llm.model.config.vocab_size = tmp_vocab_size
         self.llm.llm.model.config.tie_word_embeddings = tmp_tie_embedding
+        self.llm.llm.model.set_input_embeddings(embed_tokens)
 
     def token2wav(self, token, prompt_token, prompt_feat, embedding, uuid, token_offset, finalize=False, speed=1.0):
         tts_mel, _ = self.flow.inference(token=token.to(self.device),

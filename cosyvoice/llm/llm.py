@@ -536,8 +536,7 @@ class Qwen2LM(TransformerLM):
                     for request_output in request_outputs:
                         if str(request_output.request_id) != str(request_id):
                             continue
-                        
-                        print(f"request output: {request_output}")
+                        # print(f"request output: {request_output}")
                         out_token = list(request_output.outputs[0].token_ids)[-1]
                         if next_fill_index != -1 and len(out_tokens) == next_fill_index:
                             top_ids = self.speech_token_size + 2
@@ -575,7 +574,7 @@ class Qwen2LM(TransformerLM):
             for request_output in request_outputs:
                 if str(request_output.request_id) != str(request_id):
                     continue
-                print(f"request output: {request_output}")
+                # print(f"request output: {request_output}")
                 top_ids = list(request_output.outputs[0].token_ids)[-1]
                 out_tokens.append(top_ids)
                 if top_ids >= self.speech_token_size:

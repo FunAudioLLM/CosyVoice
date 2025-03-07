@@ -120,21 +120,6 @@ class VllmQwen2LM(Qwen2LM):
             except Exception as e:
                 logging.error(f"Error in inference_processor: {e}")
 
-    async def async_llm_inference(self, prompt_token_ids: List[int], request_id: str=None, stop_token_ids=None, max_tokens=None)\
-            -> AsyncGenerator[CompletionOutput, None]:
-        sampling_params = SamplingParams(**SAMPLING_PARAMS)
-        sampling_params.stop_token_ids = stop_token_ids or [6561]
-        if max_tokens:
-            sampling_params.max_tokens = max_tokens
-        async for output in self.llm_engine.generate(
-                {
-                    "prompt_token_ids": prompt_token_ids,
-                },
-                sampling_params=sampling_params,
-                request_id=request_id or f"{time.time()}",
-        ):
-            yield output.outputs[0]
-
     def llm_inference(self, prompt_token_ids: List[int], request_id: str=None, stop_token_ids=None, max_tokens=None):
         # 使用 同步转异步 会导致vllm崩溃，目前选择 queue 的方式，后台线程运行推理任务
         # 提交推理任务到队列中

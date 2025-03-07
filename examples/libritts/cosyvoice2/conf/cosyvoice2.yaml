@@ -14,8 +14,8 @@ token_frame_rate: 25
 token_mel_ratio: 2
 
 # stream related params
-chunk_size: 1 # streaming inference chunk size, in second
-num_decoding_left_chunks: 2 # streaming inference flow decoder left chunk size, in second
+chunk_size: 2 # streaming inference chunk size, in second
+num_decoding_left_chunks: 1 # streaming inference flow decoder left chunk size
 
 # model params
 # for all class/function included in this repo, we use !<name> or !<new> for intialization, so that user may find all corresponding class/function according to one single yaml.
@@ -112,11 +112,11 @@ hift: !new:cosyvoice.hifigan.generator.HiFTGenerator
 
 # gan related module
 mel_spec_transform1: !name:matcha.utils.audio.mel_spectrogram
-    n_fft: 1024
+    n_fft: 1920
     num_mels: 80
     sampling_rate: !ref <sample_rate>
-    hop_size: 256
-    win_size: 1024
+    hop_size: 480
+    win_size: 1920
     fmin: 0
     fmax: null
     center: False
@@ -124,7 +124,7 @@ hifigan: !new:cosyvoice.hifigan.hifigan.HiFiGan
     generator: !ref <hift>
     discriminator: !new:cosyvoice.hifigan.discriminator.MultipleDiscriminator
         mpd: !new:matcha.hifigan.models.MultiPeriodDiscriminator
-        mrd: !new:cosyvoice.hifigan.discriminator.MultiResolutionDiscriminator
+        mrd: !new:cosyvoice.hifigan.discriminator.MultiResSpecDiscriminator
     mel_spec_transform: [
         !ref <mel_spec_transform1>
     ]

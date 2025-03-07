@@ -56,7 +56,7 @@ class HiFiGan(nn.Module):
         with torch.no_grad():
             generated_speech, generated_f0 = self.generator(batch, device)
         # 2. calculate discriminator outputs
-        y_d_rs, y_d_gs, fmap_rs, fmap_gs = self.discriminator(real_speech, generated_speech)
+        y_d_rs, y_d_gs, fmap_rs, fmap_gs = self.discriminator(real_speech, generated_speech.detach())
         # 3. calculate discriminator losses, tpr losses [Optional]
         loss_disc, _, _ = discriminator_loss(y_d_rs, y_d_gs)
         if self.tpr_loss_weight != 0:

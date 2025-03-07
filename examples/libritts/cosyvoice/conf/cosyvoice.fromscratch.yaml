@@ -147,7 +147,7 @@ hifigan: !new:cosyvoice.hifigan.hifigan.HiFiGan
     generator: !ref <hift>
     discriminator: !new:cosyvoice.hifigan.discriminator.MultipleDiscriminator
         mpd: !new:matcha.hifigan.models.MultiPeriodDiscriminator
-        mrd: !new:cosyvoice.hifigan.discriminator.MultiResolutionDiscriminator
+        mrd: !new:cosyvoice.hifigan.discriminator.MultiResSpecDiscriminator
     mel_spec_transform: [
         !ref <mel_spec_transform1>
     ]

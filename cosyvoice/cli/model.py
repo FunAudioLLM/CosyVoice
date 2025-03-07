@@ -299,7 +299,8 @@ class CosyVoice2Model(CosyVoiceModel):
             self.flow.half()
         self.token_hop_len = self.flow.encoder.static_chunk_size
         # flow decoder required_cache_size
-        self.flow_decoder_required_cache_size = self.flow.decoder.estimator.num_decoding_left_chunks * self.flow.decoder.estimator.static_chunk_size
+        # TODO 基模型训练时没有设置num_decoding_left_chunks，需要重新训一下才能指定flow_decoder_required_cache_size
+        self.flow_decoder_required_cache_size = 999
         # hift cache
         self.mel_cache_len = 8
         self.source_cache_len = int(self.mel_cache_len * 480)

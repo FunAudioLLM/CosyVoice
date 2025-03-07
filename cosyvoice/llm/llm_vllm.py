@@ -103,7 +103,7 @@ class VllmQwen2LM(Qwen2LM):
     async def inference_processor(self, task_queue):
         while True:
             try:
-                print(f"inference_processor")
+                logging.debug(f"inference_processor")
                 out_queue, prompt_token_ids, request_id, stop_token_ids, max_tokens = task_queue.get()
                 sampling_params = SamplingParams(**SAMPLING_PARAMS)
                 sampling_params.stop_token_ids = stop_token_ids or [6561]

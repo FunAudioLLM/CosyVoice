@@ -149,8 +149,6 @@ class VllmQwen2LM(Qwen2LM):
                 need_add_tokens = output.token_ids[:-1]
             else:
                 need_add_tokens = output.token_ids
-            # 单个token 循环处理比较耗时，建议是在model中进行批量（extend）处理，减少循环
-            # yield need_add_tokens
             for token in need_add_tokens:
                 yield token
 
@@ -186,18 +184,14 @@ class VllmQwen2LM(Qwen2LM):
                     text_tokens_cache = text_tokens_cache[self.mix_ratio[0]:]
                     prompt_speech_token = prompt_speech_token[self.mix_ratio[1]:]
                 else:
-                    logging.info('not enough text token to decode, wait for more')
                     break
             if len(prompt_speech_token) == 0:
                 if (len(last_tokens) > 0 and last_tokens[-1] == 6563) or len(prompt_token_ids) == 1:
-                    logging.info('get fill token, need to append more text token')
                     if len(text_tokens_cache) >= self.mix_ratio[0]:
                         text_tokens_temp = text_tokens_cache[:self.mix_ratio[0]]
                         prompt_token_ids += text_tokens_temp
-                        logging.info('append {} text token'.format(len(text_tokens_temp)))
                         text_tokens_cache = text_tokens_cache[self.mix_ratio[0]:]
                     else:
-                        logging.info('not enough text token to decode, wait for more')
                         continue
                 for output in self.llm_inference(prompt_token_ids, stop_token_ids=[6563]):
                     last_tokens = output.token_ids
@@ -205,19 +199,14 @@ class VllmQwen2LM(Qwen2LM):
                         need_add_tokens = last_tokens[:-1]
                     else:
                         need_add_tokens = last_tokens
-                    # 单个token 循环处理比较耗时，建议是在model中进行批量（extend）处理，减少循环
-                    # yield need_add_tokens
                     for token in need_add_tokens:
                         yield token
                     prompt_token_ids.extend(need_add_tokens)
         prompt_token_ids += text_tokens_cache + [self.task_token_id]
-        logging.info('no more text token, decode until met eos')
         for output in self.llm_inference(prompt_token_ids, stop_token_ids=[6561]):
             if output.token_ids[-1] == 6561:
                 need_add_tokens = output.token_ids[:-1]
             else:
                 need_add_tokens = output.token_ids
-            # 单个token 循环处理比较耗时，建议是在model中进行批量（extend）处理，减少循环
-            # yield need_add_tokens
             for token in need_add_tokens:
                 yield token

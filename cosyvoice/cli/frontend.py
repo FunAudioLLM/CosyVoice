@@ -102,9 +102,8 @@ class CosyVoiceFrontEnd:
     def _extract_text_token_generator(self, text_generator):
         for text in text_generator:
             text_token, _ = self._extract_text_token(text)
-            # for i in range(text_token.shape[1]):
-            #     yield text_token[:, i: i + 1]
-            yield text_token
+            for i in range(text_token.shape[1]):
+                yield text_token[:, i: i + 1]
 
     def _extract_speech_token(self, speech):
         assert speech.shape[1] / 16000 <= 30, 'do not support extract speech token for audio longer than 30s'

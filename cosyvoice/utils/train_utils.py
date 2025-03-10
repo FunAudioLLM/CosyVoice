@@ -235,7 +235,7 @@ def cosyvoice_join(group_join, info_dict):
         return False
 
 
-def batch_forward(model, batch, scaler, info_dict):
+def batch_forward(model, batch, scaler, info_dict, ref_model=None, dpo_loss=None):
     device = int(os.environ.get('LOCAL_RANK', 0))
 
     dtype = info_dict["dtype"]
@@ -253,6 +253,25 @@ def batch_forward(model, batch, scaler, info_dict):
 
     with autocast:
         info_dict['loss_dict'] = model(batch, device)
+        if ref_model and dpo_loss:
+            chosen_logps = info_dict['loss_dict']["chosen_logps"]
+            rejected_logps = info_dict['loss_dict']["rejected_logps"]
+            sft_loss = info_dict['loss_dict']['loss']
+            with torch.no_grad():
+                ref_model = ref_model.to(device)
+                ref_loss_dict = ref_model(batch, device)
+            reference_chosen_logps = ref_loss_dict["chosen_logps"]
+            reference_rejected_logps = ref_loss_dict["rejected_logps"]
+            preference_loss, chosen_reward, reject_reward = dpo_loss(
+                chosen_logps, rejected_logps, reference_chosen_logps, reference_rejected_logps
+            )
+            dpo_acc = (chosen_reward > reject_reward).float().mean()
+            info_dict['loss_dict']["loss"] = preference_loss + sft_loss
+            info_dict['loss_dict']["sft_loss"] = sft_loss
+            info_dict['loss_dict']["dpo_loss"] = preference_loss
+            info_dict['loss_dict']["dpo_acc"] = dpo_acc
+            info_dict['loss_dict']["chosen_reward"] = chosen_reward.mean()
+            info_dict['loss_dict']["reject_reward"] = reject_reward.mean()
     return info_dict
 
 

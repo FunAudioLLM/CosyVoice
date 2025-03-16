@@ -47,7 +47,6 @@ class CosyVoiceFrontEnd:
                  allowed_special: str = 'all'):
         self.tokenizer = get_tokenizer()
         self.feat_extractor = feat_extractor
-        self.device = torch.device('cpu')
 
         if torch.cuda.is_available():
             self.device = torch.device('cuda')
@@ -55,6 +54,8 @@ class CosyVoiceFrontEnd:
             self.device = torch.device('mps')
         elif torch.xpu.is_available():
             self.device = torch.device('xpu')
+        else:
+            self.device = torch.device('cpu')
             
         option = onnxruntime.SessionOptions()
         option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL

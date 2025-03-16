@@ -38,6 +38,8 @@ class CosyVoiceModel:
             self.device = torch.device('mps')
         elif torch.xpu.is_available():
             self.device = torch.device('xpu')
+        else:
+            self.device = torch.device('cpu')
             
         self.llm = llm
         self.flow = flow
@@ -312,6 +314,8 @@ class CosyVoice2Model(CosyVoiceModel):
             self.device = torch.device('mps')
         elif torch.xpu.is_available():
             self.device = torch.device('xpu')
+        else:
+            self.device = torch.device('cpu')
 
         self.llm = llm
         self.flow = flow

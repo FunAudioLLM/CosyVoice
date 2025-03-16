@@ -30,7 +30,7 @@ class Executor:
         self.step = 0
         self.epoch = 0
         self.rank = int(os.environ.get('RANK', 0))
-        self.device = "cpu"
+        self.device = torch.device("cpu")
         if torch.cuda.is_available():
             self.device = torch.device('cuda:{}'.format(self.rank))
         elif torch.backends.mps.is_available():

@@ -65,7 +65,7 @@ def main():
     elif torch.xpu.is_available():
         device = torch.device('xpu')
     else:
-        torch.device("cpu")
+       device = torch.device("cpu")
         
     with open(args.config, 'r') as f:
         configs = load_hyperpyyaml(f)

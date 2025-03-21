@@ -18,7 +18,7 @@ import argparse
 import logging
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 import os
-import torch
+from torch import cuda,no_grad,concat
 from torch.utils.data import DataLoader
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
@@ -57,8 +57,8 @@ def main():
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
 
     # Init cosyvoice models from configs
-    use_cuda = args.gpu >= 0 and torch.cuda.is_available()
-    device = torch.device('cuda' if use_cuda else 'cpu')
+    use_cuda = args.gpu >= 0 and cuda.is_available()
+    device = device('cuda' if use_cuda else 'cpu')
     with open(args.config, 'r') as f:
         configs = load_hyperpyyaml(f)
 
@@ -73,7 +73,7 @@ def main():
     os.makedirs(args.result_dir, exist_ok=True)
     fn = os.path.join(args.result_dir, 'wav.scp')
     f = open(fn, 'w')
-    with torch.no_grad():
+    with no_grad():
         for _, batch in tqdm(enumerate(test_data_loader)):
             utts = batch["utts"]
             assert len(utts) == 1, "inference mode only support batchsize 1"
@@ -101,7 +101,7 @@ def main():
             tts_speeches = []
             for model_output in model.tts(**model_input):
                 tts_speeches.append(model_output['tts_speech'])
-            tts_speeches = torch.concat(tts_speeches, dim=1)
+            tts_speeches = concat(tts_speeches, dim=1)
             tts_key = '{}_{}'.format(utts[0], tts_index[0])
             tts_fn = os.path.join(args.result_dir, '{}.wav'.format(tts_key))
             torchaudio.save(tts_fn, tts_speeches, sample_rate=22050)

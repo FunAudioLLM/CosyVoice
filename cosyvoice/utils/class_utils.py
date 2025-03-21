@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import torch
+from torch import nn
 
 from cosyvoice.transformer.activation import Swish
 from cosyvoice.transformer.subsampling import (
@@ -39,12 +39,12 @@ from cosyvoice.cli.model import CosyVoiceModel, CosyVoice2Model
 
 
 COSYVOICE_ACTIVATION_CLASSES = {
-    "hardtanh": torch.nn.Hardtanh,
-    "tanh": torch.nn.Tanh,
-    "relu": torch.nn.ReLU,
-    "selu": torch.nn.SELU,
-    "swish": getattr(torch.nn, "SiLU", Swish),
-    "gelu": torch.nn.GELU,
+    "hardtanh": nn.Hardtanh,
+    "tanh": nn.Tanh,
+    "relu": nn.ReLU,
+    "selu": nn.SELU,
+    "swish": getattr(nn, "SiLU", Swish),
+    "gelu": nn.GELU,
 }
 
 COSYVOICE_SUBSAMPLE_CLASSES = {
@@ -55,7 +55,7 @@ COSYVOICE_SUBSAMPLE_CLASSES = {
     "conv2d": Conv2dSubsampling4,
     "conv2d6": Conv2dSubsampling6,
     "conv2d8": Conv2dSubsampling8,
-    'paraformer_dummy': torch.nn.Identity
+    'paraformer_dummy': nn.Identity
 }
 
 COSYVOICE_EMB_CLASSES = {

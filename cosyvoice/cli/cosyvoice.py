@@ -166,29 +166,7 @@ class CosyVoice2(CosyVoice):
             logging.warning('no cuda device, set load_jit/load_trt/fp16 to False')
         if use_vllm:
             try:
-                os.environ["VLLM_USE_V1"] = '1'
-                from vllm import AsyncLLMEngine
-                from vllm.engine.arg_utils import AsyncEngineArgs                
-                # EngineArgs
-                ENGINE_ARGS = {
-                    "block_size": 16,
-                    "swap_space": 0,
-                    # "enforce_eager": True,
-                    "gpu_memory_utilization": 0.4,
-                    "max_num_batched_tokens": 1024,
-                    "max_model_len": 1024,
-                    "max_num_seqs": 256,
-                    "disable_log_requests": True,
-                    "disable_log_stats": True,
-                    "dtype": "bfloat16"
-                }
                 self.model = VllmCosyVoice2Model(model_dir, configs['flow'], configs['hift'], fp16)
-                engine_args = AsyncEngineArgs(
-                    model=model_dir,
-                    **ENGINE_ARGS,
-                )
-                self.llm_engine: AsyncLLMEngine = AsyncLLMEngine.from_engine_args(engine_args)
-                self.model.llm_engine = self.llm_engine
             except Exception as e:
                 logging.warning(f'use vllm inference failed. \n{e}')
                 raise e

@@ -18,8 +18,8 @@ modelscope
 networkx
 omegaconf
 onnx
-onnxruntime_gpu
-# onnxruntime
+# onnxruntime-gpu
+onnxruntime
 openai-whisper
 protobuf
 pydantic

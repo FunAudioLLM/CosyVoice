@@ -1,9 +1,9 @@
-import tkinter as tk
-from tkinter import messagebox
-from cosyvoice.cli.cosyvoice import CosyVoice
-import torch
+import sys
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QCheckBox, QMessageBox, QVBoxLayout, QWidget
+from PySide6.QtCore import QThread, Signal
+from cosyvoice.cli.cosyvoice import CosyVoice2
 import torchaudio
-from cosyvoice.utils.file_utils import logging
+import numpy as np
 import sounddevice as sd
 import soundfile as sf
 import threading
@@ -12,36 +12,42 @@ from pyperclip import paste
 import os
 
 # 全局变量，用于存储加载的模型
-cosyvoice = None
+model_path = './pretrained_models/CosyVoice2-0.5B'
 audio_queue = queue.Queue()
+cosyvoice = None
 
 def load_model():
-    global cosyvoice
-    if cosyvoice is None:
-        cosyvoice = CosyVoice('G:\\projects\\cozyvoice\\CosyVoice\\pretrained_models\\CosyVoice-300M-Instruct', load_jit=True, load_onnx=False, fp16=True)
+    global cosyvoice 
+    cosyvoice = CosyVoice2(model_path, load_jit=True, load_trt=False, fp16=False)
 
+def load_wav(wav, target_sr):
+    speech, sample_rate = torchaudio.load(wav, backend='soundfile')
+    speech = speech.mean(dim=0, keepdim=True)
+    if sample_rate != target_sr:
+        assert sample_rate > target_sr, 'wav sample rate {} must be greater than {}'.format(sample_rate, target_sr)
+        speech = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=target_sr)(speech)
+    return speech
 def generate_audio():
-    target_samplerate = 22050  # 目标采样率
     audio_buffer = []
     tts_text = paste()  
-    sft_dropdown = "中文男"
-    instruct_text = "Zhang Xiuqi, a male political teacher known for his wisdom, humor, and passionate delivery, is explaining a complex political theory with a confident and slightly playful tone, at a moderate pace, ensuring clarity and engagement with his students."
+    import re
+    tts_text = re.sub(r'\s+', ' ', tts_text).strip()
+    prompt_speech_16k = load_wav('G:/projects/cozyvoice/CosyVoice/asset/prompt.wav', 16000)
+    prompt_text = "在我们的考研中啊，这一块儿其实近十五年都没有考过，主要我觉得呢，是排不上队，或者说呢，过于的专业了。"
 
     def producer():
-        for i, j in enumerate(cosyvoice.inference_instruct(tts_text, sft_dropdown, instruct_text, stream=False)):
-            j['tts_speech'].flatten(0)
-            audio_chunk = j['tts_speech'].numpy().flatten()
-            audio_tensor = torch.tensor(audio_chunk, dtype=torch.float32)
-            audio_buffer.append(audio_tensor)
+        for i, j in enumerate(cosyvoice.inference_zero_shot(tts_text, prompt_text, prompt_speech_16k, stream=is_stream)):
+            audio_chunk = j['tts_speech'].squeeze(0).numpy()
+            audio_buffer.append(audio_chunk)
             audio_queue.put(audio_chunk)
         audio_queue.put(None)
 
     def consumer():
         while True:
-            audio_chunk = audio_queue.get()
-            if audio_chunk is None:
+            audio_tensor = audio_queue.get()
+            if audio_tensor is None:
                 break  # 结束标志
-            playchunk(audio_chunk, target_samplerate)
+            playchunk(audio_tensor, cosyvoice.sample_rate)
             audio_queue.task_done()
 
     producer_thread = threading.Thread(target=producer)
@@ -51,10 +57,10 @@ def generate_audio():
     consumer_thread.start()
 
     producer_thread.join()
-    full_audio = torch.cat(audio_buffer, dim=0)
+    full_audio = np.concatenate(audio_buffer, axis=0)
 
-    output_filename = 'C:\\users\\alphabet\\desktop\\generated_audio.wav'
-    torchaudio.save(output_filename, full_audio.unsqueeze(0), target_samplerate)
+    output_filename = 'C:/users/alphabet/desktop/generated_audio.wav'
+    sf.write(output_filename, full_audio, cosyvoice.sample_rate)
     consumer_thread.join()
 
 def playchunk(audio_chunk, samplerate):
@@ -62,44 +68,71 @@ def playchunk(audio_chunk, samplerate):
     sd.wait()
 
 def play_generated_audio():
-    output_filename = 'C:\\users\\alphabet\\desktop\\generated_audio.wav'
+    output_filename = 'C:/users/alphabet/desktop/generated_audio.wav'
     if os.path.exists(output_filename):
         waveform, sample_rate = sf.read(output_filename)
         sd.play(waveform, sample_rate)
         sd.wait()
     else:
-        messagebox.showwarning("警告", "音频文件不存在，请先生成音频")
+        QMessageBox.warning(None, "警告", "音频文件不存在，请先生成音频")
 
 def on_generate_button_click():
-    global display_label
-    display_label['text'] = paste()
-    root.update_idletasks()
+    display_label.setText(paste())
     threading.Thread(target=generate_audio).start()
 
 def on_play_generated_audio_button_click():
     threading.Thread(target=play_generated_audio).start()
-    
-     
-# 创建主窗口
-root = tk.Tk()
-root.title("CozyVoice TTS")
+
+class ModelLoaderThread(QThread):
+    # 定义信号，用于通知主线程模型加载完成
+    model_loaded = Signal(object)
+
+    def run(self):
+        global cosyvoice
+        cosyvoice = CosyVoice2(model_path, load_jit=True, load_trt=False, fp16=False)
+        self.model_loaded.emit(cosyvoice)  # 发送加载完成的模型对象
+
+# 修改主窗口逻辑以支持异步加载
+app = QApplication(sys.argv)
+window = QWidget()
+window.setWindowTitle("CozyVoice TTS")
+
+# 布局
+layout = QVBoxLayout()
 
 # 显示复制的文本
-display_label = tk.Label(root, text="已复制的文本:",justify=tk.LEFT)
-display_label.pack(pady=5)
-
+display_label = QLabel("已复制的文本:")
+display_label.setWordWrap(True)  # 启用自动换行
+layout.addWidget(display_label)
 
 # 生成按钮
-generate_button = tk.Button(root, text="生成并播放音频", command=on_generate_button_click)
-generate_button.pack(pady=20)
+generate_button = QPushButton("生成并播放音频")
+generate_button.setEnabled(False)  # 初始禁用按钮
+generate_button.clicked.connect(on_generate_button_click)
+layout.addWidget(generate_button)
 
-play_button = tk.Button(root,text='播放音频',command=on_play_generated_audio_button_click)
-play_button.pack(pady=25)
+# 播放按钮
+play_button = QPushButton("播放音频")
+play_button.setEnabled(False)  # 初始禁用按钮
+play_button.clicked.connect(on_play_generated_audio_button_click)
+layout.addWidget(play_button)
 
+# 流式生成复选框
+is_stream = QCheckBox("流式生成")
+layout.addWidget(is_stream)
 
+# 设置布局
+window.setLayout(layout)
 
-# 加载模型
-load_model()
+# 异步加载模型
+def on_model_loaded(model):
+    generate_button.setEnabled(True)  # 启用按钮
+    play_button.setEnabled(True)  # 启用按钮
+
+model_loader_thread = ModelLoaderThread()
+model_loader_thread.model_loaded.connect(on_model_loaded)
+model_loader_thread.start()
 
 # 运行主循环
-root.mainloop()
+window.show()
+sys.exit(app.exec_())

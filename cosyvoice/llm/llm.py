@@ -348,40 +348,65 @@ class Qwen2LM(TransformerLM):
     ) -> Generator[torch.Tensor, None, None]:
 
         device = prompt_text.device
-        # 1. prepare input
+        # 1. 准备输入
+        # 创建开始/结束嵌入向量，形状为 [1, 1, llm_input_size]
         sos_eos_emb = self.llm_embedding.weight[self.sos_eos].reshape(1, 1, -1)
+        # 创建任务ID嵌入向量，形状为 [1, 1, llm_input_size]
         task_id_emb = self.llm_embedding.weight[self.task_id].reshape(1, 1, -1)
+
+        # 处理提示语音标记，如果存在
         if prompt_speech_token_len != 0:
+            # 将提示语音标记转换为嵌入向量
             prompt_speech_token_emb = self.speech_embedding(prompt_speech_token)
         else:
+            # 如果没有提示语音标记，创建空张量
             prompt_speech_token_emb = torch.zeros(1, 0, self.llm_input_size, dtype=prompt_text.dtype).to(device)
+
+        # 初始化模型输入，只包含开始标记嵌入
         lm_input = torch.concat([sos_eos_emb], dim=1)
 
-        # 2. iterate text
-        out_tokens = []
-        cache = None
-        # NOTE init prompt_text as text_cache as it is basically impossible prompt_speech_token/prompt_text < 15/5
+        # 2. 迭代处理文本
+        out_tokens = []  # 存储生成的输出标记
+        cache = None  # 初始化注意力缓存为空
+        # 将提示文本转换为嵌入向量，作为文本缓存的初始值
         text_cache = self.llm.model.model.embed_tokens(prompt_text)
-        next_fill_index = -1
+        next_fill_index = -1  # 下一个填充标记的位置，初始为-1
+
+        # 逐批处理流式输入的文本
         for this_text in text:
+            # 将当前批次文本转换为嵌入并添加到文本缓存
             text_cache = torch.concat([text_cache, self.llm.model.model.embed_tokens(this_text)], dim=1)
-            # prompt_speech_token_emb not empty, try append to lm_input
+            
+            # 如果还有提示语音标记未处理，尝试将其添加到输入中
             while prompt_speech_token_emb.size(1) != 0:
-                if text_cache.size(1) >= self.mix_ratio[0]:
-                    lm_input_text, lm_input_speech = text_cache[:, :self.mix_ratio[0]], prompt_speech_token_emb[:, :self.mix_ratio[1]]
+                # 如果文本缓存长度足够，处理一批文本和语音标记
+                if text_cache.size(1) >= self.mix_ratio[0]:  # mix_ratio[0]是文本批次大小(如5)
+                    # 提取文本和语音批次，mix_ratio[1]是语音批次大小(如15)
+                    lm_input_text = text_cache[:, :self.mix_ratio[0]]
+                    lm_input_speech = prompt_speech_token_emb[:, :self.mix_ratio[1]]
                     logging.info('append {} text token {} speech token'.format(lm_input_text.size(1), lm_input_speech.size(1)))
+                    
+                    # 将文本和语音批次连接到输入中
                     lm_input = torch.concat([lm_input, lm_input_text, lm_input_speech], dim=1)
-                    text_cache, prompt_speech_token_emb = text_cache[:, self.mix_ratio[0]:], prompt_speech_token_emb[:, self.mix_ratio[1]:]
+                    
+                    # 更新缓存，移除已处理的部分
+                    text_cache = text_cache[:, self.mix_ratio[0]:]
+                    prompt_speech_token_emb = prompt_speech_token_emb[:, self.mix_ratio[1]:]
                 else:
+                    # 文本不足，等待更多输入
                     logging.info('not enough text token to decode, wait for more')
                     break
-            # no prompt_speech_token_emb remain, can decode some speech token
+
+            # 当提示语音标记处理完毕后，开始生成新的语音标记
             if prompt_speech_token_emb.size(1) == 0:
+                # 处理填充标记的情况
                 if (len(out_tokens) != 0 and out_tokens[-1] == self.speech_token_size + 2) or (len(out_tokens) == 0 and lm_input.size(1) == 1):
                     logging.info('get fill token, need to append more text token')
+                    # 如果文本缓存足够，添加新的文本批次
                     if text_cache.size(1) >= self.mix_ratio[0]:
                         lm_input_text = text_cache[:, :self.mix_ratio[0]]
                         logging.info('append {} text token'.format(lm_input_text.size(1)))
+
                         if len(out_tokens) != 0 and out_tokens[-1] == self.speech_token_size + 2:
                             lm_input = lm_input_text
                         else:

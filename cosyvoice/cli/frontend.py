@@ -16,6 +16,11 @@ from typing import Generator
 import json
 import onnxruntime
 import torch
+try:
+    import intel_extension_for_pytorch as ipex
+except Exception:
+    pass
+
 import numpy as np
 import whisper
 from typing import Callable
@@ -47,13 +52,14 @@ class CosyVoiceFrontEnd:
                  allowed_special: str = 'all'):
         self.tokenizer = get_tokenizer()
         self.feat_extractor = feat_extractor
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'xpu' if torch.xpu.is_available() else 'cpu')
         option = onnxruntime.SessionOptions()
         option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
         option.intra_op_num_threads = 1
         self.campplus_session = onnxruntime.InferenceSession(campplus_model, sess_options=option, providers=["CPUExecutionProvider"])
         self.speech_tokenizer_session = onnxruntime.InferenceSession(speech_tokenizer_model, sess_options=option,
                                                                      providers=["CUDAExecutionProvider" if torch.cuda.is_available() else
+                                                                                "CUDAExecutionProvider" if torch.xpu.is_available() else
                                                                                 "CPUExecutionProvider"])
         if os.path.exists(spk2info):
             self.spk2info = torch.load(spk2info, map_location=self.device)

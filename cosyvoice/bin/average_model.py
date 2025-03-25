@@ -18,7 +18,7 @@ import argparse
 import glob
 
 import yaml
-import torch
+from torch import load,device,true_divide,save
 
 
 def get_args():
@@ -73,7 +73,7 @@ def main():
     assert num == len(path_list)
     for path in path_list:
         print('Processing {}'.format(path))
-        states = torch.load(path, map_location=torch.device('cpu'))
+        states = load(path, map_location=device('cpu'))
         for k in states.keys():
             if k not in avg.keys():
                 avg[k] = states[k].clone()
@@ -83,9 +83,9 @@ def main():
     for k in avg.keys():
         if avg[k] is not None:
             # pytorch 1.6 use true_divide instead of /=
-            avg[k] = torch.true_divide(avg[k], num)
+            avg[k] = true_divide(avg[k], num)
     print('Saving to {}'.format(args.dst_model))
-    torch.save(avg, args.dst_model)
+    save(avg, args.dst_model)
 
 
 if __name__ == '__main__':

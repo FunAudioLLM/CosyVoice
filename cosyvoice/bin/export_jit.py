@@ -19,7 +19,7 @@ import logging
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 import os
 import sys
-import torch
+from torch import jit,_C
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/../..'.format(ROOT_DIR))
 sys.path.append('{}/../../third_party/Matcha-TTS'.format(ROOT_DIR))
@@ -38,12 +38,12 @@ def get_args():
 
 
 def get_optimized_script(model, preserved_attrs=[]):
-    script = torch.jit.script(model)
+    script = jit.script(model)
     if preserved_attrs != []:
-        script = torch.jit.freeze(script, preserved_attrs=preserved_attrs)
+        script = jit.freeze(script, preserved_attrs=preserved_attrs)
     else:
-        script = torch.jit.freeze(script)
-    script = torch.jit.optimize_for_inference(script)
+        script = jit.freeze(script)
+    script = jit.optimize_for_inference(script)
     return script
 
 
@@ -52,9 +52,9 @@ def main():
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(message)s')
 
-    torch._C._jit_set_fusion_strategy([('STATIC', 1)])
-    torch._C._jit_set_profiling_mode(False)
-    torch._C._jit_set_profiling_executor(False)
+    _C._jit_set_fusion_strategy([('STATIC', 1)])
+    _C._jit_set_profiling_mode(False)
+    _C._jit_set_profiling_executor(False)
 
     try:
         model = CosyVoice(args.model_dir)

@@ -22,7 +22,7 @@ import os
 import sys
 import onnxruntime
 import random
-import torch
+from torch import rand,ones,onnx,float32,cuda,testing,from_numpy
 from tqdm import tqdm
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/../..'.format(ROOT_DIR))
@@ -31,12 +31,12 @@ from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
 
 
 def get_dummy_input(batch_size, seq_len, out_channels, device):
-    x = torch.rand((batch_size, out_channels, seq_len), dtype=torch.float32, device=device)
-    mask = torch.ones((batch_size, 1, seq_len), dtype=torch.float32, device=device)
-    mu = torch.rand((batch_size, out_channels, seq_len), dtype=torch.float32, device=device)
-    t = torch.rand((batch_size), dtype=torch.float32, device=device)
-    spks = torch.rand((batch_size, out_channels), dtype=torch.float32, device=device)
-    cond = torch.rand((batch_size, out_channels, seq_len), dtype=torch.float32, device=device)
+    x = rand((batch_size, out_channels, seq_len), dtype=float32, device=device)
+    mask = ones((batch_size, 1, seq_len), dtype=float32, device=device)
+    mu = rand((batch_size, out_channels, seq_len), dtype=float32, device=device)
+    t = rand((batch_size), dtype=float32, device=device)
+    spks = rand((batch_size, out_channels), dtype=float32, device=device)
+    cond = rand((batch_size, out_channels, seq_len), dtype=float32, device=device)
     return x, mask, mu, t, spks, cond
 
 
@@ -71,7 +71,7 @@ def main():
     batch_size, seq_len = 2, 256
     out_channels = model.model.flow.decoder.estimator.out_channels
     x, mask, mu, t, spks, cond = get_dummy_input(batch_size, seq_len, out_channels, device)
-    torch.onnx.export(
+    onnx.export(
         estimator,
         (x, mask, mu, t, spks, cond),
         '{}/flow.decoder.estimator.fp32.onnx'.format(args.model_dir),
@@ -93,7 +93,7 @@ def main():
     option = onnxruntime.SessionOptions()
     option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
     option.intra_op_num_threads = 1
-    providers = ['CUDAExecutionProvider' if torch.cuda.is_available() else 'CPUExecutionProvider']
+    providers = ['CUDAExecutionProvider' if cuda.is_available() else 'CPUExecutionProvider']
     estimator_onnx = onnxruntime.InferenceSession('{}/flow.decoder.estimator.fp32.onnx'.format(args.model_dir),
                                                   sess_options=option, providers=providers)
 
@@ -109,7 +109,7 @@ def main():
             'cond': cond.cpu().numpy()
         }
         output_onnx = estimator_onnx.run(None, ort_inputs)[0]
-        torch.testing.assert_allclose(output_pytorch, torch.from_numpy(output_onnx).to(device), rtol=1e-2, atol=1e-4)
+        testing.assert_allclose(output_pytorch, from_numpy(output_onnx).to(device), rtol=1e-2, atol=1e-4)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
+FROM pytorch/pytorch:2.5.1-cuda11.8-cudnn9-runtime
 ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /opt/CosyVoice

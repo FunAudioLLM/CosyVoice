@@ -291,7 +291,7 @@ class CosyVoiceModel:
     def clear_cache(self):
         if "cuda" in self.device:
             torch.cuda.empty_cache()
-        elif self.device == "mps:
+        elif self.device == "mps":
             torch.mps.empty_cache()
         elif self.device == "xpu":
             torch.xpu.empty_cache()
@@ -441,7 +441,7 @@ class CosyVoice2Model(CosyVoiceModel):
             
         if "cuda" in self.device:
             torch.cuda.empty_cache()
-        elif self.device == "mps:
+        elif self.device == "mps":
             torch.mps.empty_cache()
         elif self.device == "xpu":
             torch.xpu.empty_cache()

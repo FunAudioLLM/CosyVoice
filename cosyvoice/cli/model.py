@@ -22,6 +22,7 @@ from contextlib import nullcontext
 import uuid
 from cosyvoice.utils.common import fade_in_out
 from cosyvoice.utils.file_utils import convert_onnx_to_trt
+from cosyvoice.cli.frontend import get_torch_device
 
 
 class CosyVoiceModel:
@@ -31,7 +32,7 @@ class CosyVoiceModel:
                  flow: torch.nn.Module,
                  hift: torch.nn.Module,
                  fp16: bool):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = get_torch_device()
         self.llm = llm
         self.flow = flow
         self.hift = hift
@@ -57,7 +58,10 @@ class CosyVoiceModel:
         # rtf and decoding related
         self.stream_scale_factor = 1
         assert self.stream_scale_factor >= 1, 'stream_scale_factor should be greater than 1, change it according to your actual rtf'
-        self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device)) if torch.cuda.is_available() else nullcontext()
+        if torch.cuda.is_available():
+            self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device))
+        else:
+            self.llm_context = nullcontext()        
         self.lock = threading.Lock()
         # dict used to store session related variable
         self.tts_speech_token_dict = {}
@@ -222,7 +226,7 @@ class CosyVoiceModel:
             self.mel_overlap_dict.pop(this_uuid)
             self.hift_cache_dict.pop(this_uuid)
             self.flow_cache_dict.pop(this_uuid)
-        torch.cuda.empty_cache()
+        torch.mps.empty_cache()
 
     def vc(self, source_speech_token, flow_prompt_speech_token, prompt_speech_feat, flow_embedding, stream=False, speed=1.0, **kwargs):
         # this_uuid is used to track variables related to this inference thread
@@ -276,7 +280,13 @@ class CosyVoiceModel:
             self.llm_end_dict.pop(this_uuid)
             self.mel_overlap_dict.pop(this_uuid)
             self.hift_cache_dict.pop(this_uuid)
-        torch.cuda.empty_cache()
+        self.empty_cache()
+
+    def empty_cache(self):
+        if torch.mps.is_available():
+            torch.mps.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 class CosyVoice2Model(CosyVoiceModel):
@@ -286,7 +296,7 @@ class CosyVoice2Model(CosyVoiceModel):
                  flow: torch.nn.Module,
                  hift: torch.nn.Module,
                  fp16: bool):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('mps' if torch.mps.is_available() else 'cpu')
         self.llm = llm
         self.flow = flow
         self.hift = hift
@@ -307,7 +317,10 @@ class CosyVoice2Model(CosyVoiceModel):
         self.speech_window = np.hamming(2 * self.source_cache_len)
         # rtf and decoding related
         self.stream_scale_factor = 1
-        self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device)) if torch.cuda.is_available() else nullcontext()
+        if torch.cuda.is_available():
+            self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device))
+        else:
+            self.llm_context = nullcontext()
         self.lock = threading.Lock()
         # dict used to store session related variable
         self.tts_speech_token_dict = {}
@@ -408,4 +421,4 @@ class CosyVoice2Model(CosyVoiceModel):
         with self.lock:
             self.tts_speech_token_dict.pop(this_uuid)
             self.llm_end_dict.pop(this_uuid)
-        torch.cuda.empty_cache()
+        self.empty_cache()

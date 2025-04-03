@@ -53,3 +53,4 @@ pretrained_models/*
 
 # for viztracer
 result*.json
+TensorRT-10.9.0.34/

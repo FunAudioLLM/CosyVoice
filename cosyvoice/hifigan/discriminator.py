@@ -165,7 +165,7 @@ class MultiResSpecDiscriminator(torch.nn.Module):
         y_d_gs = []
         fmap_rs = []
         fmap_gs = []
-        for i, d in enumerate(self.discriminators):
+        for _, d in enumerate(self.discriminators):
             y_d_r, fmap_r = d(y)
             y_d_g, fmap_g = d(y_hat)
             y_d_rs.append(y_d_r)
@@ -219,7 +219,7 @@ class SpecDiscriminator(nn.Module):
         y = y.squeeze(1)
         y = stft(y, self.fft_size, self.shift_size, self.win_length, self.window.to(y.device))
         y = y.unsqueeze(1)
-        for i, d in enumerate(self.discriminators):
+        for _, d in enumerate(self.discriminators):
             y = d(y)
             y = F.leaky_relu(y, LRELU_SLOPE)
             fmap.append(y)

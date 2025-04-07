@@ -61,7 +61,8 @@ def main():
         model = CosyVoice(args.model_dir)
     except Exception:
         try:
-            model = CosyVoice2(args.model_dir)
+            # NOTE set use_flow_cache=True when export jit for cache inference
+            model = CosyVoice2(args.model_dir, use_flow_cache=True)
         except Exception:
             raise TypeError('no valid model_type!')
 

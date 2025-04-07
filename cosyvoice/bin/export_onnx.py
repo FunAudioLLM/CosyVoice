@@ -28,6 +28,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/../..'.format(ROOT_DIR))
 sys.path.append('{}/../../third_party/Matcha-TTS'.format(ROOT_DIR))
 from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
+from cosyvoice.utils.file_utils import logging
 
 
 def get_dummy_input(batch_size, seq_len, out_channels, device):
@@ -51,6 +52,7 @@ def get_args():
     return args
 
 
+@torch.no_grad()
 def main():
     args = get_args()
     logging.basicConfig(level=logging.DEBUG,
@@ -60,56 +62,132 @@ def main():
         model = CosyVoice(args.model_dir)
     except Exception:
         try:
-            model = CosyVoice2(args.model_dir)
+            # NOTE set use_flow_cache=True when export jit for cache inference
+            model = CosyVoice2(args.model_dir, use_flow_cache=True)
         except Exception:
             raise TypeError('no valid model_type!')
 
-    # 1. export flow decoder estimator
-    estimator = model.model.flow.decoder.estimator
+    if not isinstance(model, CosyVoice2):
+        # 1. export flow decoder estimator
+        estimator = model.model.flow.decoder.estimator
+        estimator.eval()
 
-    device = model.model.device
-    batch_size, seq_len = 2, 256
-    out_channels = model.model.flow.decoder.estimator.out_channels
-    x, mask, mu, t, spks, cond = get_dummy_input(batch_size, seq_len, out_channels, device)
-    torch.onnx.export(
-        estimator,
-        (x, mask, mu, t, spks, cond),
-        '{}/flow.decoder.estimator.fp32.onnx'.format(args.model_dir),
-        export_params=True,
-        opset_version=18,
-        do_constant_folding=True,
-        input_names=['x', 'mask', 'mu', 't', 'spks', 'cond'],
-        output_names=['estimator_out'],
-        dynamic_axes={
-            'x': {2: 'seq_len'},
-            'mask': {2: 'seq_len'},
-            'mu': {2: 'seq_len'},
-            'cond': {2: 'seq_len'},
-            'estimator_out': {2: 'seq_len'},
-        }
-    )
+        device = model.model.device
+        batch_size, seq_len = 2, 256
+        out_channels = model.model.flow.decoder.estimator.out_channels
+        x, mask, mu, t, spks, cond = get_dummy_input(batch_size, seq_len, out_channels, device)
+        torch.onnx.export(
+            estimator,
+            (x, mask, mu, t, spks, cond),
+            '{}/flow.decoder.estimator.fp32.onnx'.format(args.model_dir),
+            export_params=True,
+            opset_version=18,
+            do_constant_folding=True,
+            input_names=['x', 'mask', 'mu', 't', 'spks', 'cond'],
+            output_names=['estimator_out'],
+            dynamic_axes={
+                'x': {2: 'seq_len'},
+                'mask': {2: 'seq_len'},
+                'mu': {2: 'seq_len'},
+                'cond': {2: 'seq_len'},
+                'estimator_out': {2: 'seq_len'},
+            }
+        )
 
-    # 2. test computation consistency
-    option = onnxruntime.SessionOptions()
-    option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
-    option.intra_op_num_threads = 1
-    providers = ['CUDAExecutionProvider' if torch.cuda.is_available() else 'CPUExecutionProvider']
-    estimator_onnx = onnxruntime.InferenceSession('{}/flow.decoder.estimator.fp32.onnx'.format(args.model_dir),
-                                                  sess_options=option, providers=providers)
+        # 2. test computation consistency
+        option = onnxruntime.SessionOptions()
+        option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+        option.intra_op_num_threads = 1
+        providers = ['CUDAExecutionProvider' if torch.cuda.is_available() else 'CPUExecutionProvider']
+        estimator_onnx = onnxruntime.InferenceSession('{}/flow.decoder.estimator.fp32.onnx'.format(args.model_dir),
+                                                      sess_options=option, providers=providers)
 
-    for _ in tqdm(range(10)):
-        x, mask, mu, t, spks, cond = get_dummy_input(batch_size, random.randint(16, 512), out_channels, device)
-        output_pytorch = estimator(x, mask, mu, t, spks, cond)
-        ort_inputs = {
-            'x': x.cpu().numpy(),
-            'mask': mask.cpu().numpy(),
-            'mu': mu.cpu().numpy(),
-            't': t.cpu().numpy(),
-            'spks': spks.cpu().numpy(),
-            'cond': cond.cpu().numpy()
-        }
-        output_onnx = estimator_onnx.run(None, ort_inputs)[0]
-        torch.testing.assert_allclose(output_pytorch, torch.from_numpy(output_onnx).to(device), rtol=1e-2, atol=1e-4)
+        for _ in tqdm(range(10)):
+            x, mask, mu, t, spks, cond = get_dummy_input(batch_size, random.randint(16, 512), out_channels, device)
+            output_pytorch = estimator(x, mask, mu, t, spks, cond)
+            ort_inputs = {
+                'x': x.cpu().numpy(),
+                'mask': mask.cpu().numpy(),
+                'mu': mu.cpu().numpy(),
+                't': t.cpu().numpy(),
+                'spks': spks.cpu().numpy(),
+                'cond': cond.cpu().numpy()
+            }
+            output_onnx = estimator_onnx.run(None, ort_inputs)[0]
+            torch.testing.assert_allclose(output_pytorch, torch.from_numpy(output_onnx).to(device), rtol=1e-2, atol=1e-4)
+        logging.info('successfully export estimator')
+    else:
+        # 1. export flow decoder estimator
+        estimator = model.model.flow.decoder.estimator
+        estimator.forward = estimator.forward_chunk
+        estimator.eval()
+
+        device = model.model.device
+        batch_size, seq_len = 2, 256
+        out_channels = model.model.flow.decoder.estimator.out_channels
+        x, mask, mu, t, spks, cond = get_dummy_input(batch_size, seq_len, out_channels, device)
+        cache = model.model.init_flow_cache()['decoder_cache']
+        cache.pop('offset')
+        cache = {k: v[0] for k, v in cache.items()}
+        torch.onnx.export(
+            estimator,
+            (x, mask, mu, t, spks, cond,
+             cache['down_blocks_conv_cache'],
+             cache['down_blocks_kv_cache'],
+             cache['mid_blocks_conv_cache'],
+             cache['mid_blocks_kv_cache'],
+             cache['up_blocks_conv_cache'],
+             cache['up_blocks_kv_cache'],
+             cache['final_blocks_conv_cache']),
+            '{}/flow.decoder.estimator.fp32.onnx'.format(args.model_dir),
+            export_params=True,
+            opset_version=18,
+            do_constant_folding=True,
+            input_names=['x', 'mask', 'mu', 't', 'spks', 'cond', 'down_blocks_conv_cache', 'down_blocks_kv_cache', 'mid_blocks_conv_cache', 'mid_blocks_kv_cache',
+                         'up_blocks_conv_cache', 'up_blocks_kv_cache', 'final_blocks_conv_cache'],
+            output_names=['estimator_out', 'down_blocks_conv_cache_out', 'down_blocks_kv_cache_out', 'mid_blocks_conv_cache_out', 'mid_blocks_kv_cache_out',
+                          'up_blocks_conv_cache_out', 'up_blocks_kv_cache_out', 'final_blocks_conv_cache_out'],
+            dynamic_axes={
+                'x': {2: 'seq_len'},
+                'mask': {2: 'seq_len'},
+                'mu': {2: 'seq_len'},
+                'cond': {2: 'seq_len'},
+                'down_blocks_kv_cache': {3: 'cache_in_len'},
+                'mid_blocks_kv_cache': {3: 'cache_in_len'},
+                'up_blocks_kv_cache': {3: 'cache_in_len'},
+                'estimator_out': {2: 'seq_len'},
+                'down_blocks_kv_cache_out': {3: 'cache_out_len'},
+                'mid_blocks_kv_cache_out': {3: 'cache_out_len'},
+                'up_blocks_kv_cache_out': {3: 'cache_out_len'},
+            }
+        )
+
+        # 2. test computation consistency
+        option = onnxruntime.SessionOptions()
+        option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+        option.intra_op_num_threads = 1
+        providers = ['CUDAExecutionProvider' if torch.cuda.is_available() else 'CPUExecutionProvider']
+        estimator_onnx = onnxruntime.InferenceSession('{}/flow.decoder.estimator.fp32.onnx'.format(args.model_dir),
+                                                      sess_options=option, providers=providers)
+
+        for _ in tqdm(range(10)):
+            x, mask, mu, t, spks, cond = get_dummy_input(batch_size, random.randint(16, 512), out_channels, device)
+            cache = model.model.init_flow_cache()['decoder_cache']
+            cache.pop('offset')
+            cache = {k: v[0] for k, v in cache.items()}
+            output_pytorch = estimator(x, mask, mu, t, spks, cond, **{k: v.clone() for k, v in cache.items()})
+            ort_inputs = {
+                'x': x.cpu().numpy(),
+                'mask': mask.cpu().numpy(),
+                'mu': mu.cpu().numpy(),
+                't': t.cpu().numpy(),
+                'spks': spks.cpu().numpy(),
+                'cond': cond.cpu().numpy(),
+            }
+            output_onnx = estimator_onnx.run(None, {**ort_inputs, **{k: v.clone().cpu().numpy() for k, v in cache.items()}})
+            for i, j in zip(output_pytorch, output_onnx):
+                torch.testing.assert_allclose(i, torch.from_numpy(j).to(device), rtol=1e-2, atol=1e-4)
+        logging.info('successfully export estimator')
 
 
 if __name__ == "__main__":

@@ -14,8 +14,8 @@ token_frame_rate: 25
 token_mel_ratio: 2
 
 # stream related params
-chunk_size: 2 # streaming inference chunk size, in second
-num_decoding_left_chunks: 1 # streaming inference flow decoder left chunk size
+chunk_size: 25 # streaming inference chunk size, in token
+num_decoding_left_chunks: 1 # streaming inference flow decoder left chunk size, <0 means use all left chunks
 
 # model params
 # for all class/function included in this repo, we use !<name> or !<new> for intialization, so that user may find all corresponding class/function according to one single yaml.
@@ -60,7 +60,7 @@ flow: !new:cosyvoice.flow.flow.CausalMaskedDiffWithXvec
         input_size: 512
         use_cnn_module: False
         macaron_style: False
-        static_chunk_size: !ref <chunk_size> * <token_frame_rate>
+        static_chunk_size: !ref <chunk_size>
     decoder: !new:cosyvoice.flow.flow_matching.CausalConditionalCFM
         in_channels: 240
         n_spks: 1
@@ -83,7 +83,7 @@ flow: !new:cosyvoice.flow.flow.CausalMaskedDiffWithXvec
             num_mid_blocks: 12
             num_heads: 8
             act_fn: 'gelu'
-            static_chunk_size: !ref <chunk_size> * <token_frame_rate> * <token_mel_ratio> # here we use static_chunk_size because we want to fix kv cache size during inference
+            static_chunk_size: !ref <chunk_size> * <token_mel_ratio>
             num_decoding_left_chunks: !ref <num_decoding_left_chunks>
 
 hift: !new:cosyvoice.hifigan.generator.HiFTGenerator

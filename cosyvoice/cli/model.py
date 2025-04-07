@@ -99,17 +99,7 @@ class CosyVoiceModel:
         self.flow.decoder.estimator = self.flow.decoder.estimator_engine.create_execution_context()
 
     def llm_job(self, text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):
-        """
-        LLM推理任务函数，在单独的CUDA流中执行以实现并行处理。
-        
-        llm_context是一个CUDA流上下文，用于以下目的：
-        1. 并行执行：允许LLM推理与主线程中的其他操作（如音频合成）并行执行
-        2. 内存隔离：为LLM操作提供独立的CUDA流，避免与主流的资源竞争
-        3. 异步处理：使LLM推理可以在后台进行，不阻塞主线程的其他操作
-        
-        在CPU模式下，llm_context被设置为nullcontext()，不提供实际功能。
-        """
-        with self.llm_context:  # 在独立CUDA流中执行LLM推理，实现与主线程的并行处理
+        with self.llm_context:
             if isinstance(text, Generator):
                 assert isinstance(self, CosyVoice2Model), 'streaming input text is only implemented for CosyVoice2!'
                 for i in self.llm.inference_bistream(text=text,
@@ -367,43 +357,19 @@ class CosyVoice2Model(CosyVoiceModel):
             llm_prompt_speech_token=torch.zeros(1, 0, dtype=torch.int32),
             flow_prompt_speech_token=torch.zeros(1, 0, dtype=torch.int32),
             prompt_speech_feat=torch.zeros(1, 0, 80), stream=False, speed=1.0, **kwargs):
-        """
-        文本转语音(TTS)的主函数，支持流式和非流式推理模式。
-        
-        参数说明:
-        - text: 输入文本的token表示
-        - flow_embedding: 流模型使用的说话人嵌入向量
-        - llm_embedding: 大语言模型使用的说话人嵌入向量，默认为零向量
-        - prompt_text: 提示文本的token表示，默认为空
-        - llm_prompt_speech_token: LLM使用的提示语音token，默认为空
-        - flow_prompt_speech_token: 流模型使用的提示语音token，默认为空
-        - prompt_speech_feat: 提示语音特征，默认为空
-        - stream: 是否使用流式推理模式，默认为False
-        - speed: 语音速度调整因子，默认为1.0
-        """
-        # 创建唯一标识符，用于跟踪当前推理线程的相关变量
+        # this_uuid is used to track variables related to this inference thread
         this_uuid = str(uuid.uuid1())
         with self.lock:
-            # 初始化与此推理相关的状态变量
             self.tts_speech_token_dict[this_uuid], self.llm_end_dict[this_uuid] = [], False
             self.hift_cache_dict[this_uuid] = None
-        
-        # 启动LLM推理线程，生成语音token序列
         p = threading.Thread(target=self.llm_job, args=(text, prompt_text, llm_prompt_speech_token, llm_embedding, this_uuid))
         p.start()
-        
         if stream is True:
-            # 流式推理模式：边生成边输出语音
             token_offset = 0
             while True:
-                time.sleep(0.1)  # 短暂休眠，避免CPU占用过高
-                
-                # 当累积的token数量足够时，处理一批token
+                time.sleep(0.1)
                 if len(self.tts_speech_token_dict[this_uuid]) - token_offset >= self.token_hop_len + self.flow.pre_lookahead_len:
-                    # 获取当前批次的token
                     this_tts_speech_token = torch.tensor(self.tts_speech_token_dict[this_uuid][:token_offset + self.token_hop_len + self.flow.pre_lookahead_len]).unsqueeze(dim=0)
-                    
-                    # 将token转换为语音波形
                     this_tts_speech = self.token2wav(token=this_tts_speech_token,
                                                      prompt_token=flow_prompt_speech_token,
                                                      prompt_feat=prompt_speech_feat,
@@ -411,21 +377,12 @@ class CosyVoice2Model(CosyVoiceModel):
                                                      uuid=this_uuid,
                                                      token_offset=token_offset,
                                                      finalize=False)
-                    
-                    # 更新已处理的token偏移量
                     token_offset += self.token_hop_len
-                    
-                    # 生成器返回当前批次的语音
                     yield {'tts_speech': this_tts_speech.cpu()}
-                
-                # 当LLM生成结束且剩余token不足以形成新批次时，退出循环
                 if self.llm_end_dict[this_uuid] is True and len(self.tts_speech_token_dict[this_uuid]) - token_offset < self.token_hop_len + self.flow.pre_lookahead_len:
                     break
-            
-            # 等待LLM线程完成
             p.join()
-            
-            # 处理剩余的token
+            # deal with remain tokens, make sure inference remain token len equals token_hop_len when cache_speech is not None
             this_tts_speech_token = torch.tensor(self.tts_speech_token_dict[this_uuid]).unsqueeze(dim=0)
             this_tts_speech = self.token2wav(token=this_tts_speech_token,
                                              prompt_token=flow_prompt_speech_token,
@@ -434,14 +391,10 @@ class CosyVoice2Model(CosyVoiceModel):
                                              uuid=this_uuid,
                                              token_offset=token_offset,
                                              finalize=True)
-            
-            # 返回最后一批语音
             yield {'tts_speech': this_tts_speech.cpu()}
         else:
-            # 非流式推理模式：等待所有token生成完毕后一次性处理
+            # deal with all tokens
             p.join()
-            
-            # 将所有token转换为语音波形
             this_tts_speech_token = torch.tensor(self.tts_speech_token_dict[this_uuid]).unsqueeze(dim=0)
             this_tts_speech = self.token2wav(token=this_tts_speech_token,
                                              prompt_token=flow_prompt_speech_token,
@@ -451,14 +404,8 @@ class CosyVoice2Model(CosyVoiceModel):
                                              token_offset=0,
                                              finalize=True,
                                              speed=speed)
-            
-            # 返回完整的语音
             yield {'tts_speech': this_tts_speech.cpu()}
-        
-        # 清理资源：删除与此推理相关的临时变量
         with self.lock:
             self.tts_speech_token_dict.pop(this_uuid)
             self.llm_end_dict.pop(this_uuid)
-        
-        # 释放GPU缓存
         torch.cuda.empty_cache()

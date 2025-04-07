@@ -68,8 +68,8 @@ class CosyVoiceFrontEnd:
                 'failed to initialize ttsfrd resource'
             self.frd.set_lang_type('pinyinvg')
         else:
-            # alan  wanglinlin 20250306   overwrite_cache=False 原来为True
-            self.zh_tn_model = ZhNormalizer(remove_erhua=False, full_to_half=False, overwrite_cache=False)
+            # alan  wanglinlin 20250321  overwrite_cache=False 原来为True
+            self.zh_tn_model = ZhNormalizer(remove_erhua=False, full_to_half=False, overwrite_cache=False, remove_interjections=False)
             self.en_tn_model = EnNormalizer()
             self.inflect_parser = inflect.engine()
 
@@ -158,7 +158,9 @@ class CosyVoiceFrontEnd:
     def frontend_zero_shot(self, tts_text, prompt_text, prompt_speech_16k, resample_rate):
         tts_text_token, tts_text_token_len = self._extract_text_token(tts_text)
         prompt_text_token, prompt_text_token_len = self._extract_text_token(prompt_text)
-        prompt_speech_resample = torchaudio.transforms.Resample(orig_freq=16000, new_freq=resample_rate)(prompt_speech_16k)
+        prompt_speech_16k = prompt_speech_16k.to(self.device)
+        resampler = torchaudio.transforms.Resample(orig_freq=16000, new_freq=resample_rate).to(self.device)
+        prompt_speech_resample = resampler(prompt_speech_16k)
         speech_feat, speech_feat_len = self._extract_speech_feat(prompt_speech_resample)
         speech_token, speech_token_len = self._extract_speech_token(prompt_speech_16k)
         if resample_rate == 24000:

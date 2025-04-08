@@ -1,22 +1,11 @@
 import sys
 import os
-import logging
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "5"
-# 设置日志级别为 DEBUG
-logging.basicConfig(level=logging.DEBUG, 
-                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logging.getLogger().setLevel(logging.DEBUG)
-
-# 确保设置影响所有模块
-for name in logging.root.manager.loggerDict:
-    logging.getLogger(name).setLevel(logging.DEBUG)
-
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 # 设置根目录并添加第三方库路径
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append("{}/third_party/Matcha-TTS".format(ROOT_DIR))
 
-# 导入 CosyVoice 之前设置好日志级别
 from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
 from cosyvoice.utils.file_utils import load_wav
 import torchaudio
@@ -44,6 +33,7 @@ prompt_speech_16k = load_wav("./asset/sqr3.wav", 16000)
 for i, j in enumerate(
     cosyvoice.inference_cross_lingual(
         "在他讲述那个荒诞故事的过程中，他突然[laughter]停下来，因为他自己也被逗笑了[laughter]。",
+        "没有用到的文本",
         prompt_speech_16k,
         stream=True,
     )

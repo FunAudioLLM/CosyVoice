@@ -15,6 +15,7 @@ import os
 import time
 from typing import Generator
 from tqdm import tqdm
+from math import ceil
 from hyperpyyaml import load_hyperpyyaml
 from modelscope import snapshot_download
 import torch
@@ -23,11 +24,16 @@ from cosyvoice.cli.model import CosyVoiceModel, CosyVoice2Model
 from cosyvoice.utils.file_utils import logging
 from cosyvoice.utils.class_utils import get_model_type
 
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
+grandparent_dir = os.path.dirname(parent_dir)
 
 class CosyVoice:
 
     def __init__(self, model_dir, load_jit=False, load_trt=False, fp16=False):
         self.instruct = True if '-Instruct' in model_dir else False
+        self.is_05b = True if 'CosyVoice2-0.5B' in model_dir else False
         self.model_dir = model_dir
         self.fp16 = fp16
         if not os.path.exists(model_dir):
@@ -63,60 +69,153 @@ class CosyVoice:
         spks = list(self.frontend.spk2info.keys())
         return spks
 
-    def inference_sft(self, tts_text, spk_id, stream=False, speed=1.0, text_frontend=True):
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
-            model_input = self.frontend.frontend_sft(i, spk_id)
-            start_time = time.time()
-            logging.info('synthesis text {}'.format(i))
+    def _process_with_progress(self, model_input, text_segment, stream, speed):
+        """处理带进度条的TTS生成
+        Args:
+            model_input: 模型输入
+            text_segment: 当前文本片段
+            stream: 是否流式输出
+            speed: 语速
+        """
+        start_time = time.time()
+        tqdm.write(f'{text_segment}\n')
+        
+        # 初始化进度条参数
+        # 估计迭代次数：非流式模式下为1，流式模式下根据文本长度估计
+        estimated_iterations = 1 if not stream else max(1, len(text_segment) // 10)
+        
+        # tqdm参数说明:
+        # - total: 预计的总迭代次数
+        # - leave=False: 进度条完成后会被清除，不会在控制台留下痕迹
+        # - desc: 进度条前面显示的描述文本
+        # - disable=not stream: 当stream为False时禁用进度条，只在流式模式下显示
+        with tqdm(total=estimated_iterations, leave=False, desc='当前片段', disable=not stream) as pbar:
+            iter_count = 0
+            
             for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
-                speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
-                logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
+                speech = model_output['tts_speech']
+                speech_len = speech.shape[1] / self.sample_rate
+                iter_count += 1
+                if stream:
+                    # 更新进度条后缀显示实时速率比(rtf)
+                    rtf = (time.time() - start_time) / speech_len
+                    pbar.set_postfix_str(f'rtf={rtf:.2f}')
+                    # 持久打印rtf值，不随进度条消失
+                    print(f'当前RTF: {rtf:.2f}, 当前文本: {text_segment}', flush=True)
+                    # 仅在迭代次数小于3时根据实际语音长度更新预估总迭代次数
+                    if iter_count <= 3:
+                        # 估计总token数量
+                        total_speech_tokens =len(self.model.tts_speech_token_dict[self.model.this_uuid]) 
+                        
+                        # 每次迭代处理token_hop_len个token，计算总迭代次数
+                        # 注意考虑到token_hop_len会随着迭代增加
+                        iterations_needed = 0
+                        remaining_tokens = total_speech_tokens
+                        # current_hop_len = self.model.token_min_hop_len
+                        current_hop_len = self.model.token_hop_len      #  仅适用于CosyVoice2
+                        
+                        while remaining_tokens > 0:
+                            remaining_tokens -= current_hop_len
+                            iterations_needed += 1
+                            # current_hop_len = min(self.model.token_max_hop_len, int(current_hop_len * self.model.stream_scale_factor))  # 仅适用于CosyVoice
+                        
+                        pbar.total = max(1, iterations_needed)
+                    
+                    # 确保总迭代次数至少等于当前迭代次数，动态调整进度条长度
+                    pbar.total = max(pbar.total, iter_count)
+                    # 更新进度条，前进一步
+                    pbar.update(1)
+                else:
+                    # 非流式模式下关闭进度条
+                    pbar.close()
+
                 yield model_output
                 start_time = time.time()
 
+    def inference_sft(self, tts_text, spk_id, stream=False, speed=1.0, text_frontend=True):
+        default_voices = self.list_available_spks()
+        
+        for text_segment in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend), desc='生成进度'):
+
+            # 根据音色ID获取模型输入
+            spk = default_voices[0] if spk_id not in default_voices else spk_id
+            model_input = self.frontend.frontend_sft(text_segment, spk)
+
+            # 如果是自定义音色,加载并更新音色相关特征
+            if spk_id not in default_voices:
+                newspk = torch.load(
+                    f'{grandparent_dir}/voices/{spk_id}.pt',
+                    map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+                )
+                
+                # 更新模型输入中的音色特征
+                spk_fields = [
+                    "flow_embedding", "llm_embedding",
+                    "llm_prompt_speech_token", "llm_prompt_speech_token_len",
+                    "flow_prompt_speech_token", "flow_prompt_speech_token_len", 
+                    "prompt_speech_feat_len", "prompt_speech_feat",
+                    "prompt_text", "prompt_text_len"
+                ]
+                
+                for field in spk_fields:
+                    model_input[field] = newspk[field]
+
+            yield from self._process_with_progress(model_input, text_segment, stream, speed)
+
+    def _save_voice_model(self, model_input, prompt_speech_16k, text_ref=None, save_path='output.pt'):
+        """保存音色模型到文件
+        Args:
+            model_input: 包含音色信息的模型输入
+            prompt_speech_16k: 参考音频
+            text_ref: 参考文本（可选）
+            save_path: 保存路径，默认为output.pt
+        """
+        model_input['audio_ref'] = prompt_speech_16k
+        if text_ref is not None:
+            model_input['text_ref'] = text_ref
+        
+        torch.save(model_input, save_path)
 
     def inference_zero_shot(self, tts_text, prompt_text, prompt_speech_16k, stream=False, speed=1.0, text_frontend=True):
         prompt_text = self.frontend.text_normalize(prompt_text, split=False, text_frontend=text_frontend)
-        # text_normalize 返回一个列表，每个元素是一个规范化后的文本片段
-        # 这里的 i 就是列表中的每个文本片段
-        for normalized_text in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
-            # 如果文本片段不是生成器类型且长度小于 prompt 文本的一半，发出警告
-            if (not isinstance(normalized_text, Generator)) and len(normalized_text) < 0.5 * len(prompt_text):
-                logging.warning('synthesis text {} too short than prompt text {}, this may lead to bad performance'.format(normalized_text, prompt_text))
-            model_input = self.frontend.frontend_zero_shot(normalized_text, prompt_text, prompt_speech_16k, self.sample_rate)
-            start_time = time.time()
-            logging.info('synthesis text {}'.format(normalized_text))
-            for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
-                speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
-                logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
-                yield model_output
-                start_time = time.time()
+        
+        # 先获取所有分段，找出最长的一段
+        text_parts = list(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend))
+        longest_segment = max(text_parts, key=len)
+        longest_idx = text_parts.index(longest_segment)
+        
+        for idx, text_segment in enumerate(tqdm(text_parts, desc='生成进度')):
+            if (not isinstance(text_segment, Generator)) and len(text_segment) < 0.5 * len(prompt_text):
+                logging.warning('synthesis text {} too short than prompt text {}, this may lead to bad performance'.format(text_segment, prompt_text))
+            model_input = self.frontend.frontend_zero_shot(text_segment, prompt_text, prompt_speech_16k, self.sample_rate)
 
-    def inference_cross_lingual(self, tts_text, prompt_speech_16k, stream=False, speed=1.0, text_frontend=True):
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
-            model_input = self.frontend.frontend_cross_lingual(i, prompt_speech_16k, self.sample_rate)
-            start_time = time.time()
-            logging.info('synthesis text {}'.format(i))
-            for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
-                speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
-                logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
-                yield model_output
-                start_time = time.time()
+            if idx == 0 or idx == longest_idx:  # 保存第一段或最长段作为音色模型
+                self._save_voice_model(model_input, prompt_speech_16k, prompt_text)
+
+            yield from self._process_with_progress(model_input, text_segment, stream, speed)
+
+    def inference_cross_lingual(self, tts_text, prompt_text, prompt_speech_16k, stream=False, speed=1.0, text_frontend=True):
+        # 先获取所有分段，找出最长的一段
+        text_parts = list(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend))
+        longest_segment = max(text_parts, key=len)
+        longest_idx = text_parts.index(longest_segment)
+        
+        for idx, text_segment in enumerate(tqdm(text_parts, desc='生成进度')):
+            model_input = self.frontend.frontend_cross_lingual(text_segment, prompt_speech_16k, self.sample_rate)
+            
+            if idx == 0 or idx == longest_idx:  # 保存第一段或最长段作为音色模型
+                self._save_voice_model(model_input, prompt_speech_16k)
+
+            yield from self._process_with_progress(model_input, text_segment, stream, speed)
 
     def inference_instruct(self, tts_text, spk_id, instruct_text, stream=False, speed=1.0, text_frontend=True):
         assert isinstance(self.model, CosyVoiceModel), 'inference_instruct is only implemented for CosyVoice!'
         if self.instruct is False:
             raise ValueError('{} do not support instruct inference'.format(self.model_dir))
         instruct_text = self.frontend.text_normalize(instruct_text, split=False, text_frontend=text_frontend)
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
-            model_input = self.frontend.frontend_instruct(i, spk_id, instruct_text)
-            start_time = time.time()
-            logging.info('synthesis text {}'.format(i))
-            for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
-                speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
-                logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
-                yield model_output
-                start_time = time.time()
+        for text_segment in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
+            model_input = self.frontend.frontend_instruct(text_segment, spk_id, instruct_text)
+            yield from self._process_with_progress(model_input, text_segment, stream, speed)
 
     def inference_vc(self, source_speech_16k, prompt_speech_16k, stream=False, speed=1.0):
         model_input = self.frontend.frontend_vc(source_speech_16k, prompt_speech_16k, self.sample_rate)
@@ -132,6 +231,7 @@ class CosyVoice2(CosyVoice):
 
     def __init__(self, model_dir, load_jit=False, load_trt=False, fp16=False):
         self.instruct = True if '-Instruct' in model_dir else False
+        self.is_05b = True if 'CosyVoice2-0.5B' in model_dir else False
         self.model_dir = model_dir
         self.fp16 = fp16
         if not os.path.exists(model_dir):
@@ -166,12 +266,6 @@ class CosyVoice2(CosyVoice):
 
     def inference_instruct2(self, tts_text, instruct_text, prompt_speech_16k, stream=False, speed=1.0, text_frontend=True):
         assert isinstance(self.model, CosyVoice2Model), 'inference_instruct2 is only implemented for CosyVoice2!'
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
-            model_input = self.frontend.frontend_instruct2(i, instruct_text, prompt_speech_16k, self.sample_rate)
-            start_time = time.time()
-            logging.info('synthesis text {}'.format(i))
-            for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
-                speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
-                logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
-                yield model_output
-                start_time = time.time()
+        for text_segment in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
+            model_input = self.frontend.frontend_instruct2(text_segment, instruct_text, prompt_speech_16k, self.sample_rate)
+            yield from self._process_with_progress(model_input, text_segment, stream, speed)

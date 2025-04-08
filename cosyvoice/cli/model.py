@@ -22,6 +22,7 @@ from contextlib import nullcontext
 import uuid
 from cosyvoice.utils.common import fade_in_out
 from cosyvoice.utils.file_utils import convert_onnx_to_trt
+import logging
 
 
 class CosyVoiceModel:
@@ -94,6 +95,7 @@ class CosyVoiceModel:
         import tensorrt as trt
         with open(flow_decoder_estimator_model, 'rb') as f:
             self.flow.decoder.estimator_engine = trt.Runtime(trt.Logger(trt.Logger.INFO)).deserialize_cuda_engine(f.read())
+            logging.info('loading trt {}'.format(flow_decoder_estimator_model))
         if self.flow.decoder.estimator_engine is None:
             raise ValueError('failed to load trt {}'.format(flow_decoder_estimator_model))
         self.flow.decoder.estimator = self.flow.decoder.estimator_engine.create_execution_context()
@@ -367,7 +369,7 @@ class CosyVoice2Model(CosyVoiceModel):
         if stream is True:
             token_offset = 0
             while True:
-                time.sleep(0.1)
+                time.sleep(0.05)
                 if len(self.tts_speech_token_dict[this_uuid]) - token_offset >= self.token_hop_len + self.flow.pre_lookahead_len:
                     this_tts_speech_token = torch.tensor(self.tts_speech_token_dict[this_uuid][:token_offset + self.token_hop_len + self.flow.pre_lookahead_len]).unsqueeze(dim=0)
                     this_tts_speech = self.token2wav(token=this_tts_speech_token,

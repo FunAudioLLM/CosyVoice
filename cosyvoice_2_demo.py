@@ -1,6 +1,22 @@
 import sys
+import os
+import logging
 
-sys.path.append("third_party/Matcha-TTS")
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+# 设置日志级别为 DEBUG
+logging.basicConfig(level=logging.DEBUG, 
+                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.getLogger().setLevel(logging.DEBUG)
+
+# 确保设置影响所有模块
+for name in logging.root.manager.loggerDict:
+    logging.getLogger(name).setLevel(logging.DEBUG)
+
+# 设置根目录并添加第三方库路径
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append("{}/third_party/Matcha-TTS".format(ROOT_DIR))
+
+# 导入 CosyVoice 之前设置好日志级别
 from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
 from cosyvoice.utils.file_utils import load_wav
 import torchaudio
@@ -20,31 +36,32 @@ parser.add_argument(
 args = parser.parse_args()
 
 print(f"使用模型目录: {args.model_dir}")
-cosyvoice = CosyVoice2(args.model_dir, load_jit=False, load_trt=False, fp16=args.fp16)
+cosyvoice = CosyVoice2(args.model_dir, load_jit=False, load_trt=True, fp16=args.fp16)
 
 prompt_speech_16k = load_wav("./asset/sqr3.wav", 16000)
-for i, j in enumerate(
-    cosyvoice.inference_zero_shot(
-        "。",
-        "我会把三段话切成3段，用来做",
-        prompt_speech_16k,
-        stream=False,
-    )
-):
-    torchaudio.save(
-        "zero_shot_{}.wav".format(i), j["tts_speech"], cosyvoice.sample_rate
-    )
 
 # fine grained control, for supported control, check cosyvoice/tokenizer/tokenizer.py#L248
 for i, j in enumerate(
     cosyvoice.inference_cross_lingual(
         "在他讲述那个荒诞故事的过程中，他突然[laughter]停下来，因为他自己也被逗笑了[laughter]。",
         prompt_speech_16k,
-        stream=False,
+        stream=True,
     )
 ):
     torchaudio.save(
         "fine_grained_control_{}.wav".format(i), j["tts_speech"], cosyvoice.sample_rate
+    )
+
+for i, j in enumerate(
+    cosyvoice.inference_zero_shot(
+        "这句话里面到底在使用了谁的语音呢？",
+        "我会把三段话切成3段，用来做",
+        prompt_speech_16k,
+        stream=True,
+    )
+):
+    torchaudio.save(
+        "zero_shot_{}.wav".format(i), j["tts_speech"], cosyvoice.sample_rate
     )
 
 # instruct usage
@@ -53,7 +70,7 @@ for i, j in enumerate(
         "收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。",
         "用四川话说这句话",
         prompt_speech_16k,
-        stream=False,
+        stream=True,
     )
 ):
     torchaudio.save("instruct_{}.wav".format(i), j["tts_speech"], cosyvoice.sample_rate)

@@ -42,10 +42,23 @@ WORKDIR /workspace
 
 ENV PYTHONPATH="${PYTHONPATH}:/workspace/CosyVoice:/workspace/CosyVoice/third_party/Matcha-TTS"
 
-RUN git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
-
-RUN conda activate ${VENV} && conda install -y -c conda-forge pynini==2.1.5
-RUN conda activate ${VENV} && cd CosyVoice && \
-    pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+RUN git clone --recursive https://github.com/sogang-capzzang/CosyVoice.git
 
 WORKDIR /workspace/CosyVoice
+
+RUN git checkout dev_mjkim
+
+RUN conda activate ${VENV} && conda install -y -c conda-forge pynini==2.1.5
+RUN conda activate ${VENV} && pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+
+RUN mkdir -p pretrained_models
+RUN git clone https://www.modelscope.cn/iic/CosyVoice2-0.5B.git pretrained_models/CosyVoice2-0.5B
+RUN git clone https://www.modelscope.cn/iic/CosyVoice-ttsfrd.git pretrained_models/CosyVoice-ttsfrd
+
+RUN cd pretrained_models/CosyVoice-ttsfrd && \
+    unzip resource.zip -d . && \
+    pip install ttsfrd_dependency-0.1-py3-none-any.whl
+    # pip install ttsfrd-0.4.2-cp310-cp310-linux_x86_64.whl
+
+RUN wget https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.9.0/tars/TensorRT-10.9.0.34.Linux.x86_64-gnu.cuda-12.8.tar.gz
+RUN tar -xvf TensorRT-10.9.0.34.Linux.x86_64-gnu.cuda-12.8.tar.gz && rm TensorRT-10.9.0.34.Linux.x86_64-gnu.cuda-12.8.tar.gz

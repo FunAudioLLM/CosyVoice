@@ -50,3 +50,7 @@ pretrained_models/*
 *_pb2_grpc.py
 *_pb2.py
 *.tar
+
+# for viztracer
+result*.json
+TensorRT-10.9.0.34/

@@ -26,9 +26,9 @@ pyworld==0.3.4
 rich==13.7.1
 soundfile==0.12.1
 tensorboard==2.14.0
-tensorrt-cu12==10.0.1; sys_platform == 'linux'
-tensorrt-cu12-bindings==10.0.1; sys_platform == 'linux'
-tensorrt-cu12-libs==10.0.1; sys_platform == 'linux'
+tensorrt-cu12==10.9.0.34; sys_platform == 'linux'
+tensorrt-cu12-bindings==10.9.0.34; sys_platform == 'linux'
+tensorrt-cu12-libs==10.9.0.34; sys_platform == 'linux'
 torch==2.3.1
 torchaudio==2.3.1
 transformers==4.40.1
@@ -37,3 +37,4 @@ wget==3.2
 fastapi==0.115.6
 fastapi-cli==0.0.4
 WeTextProcessing==1.0.3
+viztracer

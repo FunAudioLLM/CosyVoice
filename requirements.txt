@@ -18,7 +18,7 @@ networkx==3.1
 omegaconf==2.3.0
 onnx==1.16.0
 onnxruntime-gpu==1.18.0; sys_platform == 'linux'
-onnxruntime==1.18.0; sys_platform == 'darwin' or sys_platform == 'windows'
+onnxruntime==1.18.0; sys_platform == 'darwin' or sys_platform == 'win32'
 openai-whisper==20231117
 protobuf==4.25
 pyarrow==18.1.0

@@ -17,10 +17,16 @@ import requests
 import torch
 import torchaudio
 import numpy as np
+import time
 
+logging.basicConfig(level=logging.DEBUG)
 
 def main():
     url = "http://{}:{}/inference_{}".format(args.host, args.port, args.mode)
+    logging.info('request url: {}'.format(url))
+
+    time_start = time.time()
+    
     if args.mode == 'sft':
         payload = {
             'tts_text': args.tts_text,
@@ -40,6 +46,15 @@ def main():
         }
         files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav, 'rb'), 'application/octet-stream'))]
         response = requests.request("GET", url, data=payload, files=files, stream=True)
+    elif args.mode == 'instruct2':
+        payload = {
+            'tts_text': args.tts_text,
+            'instruct_text': args.instruct_text,
+            'spk_id': args.spk_id
+        }
+        # files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav, 'rb'), 'application/octet-stream'))]
+        # response = requests.request("GET", url, data=payload, files=files, stream=True)
+        response = requests.request("GET", url, data=payload, stream=True)
     else:
         payload = {
             'tts_text': args.tts_text,
@@ -51,6 +66,8 @@ def main():
     for r in response.iter_content(chunk_size=16000):
         tts_audio += r
     tts_speech = torch.from_numpy(np.array(np.frombuffer(tts_audio, dtype=np.int16))).unsqueeze(dim=0)
+    time_end = time.time()
+    logging.info('time cost: {}'.format(time_end - time_start))
     logging.info('save response to {}'.format(args.tts_wav))
     torchaudio.save(args.tts_wav, tts_speech, target_sr)
     logging.info('get response')
@@ -66,7 +83,7 @@ if __name__ == "__main__":
                         default='50000')
     parser.add_argument('--mode',
                         default='sft',
-                        choices=['sft', 'zero_shot', 'cross_lingual', 'instruct'],
+                        choices=['sft', 'zero_shot', 'cross_lingual', 'instruct', 'instruct2'],
                         help='request mode')
     parser.add_argument('--tts_text',
                         type=str,

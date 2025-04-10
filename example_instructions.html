@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>CosyVoice 控制指令示例</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .category {
+            margin-bottom: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #2a2a2a;
+            border: 1px solid #3a3a3a;
+        }
+        .example {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #1f1f1f;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            cursor: pointer;
+            position: relative;
+        }
+        .example:hover {
+            background-color: #2f2f2f;
+        }
+        h1, h2, h3 {
+            color: #ffffff;
+        }
+        .copy-notice {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #2ecc71;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .instruction {
+            color: #2ecc71;
+            font-weight: bold;
+            background-color: rgba(46, 204, 113, 0.1);
+            padding: 2px 4px;
+            border-radius: 3px;
+            cursor: pointer;
+            border: 1px solid rgba(46, 204, 113, 0.3);
+            position: relative;
+            display: inline-block;
+        }
+        .instruction:hover {
+            background-color: rgba(46, 204, 113, 0.2);
+        }
+        /* 修改提示框样式 */
+        .tooltip {
+            position: absolute;
+            background-color: #333;
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 2px;
+            font-size: 14px;
+            min-width: 200px;
+            text-align: left;
+            z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            pointer-events: none;
+            border: 1px solid #444;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(5px);
+            margin-bottom: 5px;
+            white-space: normal;
+            line-height: 1.4;
+        }
+
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid #333;
+        }
+
+        .instruction:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <h1>CosyVoice 控制指令示例</h1>
+    <p>点击示例文本可以复制到剪贴板。所有示例都可以直接在 CosyVoice 中使用。</p>
+
+    <div class="category">
+        <h2>1. 角色扮演控制</h2>
+        <div class="example">神秘<|endofprompt|>那座古老的城堡笼罩在神秘的雾气中，吸引着冒险者前去探索。</div>
+        <div class="example">凶猛<|endofprompt|>战士们以凶猛的勇气冲锋陷阵，让敌人闻风丧胆。</div>
+        <div class="example">好奇<|endofprompt|>对艺术的无限可能，她总是充满好奇，愿意尝试各种不同的创作形式。</div>
+        <div class="example">优雅<|endofprompt|>那位钢琴家的演奏优雅动人，每一个音符都触动人心。</div>
+        <div class="example">孤独<|endofprompt|>夜深人静时，她坐在窗前，总是感到一种莫名的孤独。</div>
+        <div class="example">模仿机器人风格<|endofprompt|>在人工智能技术的支持下，我能够识别语音指令并执行相关操作。</div>
+        <div class="example">我想听听你模仿小猪佩奇的语气。<|endofprompt|>大家好，我是小猪佩奇，今天我和苏西羊一起去公园玩。</div>
+        <div class="example">一个活泼、爱冒险的小精灵<|endofprompt|>嘿，看那片云，它看起来像一只大象在跳舞！</div>
+        <div class="example">一位权威、威严的古代将军<|endofprompt|>战场上的胜利，不仅依赖于兵力，更取决于决策的果敢和士气的高昂。</div>
+        <div class="example">一个忧郁的诗人<|endofprompt|>月光下的一切都是那么宁静，却也那么孤寂，正如我心中的那片荒芜。</div>
+    </div>
+
+    <div class="category">
+        <h2>2. 方言控制</h2>
+        <div class="example">用粤语说这句话<|endofprompt|>我最近迷上一部经典港剧，入面嗰啲对白真系有嚟头。</div>
+        <div class="example">用四川话说<|endofprompt|>前儿个去宽窄巷子喝盖碗茶，坐在小板凳上头听人摆龙门阵，简直安逸得很。</div>
+        <div class="example">上海话<|endofprompt|>侬晓得伐，上礼拜我去淮海路的小马路上头捡漏，居然淘到一只老克勒的手表。</div>
+        <div class="example">郑州话<|endofprompt|>这阵子我在听豫剧，虽然有些地方唱词听不太明白，但音乐一响，耳朵就被吸住了。</div>
+        <div class="example">长沙话<|endofprompt|>哎呀，前几天去坡子街吃夜宵，那口味虾辣得我直冒汗，嘴巴烧得像火。</div>
+        <div class="example">天津话<|endofprompt|>今儿个去逛古文化街，那些个手工艺品五花八门，特别是杨柳青年画。</div>
+    </div>
+
+    <div class="category">
+        <h2>3. 细粒度控制</h2>
+        <h3>笑声控制</h3>
+        <div class="example">在他讲述那个荒诞故事的过程中，他突然[laughter]停下来，因为他自己也被逗笑了[laughter]。</div>
+        <div class="example">他搞的一个恶作剧，让大家&ltlaughter&gt忍俊不禁&lt/laughter&gt。</div>
+        <div class="example">Oh wow [laughter], I thought I had seen it all until now [laughter]. Your ability to surprise never ceases to amaze me [laughter].</div>
+
+        <h3>强调控制</h3>
+        <div class="example">追求卓越不是终点，它需要你每天都&ltstrong&gt付出&lt/strong&gt和&ltstrong&gt精进&lt/strong&gt，最终才能达到巅峰。</div>
+        <div class="example">With &ltstrong&gtdetermination&lt/strong&gt and &ltstrong&gtfocus&lt/strong&gt, we can overcome &ltstrong&gtany challenge&lt/strong&gt.</div>
+
+        <h3>呼吸控制</h3>
+        <div class="example">当你用心去倾听一首音乐时[breath]，你会开始注意到那些细微的音符变化[breath]，并通过它们感受到音乐背后的情感。</div>
+        <div class="example">深呼吸[breath]让我们保持冷静[breath]仔细思考这个问题。</div>
+
+        <h3>混合控制</h3>
+        <div class="example">这个笑话太有趣了[laughter]，让我喘口气[breath]，&ltstrong&gt实在是太好笑了&lt/strong&gt！</div>
+        <div class="example">The performance was &ltstrong&gtbreathtaking&lt/strong&gt [breath], and the audience burst into [laughter] thunderous applause.</div>
+    </div>
+
+    <div class="category">
+        <h2>4. 说话风格控制</h2>
+        <h3>情感风格</h3>
+        <div class="example">用开心的语气说<|endofprompt|>参加朋友的婚礼，看着新人幸福的笑脸，我感到无比开心。</div>
+        <div class="example">用伤心的语气说<|endofprompt|>收到拒信的那一刻，我感到无比伤心。</div>
+        <div class="example">用惊讶的语气说<|endofprompt|>走进家门，看见墙上挂满了我的照片，我惊讶得愣住了。</div>
+        <div class="example">用生气的语气说<|endofprompt|>在交通高峰期，遭遇到一位鲁莽的司机插队，我感到非常生气。</div>
+        <div class="example">用恐惧的情感表达<|endofprompt|>看恐怖电影时，那突如其来的惊悚画面让我感到无比恐惧。</div>
+        <div class="example">用恶心的情感表达<|endofprompt|>听到关于人体实验的细节描述，我感到非常恶心。</div>
+
+        <h3>语速控制</h3>
+        <div class="example">快速<|endofprompt|>这款新应用程序加载速度极快，让用户体验得到了极大的提升。</div>
+        <div class="example">非常快速<|endofprompt|>这款新应用程序加载速度极快，让用户体验得到了极大的提升。</div>
+        <div class="example">慢速<|endofprompt|>听着轻柔的音乐，我在画布上慢慢地涂抹色彩。</div>
+        <div class="example">非常慢速<|endofprompt|>听着轻柔的音乐，我在画布上慢慢地涂抹色彩。</div>
+
+        <h3>语气控制</h3>
+        <div class="example">冷静<|endofprompt|>在争论中，我试图让自己冷静下来，理智地表达我的观点。</div>
+        <div class="example">严肃<|endofprompt|>这个安全隐患问题必须严肃处理，我们不能掉以轻心。</div>
+
+        <h3>英文风格</h3>
+        <div class="example">Bubbling with happiness<|endofprompt|>The laughter of children playing in the park fills the air.</div>
+        <div class="example">Overcome with sorrow<|endofprompt|>I miss my dear friend who moved away last month.</div>
+        <div class="example">Speaking very fast<|endofprompt|>I can't believe how much I have to do today!</div>
+        <div class="example">Speaking with patience<|endofprompt|>As we work through this problem, I'll go slowly.</div>
+    </div>
+
+    <script>
+        // 创建一个用于显示通知的容器
+        const noticeContainer = document.createElement('div');
+        noticeContainer.style.position = 'fixed';
+        noticeContainer.style.top = '20px';
+        noticeContainer.style.right = '20px';
+        noticeContainer.style.zIndex = '1000';
+        document.body.appendChild(noticeContainer);
+
+        // 指令说明映射
+        const instructionDescriptions = {
+            '[laughter]': '添加笑声效果，使语音表现出欢快的笑声',
+            '[breath]': '添加呼吸声效果，在语音中插入自然的呼吸停顿',
+            '<strong>': '开始加重语气标记，用于强调后续内容',
+            '</strong>': '结束加重语气标记，与前面的<strong>配对使用，被这两个标记包围的文字会被加重语气',
+            '<laughter>': '开始笑声效果标记，使用XML格式',
+            '</laughter>': '结束笑声效果标记，与前面的<laughter>配对使用，被这两个标记包围的文字会带有笑声效果'
+        };
+
+        // 函数：将文本中的指令部分用span包裹，并添加提示
+        function wrapInstructions(element) {
+            const text = element.textContent;
+            
+            if (text.includes('<|endofprompt|>')) {
+                // 分割文本，但保持原始HTML结构
+                const parts = text.split('<|endofprompt|>');
+                const beforePrompt = parts[0].trim();
+                const afterPrompt = parts[1];
+                
+                // 创建新的HTML，将指令部分包裹在span中
+                element.innerHTML = `<span class="instruction" data-instruction="${beforePrompt}">${beforePrompt}</span><|endofprompt|>${afterPrompt}`;
+            } else {
+                // 处理其他标记，并添加提示
+                let html = element.innerHTML;
+                html = html.replace(/(\[.*?\]|&lt;.*?&gt;)/g, (match) => {
+                    // 将HTML实体转换回实际字符以匹配说明
+                    const actualTag = match.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+                    const description = instructionDescriptions[actualTag] || `${actualTag} - 控制语音输出的标记`;
+                    return `<span class="instruction" data-instruction="${match}">
+                        ${match}
+                        <span class="tooltip">${description}</span>
+                    </span>`;
+                });
+                element.innerHTML = html;
+            }
+        }
+
+        // 为所有示例添加高亮和提示
+        document.querySelectorAll('.example').forEach(example => {
+            wrapInstructions(example);
+        });
+
+        // 显示通知的函数
+        function showNotice(text) {
+            const notice = document.createElement('div');
+            notice.className = 'copy-notice';
+            notice.textContent = '已复制指令：' + text;
+            noticeContainer.appendChild(notice);
+
+            setTimeout(() => {
+                notice.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => notice.remove(), 300);
+            }, 1500);
+        }
+
+        // 为指令添加点击事件
+        document.addEventListener('click', function(event) {
+            if (event.target.classList.contains('instruction')) {
+                const instruction = event.target.dataset.instruction;
+                
+                navigator.clipboard.writeText(instruction.trim()).then(() => {
+                    showNotice(instruction.trim());
+                });
+
+                // 阻止事件冒泡
+                event.stopPropagation();
+            }
+        });
+    </script>
+</body>
+</html> 

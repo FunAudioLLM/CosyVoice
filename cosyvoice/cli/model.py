@@ -310,8 +310,6 @@ class CosyVoice2Model(CosyVoiceModel):
                  hift: torch.nn.Module,
                  fp16: bool,
                  use_flow_cache: bool):
-            
-        self.device = torch.device('cpu')
 
         if torch.cuda.is_available():
             self.device = torch.device('cuda')
@@ -490,7 +488,7 @@ class CosyVoice2Model(CosyVoiceModel):
             self.llm_end_dict.pop(this_uuid)
             self.hift_cache_dict.pop(this_uuid)
             self.flow_cache_dict.pop(this_uuid)
-    
+
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         elif torch.backends.mps.is_available():

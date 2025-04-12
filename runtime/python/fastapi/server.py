@@ -61,6 +61,8 @@ def load_txt(prompt_text):
 async def inference_zero_shot(tts_text: str = Form(), prompt_text: str = Form(), person: str = Form()):
     prompt_speech_16k = load_wav(f'{asset_dir}/{person}/prompt.wav', 16000)
     prompt_text = load_txt(f'{asset_dir}/{person}/prompt.txt')
+    # if i have to turn on "stream"?
+    # if i use yield in the generator?
     model_output = cosyvoice.inference_zero_shot(generate_txt(tts_text), prompt_text, prompt_speech_16k, stream=True)
     return StreamingResponse(generate_data(model_output))
 

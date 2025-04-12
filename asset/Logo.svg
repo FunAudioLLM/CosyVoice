@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <!-- 渐变定义 -->
+    <defs>
+        <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#45E2A0;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:0.8" />
+            <stop offset="100%" style="stop-color:#45E2A0;stop-opacity:0.8" />
+        </linearGradient>
+    </defs>
+
+    <!-- 背景图形 -->
+    <circle cx="100" cy="100" r="90" fill="url(#mainGradient)" opacity="0.1"/>
+    <circle cx="100" cy="100" r="70" fill="none" stroke="url(#waveGradient)" stroke-width="0.5" opacity="0.3"/>
+    <circle cx="100" cy="100" r="50" fill="none" stroke="url(#waveGradient)" stroke-width="0.5" opacity="0.3"/>
+    
+    <!-- 装饰性几何图形 -->
+    <g transform="translate(100 100)">
+        <rect x="-40" y="-40" width="80" height="80" 
+              fill="none" stroke="url(#waveGradient)" 
+              stroke-width="0.5" opacity="0.2" 
+              transform="rotate(45)"/>
+        <rect x="-30" y="-30" width="60" height="60" 
+              fill="none" stroke="url(#waveGradient)" 
+              stroke-width="0.5" opacity="0.2" 
+              transform="rotate(45)"/>
+    </g>
+
+    <!-- 现代化书本形状 -->
+    <path d="M65 65 
+             C65 65, 90 60, 135 65 
+             L135 125 
+             C90 120, 65 125, 65 125 
+             C60 125, 55 120, 55 115 
+             L55 75 
+             C55 70, 60 65, 65 65 Z" 
+          fill="url(#mainGradient)"
+          opacity="0.8"/>
+    
+    <!-- 书本内部纹理 -->
+    <path d="M70 75 L120 75" stroke="white" stroke-width="1" opacity="0.3"/>
+    <path d="M70 85 L125 85" stroke="white" stroke-width="1" opacity="0.3"/>
+    <path d="M70 95 L115 95" stroke="white" stroke-width="1" opacity="0.3"/>
+    <path d="M70 105 L120 105" stroke="white" stroke-width="1" opacity="0.3"/>
+    
+    <!-- 静态声音波纹 -->
+    <g stroke="url(#waveGradient)" stroke-width="2" fill="none">
+        <path d="M140 85 Q155 100 140 115" opacity="0.8"/>
+        <path d="M150 75 Q170 100 150 125" opacity="0.6"/>
+        <path d="M160 65 Q185 100 160 135" opacity="0.4"/>
+    </g>
+    
+    <!-- 额外的装饰元素 -->
+    <circle cx="140" cy="100" r="3" fill="url(#mainGradient)" opacity="0.8"/>
+    <circle cx="150" cy="100" r="2" fill="url(#mainGradient)" opacity="0.6"/>
+    <circle cx="160" cy="100" r="1" fill="url(#mainGradient)" opacity="0.4"/>
+    
+    <!-- 点缀装饰 -->
+    <circle cx="70" cy="65" r="1" fill="white" opacity="0.5"/>
+    <circle cx="130" cy="65" r="1" fill="white" opacity="0.5"/>
+    <circle cx="100" cy="60" r="1" fill="white" opacity="0.5"/>
+
+    <!-- 文字 -->
+    <text x="100" y="150" 
+          font-family="'Signika Negative', 'Segoe UI', Arial, sans-serif" 
+          font-size="20" 
+          fill="url(#mainGradient)" 
+          text-anchor="middle" 
+          font-weight="400"
+          letter-spacing="1">
+        EduVoiceLab
+    </text>
+</svg>

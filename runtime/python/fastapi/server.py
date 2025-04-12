@@ -14,6 +14,7 @@
 import os
 import sys
 import argparse
+import re
 import logging
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 from fastapi import FastAPI, UploadFile, Form, File
@@ -45,7 +46,7 @@ def generate_data(model_output):
 
 
 def generate_txt(tts_text):
-    for str in tts_text.split('.',',','\n'):
+    for str in re.split(r'[.,!?\n]', tts_text):
         yield str
 
 

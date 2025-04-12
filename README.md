@@ -1,12 +1,12 @@
 <div align="center">
     <img src="asset/Logo.svg" alt="EduVoiceLab Logo" width="200" height="200">
-    <h1>EduVoiceLab</h1>
+    <h1>育音EduVoiceLab</h1>
     <h2>基于 AI 语音合成的教学声音处理软件</h2>
 </div>
 
 ## 📖 项目介绍
 
-EduVoiceLab 是一个创新的教育科技项目，致力于将 AI 语音合成技术应用于教育领域。通过TTS声音克隆和文本转语音，为教育工作者和学习者提供个性化的语音解决方案。
+育音EduVoiceLab 是一个创新的教育科技项目，致力于将 AI 语音合成技术应用于教育领域。通过TTS声音克隆和文本转语音，为教育工作者和学习者提供个性化的语音解决方案。
 
 ### 🌟 核心特性
 

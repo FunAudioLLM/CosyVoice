@@ -24,9 +24,10 @@ import numpy as np
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/../../..'.format(ROOT_DIR))
 sys.path.append('{}/../../../third_party/Matcha-TTS'.format(ROOT_DIR))
-from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
+from cosyvoice.cli.cosyvoice import CosyVoice2
 from cosyvoice.utils.file_utils import load_wav
 
+asset_dir = os.path.join('{}/../../../voice'.format(ROOT_DIR))
 app = FastAPI()
 # set cross region allowance
 app.add_middleware(
@@ -43,59 +44,38 @@ def generate_data(model_output):
         yield tts_audio
 
 
-@app.get("/inference_sft")
-@app.post("/inference_sft")
-async def inference_sft(tts_text: str = Form(), spk_id: str = Form()):
-    model_output = cosyvoice.inference_sft(tts_text, spk_id)
-    return StreamingResponse(generate_data(model_output))
+def generate_txt(tts_text):
+    for str in tts_text.split('.',',','\n'):
+        yield str
+
+
+def load_txt(prompt_text):
+    with open(prompt_text, 'r', encoding='utf-8') as f:
+        prompt_text = f.read()
+    return prompt_text
 
 
 @app.get("/inference_zero_shot")
 @app.post("/inference_zero_shot")
-async def inference_zero_shot(tts_text: str = Form(), prompt_text: str = Form(), prompt_wav: UploadFile = File()):
-    prompt_speech_16k = load_wav(prompt_wav.file, 16000)
-    model_output = cosyvoice.inference_zero_shot(tts_text, prompt_text, prompt_speech_16k)
+async def inference_zero_shot(tts_text: str = Form(), prompt_text: str = Form(), person: str = Form()):
+    prompt_speech_16k = load_wav(f'{asset_dir}/{person}/prompt.wav', 16000)
+    prompt_text = load_txt(f'{asset_dir}/{person}/prompt.txt')
+    model_output = cosyvoice.inference_zero_shot(generate_txt(tts_text), prompt_text, prompt_speech_16k, stream=True)
     return StreamingResponse(generate_data(model_output))
-
-
-@app.get("/inference_cross_lingual")
-@app.post("/inference_cross_lingual")
-async def inference_cross_lingual(tts_text: str = Form(), prompt_wav: UploadFile = File()):
-    prompt_speech_16k = load_wav(prompt_wav.file, 16000)
-    model_output = cosyvoice.inference_cross_lingual(tts_text, prompt_speech_16k)
-    return StreamingResponse(generate_data(model_output))
-
-
-@app.get("/inference_instruct")
-@app.post("/inference_instruct")
-async def inference_instruct(tts_text: str = Form(), spk_id: str = Form(), instruct_text: str = Form()):
-    model_output = cosyvoice.inference_instruct(tts_text, spk_id, instruct_text)
-    return StreamingResponse(generate_data(model_output))
-
-@app.get("/inference_instruct2")
-@app.post("/inference_instruct2")
-async def inference_instruct2(tts_text: str = Form(), instruct_text: str = Form(), prompt_wav: UploadFile = File()):
-    prompt_speech_16k = load_wav(prompt_wav.file, 16000)
-    model_output = cosyvoice.inference_instruct2(tts_text, instruct_text, prompt_speech_16k)
-    return StreamingResponse(generate_data(model_output))
-
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--port',
                         type=int,
-                        default=50000)
+                        default=21559)
     parser.add_argument('--model_dir',
                         type=str,
-                        default='iic/CosyVoice-300M',
+                        default='pretrained_models/CosyVoice2-0.5B-trt',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
     try:
-        cosyvoice = CosyVoice(args.model_dir)
+        cosyvoice = CosyVoice2(args.model_dir)
     except Exception:
-        try:
-            cosyvoice = CosyVoice2(args.model_dir)
-        except Exception:
-            raise TypeError('no valid model_type!')
+        raise TypeError('no valid model_type!')
     uvicorn.run(app, host="0.0.0.0", port=args.port)

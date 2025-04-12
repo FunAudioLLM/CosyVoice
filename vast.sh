@@ -1,9 +1,9 @@
 #!/bin/bash
+git checkout main
 git pull
 sudo apt-get install vim unzip -y
 tar -xvf test.tar.gz
 cp ./pretrained_models/CosyVoice2-0.5B ./pretrained_models/CosyVoice2-0.5B-trt -r
-conda activate cosyvoice
 ./cosyvoice/bin/export_trt.sh
 cd pretrained_models/CosyVoice-ttsfrd
 unzip resource.zip -d . && \

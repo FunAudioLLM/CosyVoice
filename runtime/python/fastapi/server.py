@@ -123,11 +123,54 @@ async def inference_instruct(tts_text: str = Form(), spk_id: str = Form(), instr
     model_output = cosyvoice.inference_instruct(tts_text, spk_id, instruct_text, stream = False)
     return StreamingResponse(generate_data(model_output),headers=generate_header())
 
+@app.post("/inference_instruct2")
+async def inference_instruct2(tts_text: str = Form(), instruct_text: str = Form(), prompt_wav: UploadFile = File()):
+    set_all_random_seed(generate_seed()["value"])
+    prompt_speech_16k = postprocess(load_wav(prompt_wav.file, 16000))
+    model_output = cosyvoice.inference_instruct2(tts_text, instruct_text,prompt_speech_16k, stream = False)
+    return StreamingResponse(generate_data(model_output),headers=generate_header())
+
 @app.post("/stream/inference_instruct")
 async def inference_instruct(tts_text: str = Form(), spk_id: str = Form(), instruct_text: str = Form()):
     set_all_random_seed(generate_seed()["value"])
     model_output = cosyvoice.inference_instruct(tts_text, spk_id, instruct_text, stream = True)
     return StreamingResponse(generate_stream(model_output),headers=generate_header())
+    
+import torch
+import threading
+
+# 检查当前 GPU 的显存使用情况
+def check_memory_usage():
+    allocated = torch.cuda.memory_allocated() / (1024 ** 2)  # 转换为MB
+    reserved = torch.cuda.memory_reserved() / (1024 ** 2)    # 转换为MB
+    total_memory = torch.cuda.get_device_properties(0).total_memory / (1024 ** 2)  # 转换为MB
+    logging.info(f"Allocated memory: {allocated:.2f} MB")
+    logging.info(f"Reserved memory: {reserved:.2f} MB")
+    logging.info(f"Total memory: {total_memory:.2f} MB")
+    return allocated, reserved, total_memory
+
+# 释放未使用的显存
+def release_memory():
+    torch.cuda.empty_cache()
+    logging.info("Memory has been released.")
+
+# 检查显存使用情况并在需要时释放显存
+def monitor_and_release_memory():
+    allocated, reserved, total_memory = check_memory_usage()
+    if allocated >= total_memory / 2:
+        logging.info("Allocated memory exceeds half of the total memory. Releasing memory...")
+        release_memory()
+    else:
+        logging.info("Memory usage is within acceptable limits.")
+
+# 定时器函数，每10分钟运行一次
+def run_periodically(interval, func):
+    def wrapper():
+        func()
+        threading.Timer(interval, wrapper).start()
+    
+    wrapper()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -139,5 +182,10 @@ if __name__ == '__main__':
                         default='iic/CosyVoice-300M',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
+        # 设置每个进程最多使用 50% 的 GPU 显存
+    #torch.cuda.set_per_process_memory_fraction(0.8, 0)
+    #logging.info('Torch set_per_process_memory_fraction 0.8')
     cosyvoice = CosyVoice2(args.model_dir) if 'CosyVoice2' in args.model_dir else CosyVoice(args.model_dir)
+    # 每10分钟（600秒）运行一次 monitor_and_release_memory
+    #run_periodically(600, monitor_and_release_memory)
     uvicorn.run(app, host="0.0.0.0", port=args.port)

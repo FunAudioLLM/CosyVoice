@@ -63,7 +63,7 @@ def main():
     try:
         with open(args.config, 'r') as f:
             configs = load_hyperpyyaml(f, overrides={'qwen_pretrain_path': args.qwen_pretrain_path})
-        model = CosyVoice2Model(configs['llm'], configs['flow'], configs['hift'], fp16=False)
+        model = CosyVoice2Model(configs['llm'], configs['flow'], configs['hift'], fp16=False, use_flow_cache=configs.get('use_flow_cache', False))
     except Exception:
         try:
             with open(args.config, 'r') as f:

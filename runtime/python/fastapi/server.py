@@ -58,7 +58,7 @@ def load_txt(prompt_text):
 
 @app.get("/inference_zero_shot")
 @app.post("/inference_zero_shot")
-async def inference_zero_shot(tts_text: str = Form(), prompt_text: str = Form(), person: str = Form()):
+async def inference_zero_shot(tts_text: str = Form(), person: str = Form()):
     prompt_speech_16k = load_wav(f'{asset_dir}/{person}/prompt.wav', 16000)
     prompt_text = load_txt(f'{asset_dir}/{person}/prompt.txt')
     # if i have to turn on "stream"?

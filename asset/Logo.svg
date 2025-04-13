@@ -66,7 +66,7 @@
     <circle cx="100" cy="60" r="1" fill="white" opacity="0.5"/>
 
     <!-- 中文标题 -->
-    <text x="100" y="38" 
+    <text x="100" y="34" 
           font-family="'Source Han Sans','Source Han Serif','Noto Sans SC','Microsoft YaHei',Arial,sans-serif" 
           font-size="24" 
           fill="url(#mainGradient)" 

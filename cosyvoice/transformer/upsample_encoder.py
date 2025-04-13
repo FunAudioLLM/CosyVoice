@@ -56,11 +56,16 @@ class Upsample1D(nn.Module):
         # In this mode, first repeat interpolate, than conv with stride=1
         self.conv = nn.Conv1d(self.channels, self.out_channels, stride * 2 + 1, stride=1, padding=0)
 
-    def forward(self, inputs: torch.Tensor, input_lengths: torch.Tensor):
+    def forward(self, inputs: torch.Tensor, input_lengths: torch.Tensor, conv_cache: torch.Tensor = torch.zeros(0, 0, 0)) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         outputs = F.interpolate(inputs, scale_factor=float(self.stride), mode="nearest")
-        outputs = F.pad(outputs, (self.stride * 2, 0), value=0.0)
+        if conv_cache.size(2) == 0:
+            outputs = F.pad(outputs, (self.stride * 2, 0), value=0.0)
+        else:
+            assert conv_cache.size(2) == self.stride * 2
+            outputs = torch.concat([conv_cache, outputs], dim=2)
+        conv_cache_new = outputs[:, :, -self.stride * 2:]
         outputs = self.conv(outputs)
-        return outputs, input_lengths * self.stride
+        return outputs, input_lengths * self.stride, conv_cache_new
 
 
 class PreLookaheadLayer(nn.Module):
@@ -78,22 +83,32 @@ class PreLookaheadLayer(nn.Module):
             kernel_size=3, stride=1, padding=0,
         )
 
-    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+    def forward(self, inputs: torch.Tensor, context: torch.Tensor = torch.zeros(0, 0, 0), conv2_cache: torch.Tensor = torch.zeros(0, 0, 0)) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         inputs: (batch_size, seq_len, channels)
         """
         outputs = inputs.transpose(1, 2).contiguous()
+        context = context.transpose(1, 2).contiguous()
         # look ahead
-        outputs = F.pad(outputs, (0, self.pre_lookahead_len), mode='constant', value=0.0)
+        if context.size(2) == 0:
+            outputs = F.pad(outputs, (0, self.pre_lookahead_len), mode='constant', value=0.0)
+        else:
+            assert context.size(2) == self.pre_lookahead_len
+            outputs = F.pad(torch.concat([outputs, context], dim=2), (0, self.pre_lookahead_len - context.size(2)), mode='constant', value=0.0)
         outputs = F.leaky_relu(self.conv1(outputs))
         # outputs
-        outputs = F.pad(outputs, (2, 0), mode='constant', value=0.0)
+        if conv2_cache.size(2) == 0:
+            outputs = F.pad(outputs, (self.conv2.kernel_size[0] - 1, 0), mode='constant', value=0.0)
+        else:
+            assert conv2_cache.size(2) == self.conv2.kernel_size[0] - 1
+            outputs = torch.concat([conv2_cache, outputs], dim=2)
+        conv2_cache_new = outputs[:, :, -(self.conv2.kernel_size[0] - 1):]
         outputs = self.conv2(outputs)
         outputs = outputs.transpose(1, 2).contiguous()
 
         # residual connection
         outputs = outputs + inputs
-        return outputs
+        return outputs, conv2_cache_new
 
 
 class UpsampleConformerEncoder(torch.nn.Module):
@@ -240,6 +255,7 @@ class UpsampleConformerEncoder(torch.nn.Module):
         xs_lens: torch.Tensor,
         decoding_chunk_size: int = 0,
         num_decoding_left_chunks: int = -1,
+        streaming: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Embed positions in tensor.
 
@@ -270,30 +286,20 @@ class UpsampleConformerEncoder(torch.nn.Module):
             xs = self.global_cmvn(xs)
         xs, pos_emb, masks = self.embed(xs, masks)
         mask_pad = masks  # (B, 1, T/subsample_rate)
-        chunk_masks = add_optional_chunk_mask(xs, masks,
-                                              self.use_dynamic_chunk,
-                                              self.use_dynamic_left_chunk,
-                                              decoding_chunk_size,
-                                              self.static_chunk_size,
-                                              num_decoding_left_chunks)
+        chunk_masks = add_optional_chunk_mask(xs, masks, False, False, 0, self.static_chunk_size if streaming is True else 0, -1)
         # lookahead + conformer encoder
-        xs = self.pre_lookahead_layer(xs)
+        xs, _ = self.pre_lookahead_layer(xs)
         xs = self.forward_layers(xs, chunk_masks, pos_emb, mask_pad)
 
         # upsample + conformer encoder
         xs = xs.transpose(1, 2).contiguous()
-        xs, xs_lens = self.up_layer(xs, xs_lens)
+        xs, xs_lens, _ = self.up_layer(xs, xs_lens)
         xs = xs.transpose(1, 2).contiguous()
         T = xs.size(1)
         masks = ~make_pad_mask(xs_lens, T).unsqueeze(1)  # (B, 1, T)
         xs, pos_emb, masks = self.up_embed(xs, masks)
         mask_pad = masks  # (B, 1, T/subsample_rate)
-        chunk_masks = add_optional_chunk_mask(xs, masks,
-                                              self.use_dynamic_chunk,
-                                              self.use_dynamic_left_chunk,
-                                              decoding_chunk_size,
-                                              self.static_chunk_size * self.up_layer.stride,
-                                              num_decoding_left_chunks)
+        chunk_masks = add_optional_chunk_mask(xs, masks, False, False, 0, self.static_chunk_size * self.up_layer.stride if streaming is True else 0, -1)
         xs = self.forward_up_layers(xs, chunk_masks, pos_emb, mask_pad)
 
         if self.normalize_before:
@@ -316,3 +322,100 @@ class UpsampleConformerEncoder(torch.nn.Module):
         for layer in self.up_encoders:
             xs, chunk_masks, _, _ = layer(xs, chunk_masks, pos_emb, mask_pad)
         return xs
+
+    @torch.jit.export
+    def forward_chunk(
+        self,
+        xs: torch.Tensor,
+        xs_lens: torch.Tensor,
+        offset: int = 0,
+        context: torch.Tensor = torch.zeros(0, 0, 0),
+        pre_lookahead_layer_conv2_cache: torch.Tensor = torch.zeros(0, 0, 0),
+        encoders_kv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0, 0),
+        upsample_offset: int = 0,
+        upsample_conv_cache: torch.Tensor = torch.zeros(0, 0, 0),
+        upsample_kv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0, 0)
+    ) -> Tuple[torch.Tensor, torch.Tensor, Tuple[int, torch.Tensor, torch.Tensor, int, torch.Tensor, torch.Tensor]]:
+        """Embed positions in tensor.
+
+        Args:
+            xs: padded input tensor (B, T, D)
+            xs_lens: input length (B)
+            decoding_chunk_size: decoding chunk size for dynamic chunk
+                0: default for training, use random dynamic chunk.
+                <0: for decoding, use full chunk.
+                >0: for decoding, use fixed chunk size as set.
+            num_decoding_left_chunks: number of left chunks, this is for decoding,
+            the chunk size is decoding_chunk_size.
+                >=0: use num_decoding_left_chunks
+                <0: use all left chunks
+        Returns:
+            encoder output tensor xs, and subsampled masks
+            xs: padded output tensor (B, T' ~= T/subsample_rate, D)
+            masks: torch.Tensor batch padding mask after subsample
+                (B, 1, T' ~= T/subsample_rate)
+        NOTE(xcsong):
+            We pass the `__call__` method of the modules instead of `forward` to the
+            checkpointing API because `__call__` attaches all the hooks of the module.
+            https://discuss.pytorch.org/t/any-different-between-model-input-and-model-forward-input/3690/2
+        """
+        assert xs.size(0) == 1
+        # tmp_masks is just for interface compatibility
+        tmp_masks = torch.ones(1,
+                               xs.size(1),
+                               device=xs.device,
+                               dtype=torch.bool)
+        tmp_masks = tmp_masks.unsqueeze(1)
+        if self.global_cmvn is not None:
+            xs = self.global_cmvn(xs)
+        # NOTE(xcsong): Before embed, shape(xs) is (b=1, time, mel-dim)
+        xs, pos_emb, _ = self.embed(xs, tmp_masks, offset)
+        offset += xs.size(1)
+        tmp_masks = torch.ones(1,
+                               context.size(1),
+                               device=context.device,
+                               dtype=torch.bool)
+        tmp_masks = tmp_masks.unsqueeze(1)
+        if context.size(1) != 0:
+            context, _, _ = self.embed(context, tmp_masks, offset)
+
+        # lookahead + conformer encoder
+        xs, pre_lookahead_layer_conv2_cache = self.pre_lookahead_layer(xs, context, pre_lookahead_layer_conv2_cache)
+        # NOTE in cache mode we do not need to call add_optional_chunk_mask
+        chunk_masks = torch.ones((1, xs.size(1), offset), dtype=torch.bool, device=xs.device)
+        mask_pad = torch.ones((0, 0, 0), dtype=torch.bool, device=xs.device)
+        encoders_kv_cache_list = []
+        for index, layer in enumerate(self.encoders):
+            xs, chunk_masks, encoders_kv_cache_new, _ = layer(xs, chunk_masks, pos_emb, mask_pad, encoders_kv_cache[index])
+            encoders_kv_cache_list.append(encoders_kv_cache_new)
+        encoders_kv_cache = torch.stack(encoders_kv_cache_list, dim=0)
+
+        # upsample
+        xs = xs.transpose(1, 2).contiguous()
+        xs, xs_lens, upsample_conv_cache = self.up_layer(xs, xs_lens, upsample_conv_cache)
+        xs = xs.transpose(1, 2).contiguous()
+
+        # tmp_masks is just for interface compatibility
+        tmp_masks = torch.ones(1,
+                               xs.size(1),
+                               device=xs.device,
+                               dtype=torch.bool)
+        tmp_masks = tmp_masks.unsqueeze(1)
+        xs, pos_emb, masks = self.up_embed(xs, tmp_masks, upsample_offset)
+        upsample_offset += xs.size(1)
+
+        # conformer encoder
+        chunk_masks = torch.ones((1, xs.size(1), upsample_offset), dtype=torch.bool, device=xs.device)
+        mask_pad = torch.ones((0, 0, 0), dtype=torch.bool, device=xs.device)
+        upsample_kv_cache_list = []
+        for index, layer in enumerate(self.up_encoders):
+            xs, chunk_masks, upsample_kv_cache_new, _ = layer(xs, chunk_masks, pos_emb, mask_pad, upsample_kv_cache[index])
+            upsample_kv_cache_list.append(upsample_kv_cache_new)
+        upsample_kv_cache = torch.stack(upsample_kv_cache_list, dim=0)
+
+        if self.normalize_before:
+            xs = self.after_norm(xs)
+        # Here we assume the mask is not changed in encoder layers, so just
+        # return the masks before encoder layers, and the masks will be used
+        # for cross attention with decoder later
+        return xs, masks, (offset, pre_lookahead_layer_conv2_cache, encoders_kv_cache, upsample_offset, upsample_conv_cache, upsample_kv_cache)

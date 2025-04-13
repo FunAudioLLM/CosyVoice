@@ -1,9 +1,15 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils import weight_norm
+import torch.nn.functional as F
+try:
+    from torch.nn.utils.parametrizations import weight_norm, spectral_norm
+except ImportError:
+    from torch.nn.utils import weight_norm, spectral_norm
 from typing import List, Optional, Tuple
 from einops import rearrange
 from torchaudio.transforms import Spectrogram
+
+LRELU_SLOPE = 0.1
 
 
 class MultipleDiscriminator(nn.Module):
@@ -138,3 +144,87 @@ class DiscriminatorR(nn.Module):
         x += h
 
         return x, fmap
+
+
+class MultiResSpecDiscriminator(torch.nn.Module):
+
+    def __init__(self,
+                 fft_sizes=[1024, 2048, 512],
+                 hop_sizes=[120, 240, 50],
+                 win_lengths=[600, 1200, 240],
+                 window="hann_window"):
+
+        super(MultiResSpecDiscriminator, self).__init__()
+        self.discriminators = nn.ModuleList([
+            SpecDiscriminator(fft_sizes[0], hop_sizes[0], win_lengths[0], window),
+            SpecDiscriminator(fft_sizes[1], hop_sizes[1], win_lengths[1], window),
+            SpecDiscriminator(fft_sizes[2], hop_sizes[2], win_lengths[2], window)])
+
+    def forward(self, y, y_hat):
+        y_d_rs = []
+        y_d_gs = []
+        fmap_rs = []
+        fmap_gs = []
+        for _, d in enumerate(self.discriminators):
+            y_d_r, fmap_r = d(y)
+            y_d_g, fmap_g = d(y_hat)
+            y_d_rs.append(y_d_r)
+            fmap_rs.append(fmap_r)
+            y_d_gs.append(y_d_g)
+            fmap_gs.append(fmap_g)
+
+        return y_d_rs, y_d_gs, fmap_rs, fmap_gs
+
+
+def stft(x, fft_size, hop_size, win_length, window):
+    """Perform STFT and convert to magnitude spectrogram.
+    Args:
+        x (Tensor): Input signal tensor (B, T).
+        fft_size (int): FFT size.
+        hop_size (int): Hop size.
+        win_length (int): Window length.
+        window (str): Window function type.
+    Returns:
+        Tensor: Magnitude spectrogram (B, #frames, fft_size // 2 + 1).
+    """
+    x_stft = torch.stft(x, fft_size, hop_size, win_length, window, return_complex=True)
+
+    # NOTE(kan-bayashi): clamp is needed to avoid nan or inf
+    return torch.abs(x_stft).transpose(2, 1)
+
+
+class SpecDiscriminator(nn.Module):
+    """docstring for Discriminator."""
+
+    def __init__(self, fft_size=1024, shift_size=120, win_length=600, window="hann_window", use_spectral_norm=False):
+        super(SpecDiscriminator, self).__init__()
+        norm_f = weight_norm if use_spectral_norm is False else spectral_norm
+        self.fft_size = fft_size
+        self.shift_size = shift_size
+        self.win_length = win_length
+        self.window = getattr(torch, window)(win_length)
+        self.discriminators = nn.ModuleList([
+            norm_f(nn.Conv2d(1, 32, kernel_size=(3, 9), padding=(1, 4))),
+            norm_f(nn.Conv2d(32, 32, kernel_size=(3, 9), stride=(1, 2), padding=(1, 4))),
+            norm_f(nn.Conv2d(32, 32, kernel_size=(3, 9), stride=(1, 2), padding=(1, 4))),
+            norm_f(nn.Conv2d(32, 32, kernel_size=(3, 9), stride=(1, 2), padding=(1, 4))),
+            norm_f(nn.Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))),
+        ])
+
+        self.out = norm_f(nn.Conv2d(32, 1, 3, 1, 1))
+
+    def forward(self, y):
+
+        fmap = []
+        y = y.squeeze(1)
+        y = stft(y, self.fft_size, self.shift_size, self.win_length, self.window.to(y.device))
+        y = y.unsqueeze(1)
+        for _, d in enumerate(self.discriminators):
+            y = d(y)
+            y = F.leaky_relu(y, LRELU_SLOPE)
+            fmap.append(y)
+
+        y = self.out(y)
+        fmap.append(y)
+
+        return torch.flatten(y, 1, -1), fmap

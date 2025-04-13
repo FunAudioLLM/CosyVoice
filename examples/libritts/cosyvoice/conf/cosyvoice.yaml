@@ -147,7 +147,7 @@ hifigan: !new:cosyvoice.hifigan.hifigan.HiFiGan
     generator: !ref <hift>
     discriminator: !new:cosyvoice.hifigan.discriminator.MultipleDiscriminator
         mpd: !new:matcha.hifigan.models.MultiPeriodDiscriminator
-        mrd: !new:cosyvoice.hifigan.discriminator.MultiResolutionDiscriminator
+        mrd: !new:cosyvoice.hifigan.discriminator.MultiResSpecDiscriminator
     mel_spec_transform: [
         !ref <mel_spec_transform1>
     ]
@@ -183,12 +183,9 @@ feat_extractor: !name:matcha.utils.audio.mel_spectrogram
     center: False
 compute_fbank: !name:cosyvoice.dataset.processor.compute_fbank
     feat_extractor: !ref <feat_extractor>
-pitch_extractor: !name:torchaudio.functional.compute_kaldi_pitch
-    sample_rate: !ref <sample_rate>
-    frame_length: 46.4 # match feat_extractor win_size/sampling_rate
-    frame_shift: 11.6 # match feat_extractor hop_size/sampling_rate
 compute_f0: !name:cosyvoice.dataset.processor.compute_f0
-    pitch_extractor: !ref <pitch_extractor>
+    sample_rate: !ref <sample_rate>
+    hop_size: 256
 parse_embedding: !name:cosyvoice.dataset.processor.parse_embedding
     normalize: True
 shuffle: !name:cosyvoice.dataset.processor.shuffle

@@ -13,7 +13,10 @@
 # limitations under the License.
 import torch
 import torch.nn as nn
-from torch.nn.utils import weight_norm
+try:
+    from torch.nn.utils.parametrizations import weight_norm
+except ImportError:
+    from torch.nn.utils import weight_norm
 
 
 class ConvRNNF0Predictor(nn.Module):

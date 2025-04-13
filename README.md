@@ -63,7 +63,7 @@ git submodule update --init --recursive
 - Create Conda env:
 
 ``` sh
-conda create -n cosyvoice python=3.10
+conda create -n cosyvoice -y python=3.10
 conda activate cosyvoice
 # pynini is required by WeTextProcessing, use conda to install it as it can be executed on all platform.
 conda install -y -c conda-forge pynini==2.1.5
@@ -79,8 +79,6 @@ sudo yum install sox sox-devel
 **Model download**
 
 We strongly recommend that you download our pretrained `CosyVoice2-0.5B` `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `CosyVoice-ttsfrd` resource.
-
-If you are expert in this field, and you are only interested in training your own CosyVoice model from scratch, you can skip this step.
 
 ``` python
 # SDK模型下载
@@ -118,9 +116,7 @@ pip install ttsfrd-0.4.2-cp310-cp310-linux_x86_64.whl
 **Basic Usage**
 
 We strongly recommend using `CosyVoice2-0.5B` for better performance.
-For zero_shot/cross_lingual inference, please use `CosyVoice-300M` model.
-For sft inference, please use `CosyVoice-300M-SFT` model.
-For instruct inference, please use `CosyVoice-300M-Instruct` model.
+Follow code below for detailed usage of each model.
 
 ``` python
 import sys
@@ -132,11 +128,11 @@ import torchaudio
 
 **CosyVoice2 Usage**
 ```python
-cosyvoice = CosyVoice2('pretrained_models/CosyVoice2-0.5B', load_jit=True, load_onnx=False, load_trt=False)
+cosyvoice = CosyVoice2('pretrained_models/CosyVoice2-0.5B', load_jit=False, load_trt=False, fp16=False, use_flow_cache=False)
 
 # NOTE if you want to reproduce the results on https://funaudiollm.github.io/cosyvoice2, please add text_frontend=False during inference
 # zero_shot usage
-prompt_speech_16k = load_wav('zero_shot_prompt.wav', 16000)
+prompt_speech_16k = load_wav('./asset/zero_shot_prompt.wav', 16000)
 for i, j in enumerate(cosyvoice.inference_zero_shot('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。', '希望你以后能够做的比我还好呦。', prompt_speech_16k, stream=False)):
     torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
 
@@ -147,11 +143,21 @@ for i, j in enumerate(cosyvoice.inference_cross_lingual('在他讲述那个荒�
 # instruct usage
 for i, j in enumerate(cosyvoice.inference_instruct2('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。', '用四川话说这句话', prompt_speech_16k, stream=False)):
     torchaudio.save('instruct_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
+
+# bistream usage, you can use generator as input, this is useful when using text llm model as input
+# NOTE you should still have some basic sentence split logic because llm can not handle arbitrary sentence length
+def text_generator():
+    yield '收到好友从远方寄来的生日礼物，'
+    yield '那份意外的惊喜与深深的祝福'
+    yield '让我心中充满了甜蜜的快乐，'
+    yield '笑容如花儿般绽放。'
+for i, j in enumerate(cosyvoice.inference_zero_shot(text_generator(), '希望你以后能够做的比我还好呦。', prompt_speech_16k, stream=False)):
+    torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
 ```
 
 **CosyVoice Usage**
 ```python
-cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-SFT', load_jit=True, load_onnx=False, fp16=True)
+cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-SFT', load_jit=False, load_trt=False, fp16=False)
 # sft usage
 print(cosyvoice.list_available_spks())
 # change stream=True for chunk stream inference
@@ -160,16 +166,16 @@ for i, j in enumerate(cosyvoice.inference_sft('你好，我是通义生成式语
 
 cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M') # or change to pretrained_models/CosyVoice-300M-25Hz for 25Hz inference
 # zero_shot usage, <|zh|><|en|><|jp|><|yue|><|ko|> for Chinese/English/Japanese/Cantonese/Korean
-prompt_speech_16k = load_wav('zero_shot_prompt.wav', 16000)
+prompt_speech_16k = load_wav('./asset/zero_shot_prompt.wav', 16000)
 for i, j in enumerate(cosyvoice.inference_zero_shot('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。', '希望你以后能够做的比我还好呦。', prompt_speech_16k, stream=False)):
     torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
 # cross_lingual usage
-prompt_speech_16k = load_wav('cross_lingual_prompt.wav', 16000)
+prompt_speech_16k = load_wav('./asset/cross_lingual_prompt.wav', 16000)
 for i, j in enumerate(cosyvoice.inference_cross_lingual('<|en|>And then later on, fully acquiring that company. So keeping management in line, interest in line with the asset that\'s coming into the family is a reason why sometimes we don\'t buy the whole thing.', prompt_speech_16k, stream=False)):
     torchaudio.save('cross_lingual_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
 # vc usage
-prompt_speech_16k = load_wav('zero_shot_prompt.wav', 16000)
-source_speech_16k = load_wav('cross_lingual_prompt.wav', 16000)
+prompt_speech_16k = load_wav('./asset/zero_shot_prompt.wav', 16000)
+source_speech_16k = load_wav('./asset/cross_lingual_prompt.wav', 16000)
 for i, j in enumerate(cosyvoice.inference_vc(source_speech_16k, prompt_speech_16k, stream=False)):
     torchaudio.save('vc_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
 
@@ -182,7 +188,6 @@ for i, j in enumerate(cosyvoice.inference_instruct('在面对挑战时，他展�
 **Start web demo**
 
 You can use our web demo page to get familiar with CosyVoice quickly.
-We support sft/zero_shot/cross_lingual/instruct inference in web demo.
 
 Please see the demo website for details.
 
@@ -194,12 +199,11 @@ python3 webui.py --port 50000 --model_dir pretrained_models/CosyVoice-300M
 **Advanced Usage**
 
 For advanced user, we have provided train and inference scripts in `examples/libritts/cosyvoice/run.sh`.
-You can get familiar with CosyVoice following this recipie.
 
 **Build for deployment**
 
-Optionally, if you want to use grpc for service deployment,
-you can run following steps. Otherwise, you can just ignore this step.
+Optionally, if you want service deployment,
+you can run following steps.
 
 ``` sh
 cd runtime/python

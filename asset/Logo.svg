@@ -68,12 +68,12 @@
     <!-- 中文标题 -->
     <text x="100" y="38" 
           font-family="'Source Han Sans','Source Han Serif','Noto Sans SC','Microsoft YaHei',Arial,sans-serif" 
-          font-size="22" 
+          font-size="24" 
           fill="url(#mainGradient)" 
           text-anchor="middle"
-          font-weight="500"
+          font-weight="800"
           letter-spacing="2">
-        育音：
+        育音
     </text>
     
     <!-- 英文标题 -->

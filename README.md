@@ -49,6 +49,7 @@ git submodule update --init --recursive
 ```bash
 conda create -n cosyvoice -y python=3.10
 conda activate cosyvoice
+conda install -y -c conda-forge pynini==2.1.5
 ```
 
 #### 3\. 安装依赖
@@ -87,7 +88,7 @@ snapshot_download('iic/CosyVoice-ttsfrd', local_dir='pretrained_models/CosyVoice
 在激活的 `cosyvoice` Conda 环境下，使用以下命令启动应用：
 
 ```bash
-python run webui.py
+python webui.py
 ```
 
 #### 6\. 可能出现的问题及解决方法

@@ -33,7 +33,7 @@ instruct_dict = {'预训练音色': '1. 选择预训练音色\n2. 点击生成�
                  '跨语种复刻': '1. 选择prompt音频文件，或录入prompt音频，注意不超过30s，若同时提供，优先选择prompt音频文件\n2. 点击生成音频按钮',
                  '自然语言控制': '1. 选择预训练音色\n2. 输入instruct文本\n3. 点击生成音频按钮'}
 stream_mode_list = [('否', False), ('是', True)]
-max_val = 0.8
+max_val = 1.0
 
 
 def generate_seed():
@@ -293,13 +293,18 @@ if __name__ == '__main__':
                         default='pretrained_models/CosyVoice2-0.5B',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
-    try:
-        cosyvoice = CosyVoice(args.model_dir)
-    except Exception:
-        try:
-            cosyvoice = CosyVoice2(args.model_dir)
-        except Exception:
-            raise TypeError('no valid model_type!')
+    cosyvoice = CosyVoice2('pretrained_models/CosyVoice2-0.5B',
+                       load_jit=True, load_trt=False, fp16=True)
+
+    # 设置说话人信息文件的路径
+    spk2info_path = 'pretrained_models/CosyVoice2-0.5B/spk2info.pt'
+
+    # 如果说话人信息文件存在，则加载
+    if os.path.exists(spk2info_path):
+        spk2info = torch.load(
+            spk2info_path, map_location=cosyvoice.frontend.device)
+    else:
+        spk2info = {}
 
     sft_spk = cosyvoice.list_available_spks()
     if len(sft_spk) == 0:

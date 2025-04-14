@@ -17,7 +17,7 @@ import requests
 import torch
 import torchaudio
 import numpy as np
-
+import time
 
 def main():
     url = "http://{}:{}/inference_zero_shot".format(args.host, args.port)
@@ -25,14 +25,21 @@ def main():
             'tts_text': args.tts_text,
             'person': args.person
         }
+
     response = requests.request("GET", url, data=payload, stream=True)
 
     tts_audio = b''
-    for r in response.iter_content(chunk_size=16000):
+    start = time.time()
+    output_file = args.save.replace('.wav', '{}.wav')
+    for i, r in enumerate(response.iter_content(chunk_size=16000)):
+        if i == 0:
+            print('first ack time: {}'.format(time.time() - start))
         tts_audio += r
+        r = torch.from_numpy(np.array(np.frombuffer(r, dtype=np.int16))).unsqueeze(dim=0)
+        torchaudio.save(output_file.format(i), r, 24000)
     tts_speech = torch.from_numpy(np.array(np.frombuffer(tts_audio, dtype=np.int16))).unsqueeze(dim=0)
-    logging.info('save response to {}'.format(args.tts_wav))
-    torchaudio.save(args.tts_wav, tts_speech, target_sr)
+    logging.info('save response')
+    torchaudio.save(output_file.format(''), tts_speech, 24000)
     logging.info('get response')
 
 
@@ -46,11 +53,14 @@ if __name__ == "__main__":
                         default='21559')
     parser.add_argument('--tts_text',
                         type=str,
-                        default='你好，我是通义千问语音合成大模型，请问有什么可以帮您的吗？')
+                        default='"세상은 매일 진화하고 있습니다. AI는 이제 단순한 도구가 아니라, 우리 삶의 일부가 되었죠. 오늘, 그 놀라운 변화를 함께 만나봅니다."')
     parser.add_argument('--person',
                         type=str,
                         default='woon',
                         help='speaker name')
+    parser.add_argument('--save',
+                        type=str,
+                        default='/tmp/tts.wav',
+                        help='path to save the response')
     args = parser.parse_args()
-    prompt_sr, target_sr = 16000, 22050
     main()

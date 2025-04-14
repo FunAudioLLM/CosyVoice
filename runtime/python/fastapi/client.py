@@ -20,33 +20,13 @@ import numpy as np
 
 
 def main():
-    url = "http://{}:{}/inference_{}".format(args.host, args.port, args.mode)
-    if args.mode == 'sft':
-        payload = {
+    url = "http://{}:{}/inference_zero_shot".format(args.host, args.port)
+    payload = {
             'tts_text': args.tts_text,
-            'spk_id': args.spk_id
+            'person': args.person
         }
-        response = requests.request("GET", url, data=payload, stream=True)
-    elif args.mode == 'zero_shot':
-        payload = {
-            'tts_text': args.tts_text,
-            'prompt_text': args.prompt_text
-        }
-        files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav, 'rb'), 'application/octet-stream'))]
-        response = requests.request("GET", url, data=payload, files=files, stream=True)
-    elif args.mode == 'cross_lingual':
-        payload = {
-            'tts_text': args.tts_text,
-        }
-        files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav, 'rb'), 'application/octet-stream'))]
-        response = requests.request("GET", url, data=payload, files=files, stream=True)
-    else:
-        payload = {
-            'tts_text': args.tts_text,
-            'spk_id': args.spk_id,
-            'instruct_text': args.instruct_text
-        }
-        response = requests.request("GET", url, data=payload, stream=True)
+    response = requests.request("GET", url, data=payload, stream=True)
+
     tts_audio = b''
     for r in response.iter_content(chunk_size=16000):
         tts_audio += r
@@ -63,30 +43,14 @@ if __name__ == "__main__":
                         default='0.0.0.0')
     parser.add_argument('--port',
                         type=int,
-                        default='50000')
-    parser.add_argument('--mode',
-                        default='sft',
-                        choices=['sft', 'zero_shot', 'cross_lingual', 'instruct'],
-                        help='request mode')
+                        default='21559')
     parser.add_argument('--tts_text',
                         type=str,
                         default='你好，我是通义千问语音合成大模型，请问有什么可以帮您的吗？')
-    parser.add_argument('--spk_id',
+    parser.add_argument('--person',
                         type=str,
-                        default='中文女')
-    parser.add_argument('--prompt_text',
-                        type=str,
-                        default='希望你以后能够做的比我还好呦。')
-    parser.add_argument('--prompt_wav',
-                        type=str,
-                        default='../../../asset/zero_shot_prompt.wav')
-    parser.add_argument('--instruct_text',
-                        type=str,
-                        default='Theo \'Crimson\', is a fiery, passionate rebel leader. \
-                                 Fights with fervor for justice, but struggles with impulsiveness.')
-    parser.add_argument('--tts_wav',
-                        type=str,
-                        default='demo.wav')
+                        default='woon',
+                        help='speaker name')
     args = parser.parse_args()
     prompt_sr, target_sr = 16000, 22050
     main()

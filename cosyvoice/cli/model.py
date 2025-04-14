@@ -375,6 +375,7 @@ class CosyVoice2Model(CosyVoiceModel):
             token_offset = 0
             while True:
                 time.sleep(0.05)
+                start_time = time.time()
                 if len(self.tts_speech_token_dict[this_uuid]) - token_offset >= self.token_hop_len + self.flow.pre_lookahead_len:
                     this_tts_speech_token = torch.tensor(self.tts_speech_token_dict[this_uuid][:token_offset + self.token_hop_len + self.flow.pre_lookahead_len]).unsqueeze(dim=0)
                     this_tts_speech = self.token2wav(token=this_tts_speech_token,
@@ -386,8 +387,10 @@ class CosyVoice2Model(CosyVoiceModel):
                                                      finalize=False)
                     token_offset += self.token_hop_len
                     yield {'tts_speech': this_tts_speech.cpu()}
+                    # print(f"in model.py, token2wav耗时: {time.time() - start_time:.2f} 秒")
                 if self.llm_end_dict[this_uuid] is True and len(self.tts_speech_token_dict[this_uuid]) - token_offset < self.token_hop_len + self.flow.pre_lookahead_len:
                     break
+            # print(f"in model.py, before join 耗时: {time.time() - start_time_p:.2f} 秒")
             p.join()
             # deal with remain tokens, make sure inference remain token len equals token_hop_len when cache_speech is not None
             this_tts_speech_token = torch.tensor(self.tts_speech_token_dict[this_uuid]).unsqueeze(dim=0)

@@ -152,6 +152,9 @@ class CosyVoiceFrontEnd:
     def frontend_sft(self, tts_text, spk_id):
         tts_text_token, tts_text_token_len = self._extract_text_token(tts_text)
         embedding = self.spk2info[spk_id]['embedding']
+        # 打印spk_id, 并且看这个 key 是否存在，如果不存在，会报错吗？ embedding 的值会是空吗？
+        if spk_id not in self.spk2info:
+            logging.warning(f"in Frontend.py line 157, 说话人ID {spk_id} 不存在于 spk2info 中, embedding is {embedding}")
         model_input = {'text': tts_text_token, 'text_len': tts_text_token_len, 'llm_embedding': embedding, 'flow_embedding': embedding}
         return model_input
 

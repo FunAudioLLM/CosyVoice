@@ -77,7 +77,6 @@ class CosyVoice:
             stream: 是否流式输出
             speed: 语速
         """
-        start_time = time.time()
         tqdm.write(f'{text_segment}\n')
         
         # 初始化进度条参数
@@ -92,6 +91,7 @@ class CosyVoice:
         with tqdm(total=estimated_iterations, leave=False, desc='当前片段', disable=not stream) as pbar:
             iter_count = 0
             
+            start_time = time.time()
             for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
                 speech = model_output['tts_speech']
                 speech_len = speech.shape[1] / self.sample_rate
@@ -102,6 +102,7 @@ class CosyVoice:
                     pbar.set_postfix_str(f'rtf={rtf:.2f}')
                     # 持久打印rtf值，不随进度条消失
                     print(f'当前RTF: {rtf:.2f}, 当前文本: {text_segment}', flush=True)
+                    print(f" 在cosyvoice.py函数: _process_with_progress 中，耗时: {time.time() - start_time:.2f} 秒")
                     # 仅在迭代次数小于3时根据实际语音长度更新预估总迭代次数
                     if iter_count <= 3:
                         # 估计总token数量
@@ -137,6 +138,7 @@ class CosyVoice:
         
         for text_segment in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend), desc='生成进度'):
 
+            start_time = time.time()
             # 根据音色ID获取模型输入
             spk = default_voices[0] if spk_id not in default_voices else spk_id
             model_input = self.frontend.frontend_sft(text_segment, spk)

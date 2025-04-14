@@ -175,6 +175,7 @@ def main():
 
 
 if __name__ == '__main__':
+    print('start webui...')
     parser = argparse.ArgumentParser()
     parser.add_argument('--port',
                         type=int,
@@ -184,6 +185,7 @@ if __name__ == '__main__':
                         default='pretrained_models/CosyVoice2-0.5B',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
+    print('args:', args)
     try:
         cosyvoice = CosyVoice(args.model_dir)
     except Exception:

@@ -20,7 +20,7 @@ import numpy as np
 import time
 
 def main():
-    url = "http://{}:{}/inference_zero_shot".format(args.host, args.port)
+    url = "http://{}:{}/inference_zero_shot_use_cache".format(args.host, args.port)
     payload = {
             'tts_text': args.tts_text,
             'person': args.person

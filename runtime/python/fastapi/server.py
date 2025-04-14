@@ -66,6 +66,13 @@ async def inference_zero_shot(tts_text: str = Form(), person: str = Form()):
     # model_output = cosyvoice.inference_zero_shot(generate_txt(tts_text), prompt_text, prompt_speech_16k, stream=True)
     return StreamingResponse(generate_data(model_output))
 
+@app.get("/inference_zero_shot_use_cache")
+@app.post("/inference_zero_shot_use_cache")
+async def inference_zero_shot_use_cache(tts_text: str = Form(), person: str = Form()):
+    # generate_txt (yield) is optional
+    model_output = cosyvoice.inference_zero_shot_use_cache(tts_text, 'prompt_wav_cache/{}.pt'.format(person), stream=True)
+    # model_output = cosyvoice.inference_zero_shot(generate_txt(tts_text), prompt_text, prompt_speech_16k, stream=True)
+    return StreamingResponse(generate_data(model_output))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

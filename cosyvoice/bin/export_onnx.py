@@ -171,7 +171,7 @@ def main():
                                                       sess_options=option, providers=providers)
 
         for _ in tqdm(range(10)):
-            x, mask, mu, t, spks, cond = get_dummy_input(batch_size, random.randint(16, 512), out_channels, device)
+            x, mask, mu, t, spks, cond = get_dummy_input(batch_size, random.randint(16, 256), out_channels, device)
             cache = model.model.init_flow_cache()['decoder_cache']
             cache.pop('offset')
             cache = {k: v[0] for k, v in cache.items()}

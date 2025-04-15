@@ -168,10 +168,10 @@ class CosyVoiceFrontEnd:
                 speech_token, speech_token_len[:] = speech_token[:, :token_len], token_len
             embedding = self._extract_spk_embedding(prompt_speech_16k)
             model_input = {'prompt_text': prompt_text_token, 'prompt_text_len': prompt_text_token_len,
-                        'llm_prompt_speech_token': speech_token, 'llm_prompt_speech_token_len': speech_token_len,
-                        'flow_prompt_speech_token': speech_token, 'flow_prompt_speech_token_len': speech_token_len,
-                        'prompt_speech_feat': speech_feat, 'prompt_speech_feat_len': speech_feat_len,
-                        'llm_embedding': embedding, 'flow_embedding': embedding}
+                           'llm_prompt_speech_token': speech_token, 'llm_prompt_speech_token_len': speech_token_len,
+                           'flow_prompt_speech_token': speech_token, 'flow_prompt_speech_token_len': speech_token_len,
+                           'prompt_speech_feat': speech_feat, 'prompt_speech_feat_len': speech_feat_len,
+                           'llm_embedding': embedding, 'flow_embedding': embedding}
         else:
             model_input = self.spk2info[zero_shot_spk_id]
         model_input['text'] = tts_text_token

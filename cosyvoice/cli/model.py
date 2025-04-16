@@ -385,7 +385,7 @@ class CosyVoice2Model(CosyVoiceModel):
         # this_uuid is used to track variables related to this inference thread
         self.synchronize_stream()
         stream_context = self.stream_context_pool.get()
-        with torch.cuda.stream(stream_context):
+        with stream_context:
 
             this_uuid = str(uuid.uuid1())
             with self.lock:

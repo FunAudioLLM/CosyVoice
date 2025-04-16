@@ -1,4 +1,5 @@
 # Copyright (c) 2024 Alibaba Inc (authors: Xiang Lyu, Zhihao Du)
+#               2025 Alibaba Inc (authors: Xiang Lyu, Bofan Zhou)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -290,50 +291,55 @@ class CausalConditionalCFM(ConditionalCFM):
             x, cache1, cache2, cache3, cache4, cache5, cache6, cache7 = self.estimator.forward_chunk(x, mask, mu, t, spks, cond, **cache)
             cache = (cache1, cache2, cache3, cache4, cache5, cache6, cache7)
         else:
-            with self.lock:
-                self.estimator.set_input_shape('x', (2, 80, x.size(2)))
-                self.estimator.set_input_shape('mask', (2, 1, x.size(2)))
-                self.estimator.set_input_shape('mu', (2, 80, x.size(2)))
-                self.estimator.set_input_shape('t', (2,))
-                self.estimator.set_input_shape('spks', (2, 80))
-                self.estimator.set_input_shape('cond', (2, 80, x.size(2)))
-                self.estimator.set_input_shape('down_blocks_conv_cache', cache['down_blocks_conv_cache'].shape)
-                self.estimator.set_input_shape('down_blocks_kv_cache', cache['down_blocks_kv_cache'].shape)
-                self.estimator.set_input_shape('mid_blocks_conv_cache', cache['mid_blocks_conv_cache'].shape)
-                self.estimator.set_input_shape('mid_blocks_kv_cache', cache['mid_blocks_kv_cache'].shape)
-                self.estimator.set_input_shape('up_blocks_conv_cache', cache['up_blocks_conv_cache'].shape)
-                self.estimator.set_input_shape('up_blocks_kv_cache', cache['up_blocks_kv_cache'].shape)
-                self.estimator.set_input_shape('final_blocks_conv_cache', cache['final_blocks_conv_cache'].shape)
-                # run trt engine
-                down_blocks_kv_cache_out = torch.zeros(1, 4, 2, x.size(2), 512, 2).to(x)
-                mid_blocks_kv_cache_out = torch.zeros(12, 4, 2, x.size(2), 512, 2).to(x)
-                up_blocks_kv_cache_out = torch.zeros(1, 4, 2, x.size(2), 512, 2).to(x)
-                assert self.estimator.execute_v2([x.contiguous().data_ptr(),
-                                                  mask.contiguous().data_ptr(),
-                                                  mu.contiguous().data_ptr(),
-                                                  t.contiguous().data_ptr(),
-                                                  spks.contiguous().data_ptr(),
-                                                  cond.contiguous().data_ptr(),
-                                                  cache['down_blocks_conv_cache'].contiguous().data_ptr(),
-                                                  cache['down_blocks_kv_cache'].contiguous().data_ptr(),
-                                                  cache['mid_blocks_conv_cache'].contiguous().data_ptr(),
-                                                  cache['mid_blocks_kv_cache'].contiguous().data_ptr(),
-                                                  cache['up_blocks_conv_cache'].contiguous().data_ptr(),
-                                                  cache['up_blocks_kv_cache'].contiguous().data_ptr(),
-                                                  cache['final_blocks_conv_cache'].contiguous().data_ptr(),
-                                                  x.data_ptr(),
-                                                  cache['down_blocks_conv_cache'].data_ptr(),
-                                                  down_blocks_kv_cache_out.data_ptr(),
-                                                  cache['mid_blocks_conv_cache'].data_ptr(),
-                                                  mid_blocks_kv_cache_out.data_ptr(),
-                                                  cache['up_blocks_conv_cache'].data_ptr(),
-                                                  up_blocks_kv_cache_out.data_ptr(),
-                                                  cache['final_blocks_conv_cache'].data_ptr()]) is True
-                cache = (cache['down_blocks_conv_cache'],
-                         down_blocks_kv_cache_out,
-                         cache['mid_blocks_conv_cache'],
-                         mid_blocks_kv_cache_out,
-                         cache['up_blocks_conv_cache'],
-                         up_blocks_kv_cache_out,
-                         cache['final_blocks_conv_cache'])
+            estimator, trt_engine = self.estimator.acquire_estimator()
+            estimator.set_input_shape('x', (2, 80, x.size(2)))
+            estimator.set_input_shape('mask', (2, 1, x.size(2)))
+            estimator.set_input_shape('mu', (2, 80, x.size(2)))
+            estimator.set_input_shape('t', (2,))
+            estimator.set_input_shape('spks', (2, 80))
+            estimator.set_input_shape('cond', (2, 80, x.size(2)))
+            estimator.set_input_shape('down_blocks_conv_cache', cache['down_blocks_conv_cache'].shape)
+            estimator.set_input_shape('down_blocks_kv_cache', cache['down_blocks_kv_cache'].shape)
+            estimator.set_input_shape('mid_blocks_conv_cache', cache['mid_blocks_conv_cache'].shape)
+            estimator.set_input_shape('mid_blocks_kv_cache', cache['mid_blocks_kv_cache'].shape)
+            estimator.set_input_shape('up_blocks_conv_cache', cache['up_blocks_conv_cache'].shape)
+            estimator.set_input_shape('up_blocks_kv_cache', cache['up_blocks_kv_cache'].shape)
+            estimator.set_input_shape('final_blocks_conv_cache', cache['final_blocks_conv_cache'].shape)
+            down_blocks_kv_cache_out = torch.zeros(1, 4, 2, x.size(2), 512, 2).to(x)
+            mid_blocks_kv_cache_out = torch.zeros(12, 4, 2, x.size(2), 512, 2).to(x)
+            up_blocks_kv_cache_out = torch.zeros(1, 4, 2, x.size(2), 512, 2).to(x)
+            data_ptrs = [x.contiguous().data_ptr(),
+                         mask.contiguous().data_ptr(),
+                         mu.contiguous().data_ptr(),
+                         t.contiguous().data_ptr(),
+                         spks.contiguous().data_ptr(),
+                         cond.contiguous().data_ptr(),
+                         cache['down_blocks_conv_cache'].contiguous().data_ptr(),
+                         cache['down_blocks_kv_cache'].contiguous().data_ptr(),
+                         cache['mid_blocks_conv_cache'].contiguous().data_ptr(),
+                         cache['mid_blocks_kv_cache'].contiguous().data_ptr(),
+                         cache['up_blocks_conv_cache'].contiguous().data_ptr(),
+                         cache['up_blocks_kv_cache'].contiguous().data_ptr(),
+                         cache['final_blocks_conv_cache'].contiguous().data_ptr(),
+                         x.data_ptr(),
+                         cache['down_blocks_conv_cache'].data_ptr(),
+                         down_blocks_kv_cache_out.data_ptr(),
+                         cache['mid_blocks_conv_cache'].data_ptr(),
+                         mid_blocks_kv_cache_out.data_ptr(),
+                         cache['up_blocks_conv_cache'].data_ptr(),
+                         up_blocks_kv_cache_out.data_ptr(),
+                         cache['final_blocks_conv_cache'].data_ptr()]
+            for i, j in enumerate(data_ptrs):
+                estimator.set_tensor_address(trt_engine.get_tensor_name(i), j)
+            # run trt engine
+            assert estimator.execute_async_v3(torch.cuda.current_stream().cuda_stream) is True
+            torch.cuda.current_stream().synchronize()
+            self.estimator.release_estimator(estimator)
+            cache = (cache['down_blocks_conv_cache'],
+                     down_blocks_kv_cache_out,
+                     cache['mid_blocks_conv_cache'],
+                     mid_blocks_kv_cache_out,
+                     cache['up_blocks_conv_cache'],
+                     up_blocks_kv_cache_out,
+                     cache['final_blocks_conv_cache'])
         return x, cache

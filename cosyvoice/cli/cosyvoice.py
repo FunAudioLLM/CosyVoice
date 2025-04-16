@@ -74,6 +74,9 @@ class CosyVoice:
         self.frontend.spk2info[zero_shot_spk_id] = model_input
         return True
 
+    def save_spkinfo(self):
+        torch.save(self.frontend.spk2info, '{}/spk2info.pt'.format(self.model_dir))
+
     def inference_sft(self, tts_text, spk_id, stream=False, speed=1.0, text_frontend=True):
         for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
             model_input = self.frontend.frontend_sft(i, spk_id)

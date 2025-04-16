@@ -22,7 +22,7 @@ from cosyvoice.cli.frontend import CosyVoiceFrontEnd
 from cosyvoice.cli.model import CosyVoiceModel, CosyVoice2Model, VllmCosyVoice2Model
 from cosyvoice.utils.file_utils import logging
 from cosyvoice.utils.class_utils import get_model_type
-
+import queue
 
 class CosyVoice:
 
@@ -54,10 +54,17 @@ class CosyVoice:
                                 '{}/llm.llm.{}.zip'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
                                 '{}/flow.encoder.{}.zip'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'))
         if load_trt:
+            self.estimator_count = configs['flow']['decoder']['estimator'].get('estimator_count', 1)
             self.model.load_trt('{}/flow.decoder.estimator.{}.mygpu.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
                                 '{}/flow.decoder.estimator.fp32.onnx'.format(model_dir),
-                                self.fp16)
+                                self.fp16, self.estimator_count)
         del configs
+
+        thread_count = 10
+        self.stream_pool = queue.Queue(maxsize=thread_count)
+        for _ in range(thread_count):
+            self.stream_pool.put(torch.cuda.Stream(self.device))
+
 
     def list_available_spks(self):
         spks = list(self.frontend.spk2info.keys())
@@ -67,80 +74,104 @@ class CosyVoice:
         self.frontend.add_spk_info(spk_id, spk_info)
 
     def inference_sft(self, tts_text, spk_id, stream=False, speed=1.0, text_frontend=True):
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
-            model_input = self.frontend.frontend_sft(i, spk_id)
-            start_time = time.time()
-            logging.info('synthesis text {}'.format(i))
-            for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
-                speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
-                logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
-                yield model_output
+        cuda_stream = self.stream_pool.get()
+        with torch.cuda.stream(cuda_stream):
+            for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
+                model_input = self.frontend.frontend_sft(i, spk_id)
                 start_time = time.time()
+                logging.info('synthesis text {}'.format(i))
+                for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
+                    speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
+                    logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
+                    yield model_output
+                    start_time = time.time()
+        cuda_stream.synchronize()
+        self.stream_pool.put(cuda_stream)
 
     def inference_zero_shot(self, tts_text, prompt_text, prompt_speech_16k, stream=False, speed=1.0, text_frontend=True):
-        prompt_text = self.frontend.text_normalize(prompt_text, split=False, text_frontend=text_frontend)
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
-            if (not isinstance(i, Generator)) and len(i) < 0.5 * len(prompt_text):
-                logging.warning('synthesis text {} too short than prompt text {}, this may lead to bad performance'.format(i, prompt_text))
-            model_input = self.frontend.frontend_zero_shot(i, prompt_text, prompt_speech_16k, self.sample_rate)
-            start_time = time.time()
-            logging.info('synthesis text {}'.format(i))
-            for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
-                speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
-                logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
-                yield model_output
+        cuda_stream = self.stream_pool.get()
+        with torch.cuda.stream(cuda_stream):
+            prompt_text = self.frontend.text_normalize(prompt_text, split=False, text_frontend=text_frontend)
+            for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
+                if (not isinstance(i, Generator)) and len(i) < 0.5 * len(prompt_text):
+                    logging.warning('synthesis text {} too short than prompt text {}, this may lead to bad performance'.format(i, prompt_text))
+                model_input = self.frontend.frontend_zero_shot(i, prompt_text, prompt_speech_16k, self.sample_rate)
                 start_time = time.time()
+                logging.info('synthesis text {}'.format(i))
+                for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
+                    speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
+                    logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
+                    yield model_output
+                    start_time = time.time()
+        cuda_stream.synchronize()
+        self.stream_pool.put(cuda_stream)
 
     def inference_zero_shot_by_spk_id(self, tts_text, spk_id, stream=False, speed=1.0, text_frontend=True):
         """使用预定义的说话人执行 zero_shot 推理"""
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
-            model_input = self.frontend.frontend_zero_shot_by_spk_id(i, spk_id)
-            start_time = time.time()
-            last_time = start_time
-            chunk_index = 0
-            logging.info('synthesis text {}'.format(i))
-            for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
-                speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
-                logging.info('yield speech index:{}, len {:.2f}, rtf {:.3f},  cost {:.3f}s,  all cost time {:.3f}s'.format(
-                    chunk_index, speech_len,  (time.time()-last_time)/speech_len, time.time()-last_time, time.time()-start_time))
-                yield model_output
-                last_time = time.time()
-                chunk_index += 1
+        cuda_stream = self.stream_pool.get()
+        with torch.cuda.stream(cuda_stream):
+            for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
+                model_input = self.frontend.frontend_zero_shot_by_spk_id(i, spk_id)
+                start_time = time.time()
+                last_time = start_time
+                chunk_index = 0
+                logging.info('synthesis text {}'.format(i))
+                for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
+                    speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
+                    logging.info('yield speech index:{}, len {:.2f}, rtf {:.3f},  cost {:.3f}s,  all cost time {:.3f}s'.format(
+                        chunk_index, speech_len,  (time.time()-last_time)/speech_len, time.time()-last_time, time.time()-start_time))
+                    yield model_output
+                    last_time = time.time()
+                    chunk_index += 1
+        cuda_stream.synchronize()
+        self.stream_pool.put(cuda_stream)
 
     def inference_cross_lingual(self, tts_text, prompt_speech_16k, stream=False, speed=1.0, text_frontend=True):
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
-            model_input = self.frontend.frontend_cross_lingual(i, prompt_speech_16k, self.sample_rate)
-            start_time = time.time()
-            logging.info('synthesis text {}'.format(i))
-            for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
-                speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
-                logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
-                yield model_output
+        cuda_stream = self.stream_pool.get()
+        with torch.cuda.stream(cuda_stream):
+            for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
+                model_input = self.frontend.frontend_cross_lingual(i, prompt_speech_16k, self.sample_rate)
                 start_time = time.time()
+                logging.info('synthesis text {}'.format(i))
+                for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
+                    speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
+                        logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
+                        yield model_output
+                        start_time = time.time()
+        cuda_stream.synchronize()
+        self.stream_pool.put(cuda_stream)
 
     def inference_instruct(self, tts_text, spk_id, instruct_text, stream=False, speed=1.0, text_frontend=True):
-        assert isinstance(self.model, CosyVoiceModel), 'inference_instruct is only implemented for CosyVoice!'
-        if self.instruct is False:
-            raise ValueError('{} do not support instruct inference'.format(self.model_dir))
-        instruct_text = self.frontend.text_normalize(instruct_text, split=False, text_frontend=text_frontend)
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
-            model_input = self.frontend.frontend_instruct(i, spk_id, instruct_text)
+        cuda_stream = self.stream_pool.get()
+        with torch.cuda.stream(cuda_stream):
+            assert isinstance(self.model, CosyVoiceModel), 'inference_instruct is only implemented for CosyVoice!'
+            if self.instruct is False:
+                raise ValueError('{} do not support instruct inference'.format(self.model_dir))
+            instruct_text = self.frontend.text_normalize(instruct_text, split=False, text_frontend=text_frontend)
+            for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
+                model_input = self.frontend.frontend_instruct(i, spk_id, instruct_text)
+                start_time = time.time()
+                logging.info('synthesis text {}'.format(i))
+                for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
+                    speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
+                    logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
+                    yield model_output
+                    start_time = time.time()
+        cuda_stream.synchronize()
+        self.stream_pool.put(cuda_stream)
+
+    def inference_vc(self, source_speech_16k, prompt_speech_16k, stream=False, speed=1.0):
+        cuda_stream = self.stream_pool.get()
+        with torch.cuda.stream(cuda_stream):
+            model_input = self.frontend.frontend_vc(source_speech_16k, prompt_speech_16k, self.sample_rate)
             start_time = time.time()
-            logging.info('synthesis text {}'.format(i))
-            for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
+            for model_output in self.model.vc(**model_input, stream=stream, speed=speed):
                 speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
                 logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
                 yield model_output
                 start_time = time.time()
-
-    def inference_vc(self, source_speech_16k, prompt_speech_16k, stream=False, speed=1.0):
-        model_input = self.frontend.frontend_vc(source_speech_16k, prompt_speech_16k, self.sample_rate)
-        start_time = time.time()
-        for model_output in self.model.vc(**model_input, stream=stream, speed=speed):
-            speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
-            logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
-            yield model_output
-            start_time = time.time()
+        cuda_stream.synchronize()
+        self.stream_pool.put(cuda_stream)
 
 
 class CosyVoice2(CosyVoice):
@@ -178,33 +209,48 @@ class CosyVoice2(CosyVoice):
         if load_jit:
             self.model.load_jit('{}/flow.encoder.{}.zip'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'))
         if load_trt:
+            self.estimator_count = configs['flow']['decoder']['estimator'].get('estimator_count', 1)
             self.model.load_trt('{}/flow.decoder.estimator.{}.mygpu.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
                                 '{}/flow.decoder.estimator.fp32.onnx'.format(model_dir),
-                                self.fp16)
+                                self.fp16, self.estimator_count)
         del configs
+
+        thread_count = 10
+        self.stream_pool = queue.Queue(maxsize=thread_count)
+        for _ in range(thread_count):
+            self.stream_pool.put(torch.cuda.Stream(self.device))
 
     def inference_instruct(self, *args, **kwargs):
         raise NotImplementedError('inference_instruct is not implemented for CosyVoice2!')
 
     def inference_instruct2(self, tts_text, instruct_text, prompt_speech_16k, stream=False, speed=1.0, text_frontend=True):
-        assert isinstance(self.model, CosyVoice2Model), 'inference_instruct2 is only implemented for CosyVoice2!'
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
-            model_input = self.frontend.frontend_instruct2(i, instruct_text, prompt_speech_16k, self.sample_rate)
-            start_time = time.time()
-            logging.info('synthesis text {}'.format(i))
-            for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
-                speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
-                logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
-                yield model_output
+        cuda_stream = self.stream_pool.get()
+        with torch.cuda.stream(cuda_stream):
+            assert isinstance(self.model, CosyVoice2Model), 'inference_instruct2 is only implemented for CosyVoice2!'
+            for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
+                model_input = self.frontend.frontend_instruct2(i, instruct_text, prompt_speech_16k, self.sample_rate)
                 start_time = time.time()
+                logging.info('synthesis text {}'.format(i))
+                for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
+                    speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
+                    logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
+                    yield model_output
+                    start_time = time.time()
+        cuda_stream.synchronize()
+        self.stream_pool.put(cuda_stream)
 
     def inference_instruct2_by_spk_id(self, tts_text, instruct_text, spk_id, stream=False, speed=1.0, text_frontend=True):
-        for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
-            model_input = self.frontend.frontend_instruct2_by_spk_id(i, instruct_text, spk_id)
-            start_time = time.time()
-            logging.info('synthesis text {}'.format(i))
-            for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
-                speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
-                logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
-                yield model_output
+        cuda_stream = self.stream_pool.get()
+        with torch.cuda.stream(cuda_stream):
+            assert isinstance(self.model, CosyVoice2Model), 'inference_instruct2 is only implemented for CosyVoice2!'
+            for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
+                model_input = self.frontend.frontend_instruct2_by_spk_id(i, instruct_text, spk_id)
                 start_time = time.time()
+                logging.info('synthesis text {}'.format(i))
+                for model_output in self.model.tts(**model_input, stream=stream, speed=speed):
+                        speech_len = model_output['tts_speech'].shape[1] / self.sample_rate
+                        logging.info('yield speech len {}, rtf {}'.format(speech_len, (time.time() - start_time) / speech_len))
+                        yield model_output
+                        start_time = time.time()
+        cuda_stream.synchronize()
+        self.stream_pool.put(cuda_stream)

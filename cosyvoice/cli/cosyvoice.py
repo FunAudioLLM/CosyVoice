@@ -54,7 +54,7 @@ class CosyVoice:
                                 '{}/llm.llm.{}.zip'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
                                 '{}/flow.encoder.{}.zip'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'))
         if load_trt:
-            self.estimator_count = configs['flow']['decoder']['estimator'].get('estimator_count', 1)
+            self.estimator_count = configs.get('estimator_count', 1)
             self.model.load_trt('{}/flow.decoder.estimator.{}.mygpu.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
                                 '{}/flow.decoder.estimator.fp32.onnx'.format(model_dir),
                                 self.fp16, self.estimator_count)
@@ -180,7 +180,7 @@ class CosyVoice2(CosyVoice):
         if load_jit:
             self.model.load_jit('{}/flow.encoder.{}.zip'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'))
         if load_trt:
-            self.estimator_count = configs['flow']['decoder']['estimator'].get('estimator_count', 1)
+            self.estimator_count = configs.get('estimator_count', 1)
             self.model.load_trt('{}/flow.decoder.estimator.{}.mygpu.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
                                 '{}/flow.decoder.estimator.fp32.onnx'.format(model_dir),
                                 self.fp16, self.estimator_count)

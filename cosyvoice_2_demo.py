@@ -43,7 +43,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 print(f"使用模型目录: {args.model_dir}")
-cosyvoice = CosyVoice2(args.model_dir, load_jit=False, load_trt=True, fp16=args.fp16)
+cosyvoice = CosyVoice2(args.model_dir, load_jit=False, load_trt=True, fp16=args.fp16, use_flow_cache=True)
 
 prompt_speech_16k = load_wav("./asset/sqr3.wav", 16000)
 
@@ -51,7 +51,7 @@ prompt_speech_16k = load_wav("./asset/sqr3.wav", 16000)
 # 这样后续的正式推理就不会有明显延迟
 next(
     cosyvoice.inference_sft(
-        "预热", "中文女", stream=False, speed=1.0, text_frontend=True
+        "预热", "中文女", stream=True, speed=1.0, text_frontend=True
     )
 )
 print("模型预热完成，准备正式生成")

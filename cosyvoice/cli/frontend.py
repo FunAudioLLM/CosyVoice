@@ -183,7 +183,7 @@ class CosyVoiceFrontEnd:
         return model_input
 
     def frontend_cross_lingual(self, tts_text, prompt_speech_16k, resample_rate):
-        model_input = self.frontend_zero_shot(tts_text, '', prompt_speech_16k, resample_rate)
+        model_input = self.frontend_zero_shot(tts_text, '', prompt_speech_16k, resample_rate, '')
         # in cross lingual mode, we remove prompt in llm
         del model_input['prompt_text']
         del model_input['prompt_text_len']
@@ -201,7 +201,7 @@ class CosyVoiceFrontEnd:
         return model_input
 
     def frontend_instruct2(self, tts_text, instruct_text, prompt_speech_16k, resample_rate):
-        model_input = self.frontend_zero_shot(tts_text, instruct_text + '<|endofprompt|>', prompt_speech_16k, resample_rate)
+        model_input = self.frontend_zero_shot(tts_text, instruct_text + '<|endofprompt|>', prompt_speech_16k, resample_rate, '')
         del model_input['llm_prompt_speech_token']
         del model_input['llm_prompt_speech_token_len']
         return model_input

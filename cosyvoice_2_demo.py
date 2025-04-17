@@ -23,6 +23,7 @@ for name in logging.root.manager.loggerDict:
 from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
 from cosyvoice.utils.file_utils import load_wav
 import torchaudio
+import torch
 import argparse
 import time
 import numpy as np
@@ -55,60 +56,81 @@ next(
 )
 print("模型预热完成，准备正式生成")
 
-player = StreamPlayer(sample_rate=cosyvoice.sample_rate, channels=1, block_size=16384)
+player = StreamPlayer(sample_rate=cosyvoice.sample_rate, channels=1, block_size=3072)
 player.start()
 
-# 使用改进的播放机制进行流式语音生成和播放
-print("ATTENTION: 文本已经给到模型，开始生成语音啦！！！")
-start_time = time.time()
-
-# 流式生成并添加到播放队列
-for i, j in enumerate(
-    cosyvoice.inference_zero_shot(
-        # "这句话里面到底在使用了谁的语音呢？",
-        "CosyVoice迎来全面升级，提供更准、更稳、更快、 更好的语音生成能力。make america great again. ",
-        "我会把三段话切成3段，用来做",
-        prompt_speech_16k,
-        stream=True,
-    )
-):
-    current_time = time.time()
-    logging.info(f"第 {i} 次生成耗时: {current_time - start_time:.2f} 秒")
-    start_time = current_time
-
-    player.play(j["tts_speech"].numpy().T)
-
-# # 等待播放完成
-# player.stop()
-
-
-
-# player.start()
 
 # 交互式循环，可以反复输入文本生成语音
 default_tts_text = "CosyVoice迎来全面升级，提供更准、更稳、更快、 更好的语音生成能力。make america great again. "
-print("\n按回车使用默认文本，输入新文本后回车使用新文本，输入q后回车退出\n")
+default_instruct_text = "用很慢的语速读这个故事"
+print(
+    "\n按回车使用默认文本，输入新文本后回车使用新文本，输入q后回车退出, 输入@后回车使用新指令\n"
+)
+
+
+def load_voice_data(speaker):
+    """
+    加载自定义语音数据
+    
+    参数:
+        speaker: 说话人ID/名称
+    
+    返回:
+        加载的语音参考数据，如果加载失败则返回None
+    """
+    voice_path = f"{ROOT_DIR}/voices/{speaker}.pt"
+    try:
+        # 检测是否有GPU可用
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if not os.path.exists(voice_path):
+            return None
+        # 加载语音模型数据
+        voice_data = torch.load(voice_path, map_location=device)
+        return voice_data.get('audio_ref')
+    except Exception as e:
+        raise ValueError(f"加载音色文件失败: {e}")
 
 while True:
     # 获取用户输入
     user_input = input(f"请输入文本 (默认: '{default_tts_text}'): ")
-    
+
     # 检查是否退出
-    if user_input.strip() == 'q':
+    if user_input.strip() == "q":
         print("退出语音生成循环")
         break
-    
+
     # 决定使用哪个文本
-    tts_text = default_tts_text if len(user_input.strip()) < 2 else user_input
-    
-    print(f"ATTENTION: 文本已经给到模型，开始生成语音啦！！！ 文本是： {tts_text}")
+    tts_text = (
+        default_tts_text if len(user_input.strip()) < 2 else user_input.split("@")[0]
+    )
+    if len(user_input.split("@")) > 1:
+        instruct_text = user_input.split("@")[1] 
+    else:
+        instruct_text = default_instruct_text
+
+    print(
+        f"ATTENTION: 文本已经给到模型，开始生成语音啦！！！  指令是： {instruct_text}"
+    )
     start_time = time.time()
-    
+    # speaker = "Donald J. Trump"
+    speaker = "xiaoluo_mandarin"
+    prompt_speech_16k = load_voice_data(speaker)
+    # 确保prompt_speech_16k不是 none， 用 assert
+    assert prompt_speech_16k is not None, "prompt_speech_16k is None"
     for i, j in enumerate(
+        # cosyvoice.inference_instruct2(
+        #     tts_text,
+        #     instruct_text,
+        #     prompt_speech_16k,
+        #     stream=True,
+        #     speed=0.8,
+        #     text_frontend=True,
+        # )
         cosyvoice.inference_sft(
             tts_text,
-            "xiaoluo_mandarin",
+            speaker,
             stream=True,
+            speed=1.5,
         )
     ):
         current_time = time.time()
@@ -120,23 +142,23 @@ while True:
 # 停止播放器
 player.stop()
 
-# 最后一个示例，保存到文件而不是播放
-start_time = time.time()
-for i, j in enumerate(
-    cosyvoice.inference_zero_shot(
-        # "这句话里面到底在使用了谁的语音呢？",
-        "CosyVoice迎来全面升级，提供更准、更稳、更快、 更好的语音生成能力。make america great again. ",
-        "我会把三段话切成3段，用来做",
-        prompt_speech_16k,
-        stream=True,
-    )
-):
-    current_time = time.time()
-    logging.info(f"第 {i} 次生成耗时: {current_time - start_time:.2f} 秒")
-    start_time = current_time
-    torchaudio.save(
-        "zero_shot_{}.wav".format(i), j["tts_speech"], cosyvoice.sample_rate
-    )
+# # 最后一个示例，保存到文件而不是播放
+# start_time = time.time()
+# for i, j in enumerate(
+#     cosyvoice.inference_zero_shot(
+#         # "这句话里面到底在使用了谁的语音呢？",
+#         "CosyVoice迎来全面升级，提供更准、更稳、更快、 更好的语音生成能力。make america great again. ",
+#         "我会把三段话切成3段，用来做",
+#         prompt_speech_16k,
+#         stream=True,
+#     )
+# ):
+#     current_time = time.time()
+#     logging.info(f"第 {i} 次生成耗时: {current_time - start_time:.2f} 秒")
+#     start_time = current_time
+#     torchaudio.save(
+#         "zero_shot_{}.wav".format(i), j["tts_speech"], cosyvoice.sample_rate
+#     )
 
 # # instruct usage
 # for i, j in enumerate(
@@ -189,3 +211,23 @@ for i, j in enumerate(
 #     torchaudio.save(
 #         "fine_grained_control_{}.wav".format(i), j["tts_speech"], cosyvoice.sample_rate
 #     )
+
+# # 使用改进的播放机制进行流式语音生成和播放
+# print("ATTENTION: 文本已经给到模型，开始生成语音啦！！！")
+# start_time = time.time()
+
+# # 流式生成并添加到播放队列
+# for i, j in enumerate(
+#     cosyvoice.inference_zero_shot(
+#         # "这句话里面到底在使用了谁的语音呢？",
+#         "CosyVoice迎来全面升级，提供更准、更稳、更快、 更好的语音生成能力。make america great again. ",
+#         "我会把三段话切成3段，用来做",
+#         prompt_speech_16k,
+#         stream=True,
+#     )
+# ):
+#     current_time = time.time()
+#     logging.info(f"第 {i} 次生成耗时: {current_time - start_time:.2f} 秒")
+#     start_time = current_time
+
+#     player.play(j["tts_speech"].numpy().T)

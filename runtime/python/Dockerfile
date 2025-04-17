@@ -9,7 +9,7 @@ WORKDIR /opt/CosyVoice
 
 RUN sed -i s@/archive.ubuntu.com/@/mirrors.aliyun.com/@g /etc/apt/sources.list
 RUN apt-get update -y
-RUN apt-get -y install git unzip git-lfs
+RUN apt-get -y install git unzip git-lfs g++
 RUN git lfs install
 
 ENV http_proxy=socks5://183.240.180.158:10080

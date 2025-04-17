@@ -41,7 +41,7 @@ class HiFiGan(nn.Module):
         loss_fm = feature_loss(fmap_rs, fmap_gs)
         loss_mel = mel_loss(real_speech, generated_speech, self.mel_spec_transform)
         if self.tpr_loss_weight != 0:
-            loss_tpr = tpr_loss(y_d_rs, y_d_gs, self.tpr_loss_tau)
+            loss_tpr = tpr_loss(y_d_gs, y_d_rs, self.tpr_loss_tau)
         else:
             loss_tpr = torch.zeros(1).to(device)
         loss_f0 = F.l1_loss(generated_f0, pitch_feat)
@@ -56,7 +56,7 @@ class HiFiGan(nn.Module):
         with torch.no_grad():
             generated_speech, generated_f0 = self.generator(batch, device)
         # 2. calculate discriminator outputs
-        y_d_rs, y_d_gs, fmap_rs, fmap_gs = self.discriminator(real_speech, generated_speech)
+        y_d_rs, y_d_gs, fmap_rs, fmap_gs = self.discriminator(real_speech, generated_speech.detach())
         # 3. calculate discriminator losses, tpr losses [Optional]
         loss_disc, _, _ = discriminator_loss(y_d_rs, y_d_gs)
         if self.tpr_loss_weight != 0:

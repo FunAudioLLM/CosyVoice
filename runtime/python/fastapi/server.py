@@ -112,7 +112,6 @@ async def inference_instruct2(tts_text: str = Form(), instruct_text: str = Form(
     return StreamingResponse(generate_data(model_output))
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--port',

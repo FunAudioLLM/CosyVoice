@@ -13,7 +13,7 @@ inflect==7.3.1
 librosa==0.10.2
 lightning==2.2.4
 matplotlib==3.7.5
-modelscope==1.15.0
+modelscope==1.20.0
 networkx==3.1
 omegaconf==2.3.0
 onnx==1.16.0
@@ -21,6 +21,7 @@ onnxruntime-gpu==1.18.0; sys_platform == 'linux'
 onnxruntime==1.18.0; sys_platform == 'darwin' or sys_platform == 'win32'
 openai-whisper==20231117
 protobuf==4.25
+pyarrow==18.1.0
 pydantic==2.7.0
 pyworld==0.3.4
 rich==13.7.1

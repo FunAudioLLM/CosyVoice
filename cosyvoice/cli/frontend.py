@@ -35,6 +35,16 @@ except ImportError:
 from cosyvoice.utils.file_utils import logging
 from cosyvoice.utils.frontend_utils import contains_chinese, replace_blank, replace_corner_mark, remove_bracket, spell_out_number, split_paragraph, is_only_punctuation
 
+def set_device() -> torch.device:
+    """Assign GPU device if possible"""
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        return torch.device("mps")
+    elif torch.xpu.is_available():
+        return torch.device("xpu")
+    else:
+        return torch.device("cpu")
 
 class CosyVoiceFrontEnd:
 
@@ -45,18 +55,12 @@ class CosyVoiceFrontEnd:
                  speech_tokenizer_model: str,
                  spk2info: str = '',
                  allowed_special: str = 'all'):
+
+        self.device = set_device()
+
         self.tokenizer = get_tokenizer()
         self.feat_extractor = feat_extractor
 
-        if torch.cuda.is_available():
-            self.device = torch.device('cuda')
-        elif torch.backends.mps.is_available():
-            self.device = torch.device('mps')
-        elif torch.xpu.is_available():
-            self.device = torch.device('xpu')
-        else:
-            self.device = torch.device('cpu')
-            
         option = onnxruntime.SessionOptions()
         option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
         option.intra_op_num_threads = 1

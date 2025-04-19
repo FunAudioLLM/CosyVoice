@@ -171,12 +171,12 @@ def run_periodically(interval, func):
     
     wrapper()
 
+@app.get("/inference_instruct2")
 @app.post("/inference_instruct2")
 async def inference_instruct2(tts_text: str = Form(), instruct_text: str = Form(), prompt_wav: UploadFile = File()):
     prompt_speech_16k = load_wav(prompt_wav.file, 16000)
     model_output = cosyvoice.inference_instruct2(tts_text, instruct_text, prompt_speech_16k)
     return StreamingResponse(generate_data(model_output))
-
 
 
 if __name__ == '__main__':
@@ -189,10 +189,12 @@ if __name__ == '__main__':
                         default='iic/CosyVoice-300M',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
+
     # 设置每个进程最多使用 50% 的 GPU 显存
     #torch.cuda.set_per_process_memory_fraction(0.8, 0)
     #logging.info('Torch set_per_process_memory_fraction 0.8')
     cosyvoice = CosyVoice2(args.model_dir) if 'CosyVoice2' in args.model_dir else CosyVoice(args.model_dir)
     # 每10分钟（600秒）运行一次 monitor_and_release_memory
     #run_periodically(600, monitor_and_release_memory)
+
     uvicorn.run(app, host="0.0.0.0", port=args.port)

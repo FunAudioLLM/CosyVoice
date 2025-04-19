@@ -799,6 +799,7 @@ class CausalConditionalDecoder(ConditionalDecoder):
         output = self.final_proj(x * mask_up)
         return output * mask
 
+    @torch.inference_mode()
     def forward_chunk(self, x, mask, mu, t, spks=None, cond=None,
                       down_blocks_conv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0),
                       down_blocks_kv_cache: torch.Tensor = torch.zeros(0, 0, 0, 0, 0, 0),

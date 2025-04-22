@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04
 
 ARG VENV_NAME="cosyvoice"
 ENV VENV=$VENV_NAME
@@ -46,6 +46,7 @@ ENV PYTHONPATH="${PYTHONPATH}:/workspace/CosyVoice:/workspace/CosyVoice/third_pa
 COPY requirements.txt CosyVoice/requirements.txt
 RUN conda activate ${VENV} && conda install -y -c conda-forge pynini==2.1.5
 RUN conda activate ${VENV} && cd CosyVoice && \
+    pip install --pre torch torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 && \
     pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
 RUN rm -rf CosyVoice
 WORKDIR /workspace/CosyVoice

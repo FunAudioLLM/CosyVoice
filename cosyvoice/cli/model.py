@@ -101,6 +101,7 @@ class CosyVoiceModel:
         opt_shape = [(2, 80, 200), (2, 1, 200), (2, 80, 200), (2, 80, 200)]
         max_shape = [(2, 80, 3000), (2, 1, 3000), (2, 80, 3000), (2, 80, 3000)]
         input_names = ["x", "mask", "mu", "cond"]
+
         return {'min_shape': min_shape, 'opt_shape': opt_shape, 'max_shape': max_shape, 'input_names': input_names}
 
     def llm_job(self, text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):
@@ -298,29 +299,6 @@ class CosyVoice2Model(CosyVoiceModel):
         cache = {'encoder_cache': encoder_cache, 'decoder_cache': decoder_cache}
         return cache
 
-    def init_flow_cache(self):
-        encoder_cache = {'offset': 0,
-                         'pre_lookahead_layer_conv2_cache': torch.zeros(1, 512, 2).to(self.device),
-                         'encoders_kv_cache': torch.zeros(6, 1, 8, 0, 64 * 2).to(self.device),
-                         'upsample_offset': 0,
-                         'upsample_conv_cache': torch.zeros(1, 512, 4).to(self.device),
-                         'upsample_kv_cache': torch.zeros(4, 1, 8, 0, 64 * 2).to(self.device)}
-        decoder_cache = {'offset': 0,
-                         'down_blocks_conv_cache': torch.zeros(10, 1, 2, 832, 2).to(self.device),
-                         'down_blocks_kv_cache': torch.zeros(10, 1, 4, 2, self.flow_decoder_required_cache_size, 512, 2).to(self.device),
-                         'mid_blocks_conv_cache': torch.zeros(10, 12, 2, 512, 2).to(self.device),
-                         'mid_blocks_kv_cache': torch.zeros(10, 12, 4, 2, self.flow_decoder_required_cache_size, 512, 2).to(self.device),
-                         'up_blocks_conv_cache': torch.zeros(10, 1, 2, 1024, 2).to(self.device),
-                         'up_blocks_kv_cache': torch.zeros(10, 1, 4, 2, self.flow_decoder_required_cache_size, 512, 2).to(self.device),
-                         'final_blocks_conv_cache': torch.zeros(10, 2, 256, 2).to(self.device)}
-        if self.fp16 is True:
-            for cache in [encoder_cache, decoder_cache]:
-                for k, v in cache.items():
-                    if isinstance(v, torch.Tensor):
-                        cache[k] = v.half()
-        cache = {'encoder_cache': encoder_cache, 'decoder_cache': decoder_cache}
-        return cache
-
     def load_jit(self, flow_encoder_model):
         flow_encoder = torch.jit.load(flow_encoder_model, map_location=self.device)
         self.flow.encoder = flow_encoder
@@ -393,8 +371,8 @@ class CosyVoice2Model(CosyVoiceModel):
             while True:
                 time.sleep(0.05)
                 start_time = time.time()
-                if len(self.tts_speech_token_dict[this_uuid]) - token_offset >= self.token_hop_len + self.flow.pre_lookahead_len:
-                    this_tts_speech_token = torch.tensor(self.tts_speech_token_dict[this_uuid][:token_offset + self.token_hop_len + self.flow.pre_lookahead_len]).unsqueeze(dim=0)
+                if len(self.tts_speech_token_dict[this_uuid]) >= self.token_hop_len + self.flow.pre_lookahead_len:
+                    this_tts_speech_token = torch.tensor(self.tts_speech_token_dict[this_uuid][:self.token_hop_len + self.flow.pre_lookahead_len]).unsqueeze(dim=0)
                     this_tts_speech = self.token2wav(token=this_tts_speech_token,
                                                      prompt_token=flow_prompt_speech_token,
                                                      prompt_feat=prompt_speech_feat,

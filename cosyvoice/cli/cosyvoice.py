@@ -278,6 +278,7 @@ class CosyVoice2(CosyVoice):
             self.model.load_trt('{}/flow.decoder.estimator.{}.mygpu.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
                                 '{}/flow.decoder.estimator.fp32.onnx'.format(model_dir),
                                 self.fp16)
+        logging.info('CosyVoice2 初始化完成!')
         del configs
 
     def inference_instruct(self, *args, **kwargs):

@@ -115,7 +115,6 @@ class CosyVoice:
                     rtf = (time.time() - start_time) / speech_len
                     pbar.set_postfix_str(f'rtf={rtf:.2f}')
                     # 持久打印rtf值，不随进度条消失
-                    print(f'当前RTF: {rtf:.2f}, 当前文本: {text_segment}', flush=True)
                     print(f" 在cosyvoice.py函数: _process_with_progress 中，耗时: {time.time() - start_time:.2f} 秒")
                     # 仅在迭代次数小于3时根据实际语音长度更新预估总迭代次数
                     if iter_count <= 3:
@@ -155,26 +154,27 @@ class CosyVoice:
             start_time = time.time()
             # 根据音色ID获取模型输入
             spk = default_voices[0] if spk_id not in default_voices else spk_id
+            print(f"spk: {spk},  spk_id: {spk_id}")
             model_input = self.frontend.frontend_sft(text_segment, spk)
 
-            # 如果是自定义音色,加载并更新音色相关特征
-            if spk_id not in default_voices:
-                newspk = torch.load(
-                    f'{grandparent_dir}/voices/{spk_id}.pt',
-                    map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-                )
+            # # 如果是自定义音色,加载并更新音色相关特征
+            # if spk_id not in default_voices:
+            #     newspk = torch.load(
+            #         f'{grandparent_dir}/voices/{spk_id}.pt',
+            #         map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            #     )
                 
-                # 更新模型输入中的音色特征
-                spk_fields = [
-                    "flow_embedding", "llm_embedding",
-                    "llm_prompt_speech_token", "llm_prompt_speech_token_len",
-                    "flow_prompt_speech_token", "flow_prompt_speech_token_len", 
-                    "prompt_speech_feat_len", "prompt_speech_feat",
-                    "prompt_text", "prompt_text_len"
-                ]
+            #     # 更新模型输入中的音色特征
+            #     spk_fields = [
+            #         "flow_embedding", "llm_embedding",
+            #         "llm_prompt_speech_token", "llm_prompt_speech_token_len",
+            #         "flow_prompt_speech_token", "flow_prompt_speech_token_len", 
+            #         "prompt_speech_feat_len", "prompt_speech_feat",
+            #         "prompt_text", "prompt_text_len"
+            #     ]
                 
-                for field in spk_fields:
-                    model_input[field] = newspk[field]
+            #     for field in spk_fields:
+            #         model_input[field] = newspk[field]
 
             yield from self._process_with_progress(model_input, text_segment, stream, speed)
 

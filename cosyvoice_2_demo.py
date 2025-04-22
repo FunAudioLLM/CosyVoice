@@ -1,14 +1,21 @@
 import sys
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+import logging
+from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
+from cosyvoice.utils.file_utils import load_wav
+import torchaudio
+import torch
+import argparse
+import time
+import numpy as np
+from stream_player import StreamPlayer
 
 # 设置根目录并添加第三方库路径
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append("{}/third_party/Matcha-TTS".format(ROOT_DIR))
 
 
-import logging
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "4"
 # 设置日志级别为 DEBUG
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -19,15 +26,6 @@ logging.getLogger().setLevel(logging.DEBUG)
 for name in logging.root.manager.loggerDict:
     logging.getLogger(name).setLevel(logging.DEBUG)
 
-
-from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
-from cosyvoice.utils.file_utils import load_wav
-import torchaudio
-import torch
-import argparse
-import time
-import numpy as np
-from stream_player import StreamPlayer
 
 # 添加命令行参数解析
 parser = argparse.ArgumentParser(description="CosyVoice2 Demo")
@@ -43,80 +41,82 @@ parser.add_argument(
 args = parser.parse_args()
 
 print(f"使用模型目录: {args.model_dir}")
-cosyvoice = CosyVoice2(args.model_dir, load_jit=False, load_trt=True, fp16=args.fp16, use_flow_cache=True)
-
-prompt_speech_16k = load_wav("./asset/sqr3.wav", 16000)
-
-# 预热机制：先用一个很短的文本做一次非流式推理，让模型完成首次编译和加载
-# 这样后续的正式推理就不会有明显延迟
-next(
-    cosyvoice.inference_sft(
-        "预热", "中文女", stream=True, speed=1.0, text_frontend=True
-    )
+cosyvoice = CosyVoice2(
+    args.model_dir, load_jit=False, load_trt=True, fp16=args.fp16, use_flow_cache=True
 )
-print("模型预热完成，准备正式生成")
 
-player = StreamPlayer(sample_rate=cosyvoice.sample_rate, channels=1, block_size=3072)
+print(cosyvoice.list_available_spks())
+
+
+# # prompt_speech_16k = load_wav("./asset/sqr3.wav", 16000)
+# # prompt_speech_16k = load_wav("./asset/wll3.wav", 16000)
+# prompt_speech_16k = load_wav("./asset/wzy_mono.wav", 16000)
+# for i, j in enumerate(
+#     cosyvoice.inference_zero_shot(
+#         "收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。",
+#         # "声纹识别能力，多测一些",
+#         '明天是星期六啦，我要去上果粒课啦，你们知道吗？',
+#         prompt_speech_16k,
+#         stream=True,
+#     )
+# ):
+#     torchaudio.save(
+#         "zero_shot_{}.wav".format(i), j["tts_speech"], cosyvoice.sample_rate
+#     )
+
+# # save zero_shot spk for future usage
+# assert (
+#     cosyvoice.add_zero_shot_spk(
+#         # "声纹识别能力，多测一些", prompt_speech_16k, "wll"
+#         '明天是星期六啦，我要去上果粒课啦，你们知道吗？', prompt_speech_16k, "wzy"
+#     )
+#     is True
+# )
+# cosyvoice.save_spkinfo()
+
+
+player = StreamPlayer(sample_rate=cosyvoice.sample_rate, channels=1, block_size=8048)
 player.start()
 
 
-# 交互式循环，可以反复输入文本生成语音
-default_tts_text = "CosyVoice迎来全面升级，提供更准、更稳、更快、 更好的语音生成能力。make america great again. "
-default_instruct_text = "用很慢的语速读这个故事"
 print(
     "\n按回车使用默认文本，输入新文本后回车使用新文本，输入q后回车退出, 输入@后回车使用新指令\n"
 )
 
 
-def load_voice_data(speaker):
-    """
-    加载自定义语音数据
-    
-    参数:
-        speaker: 说话人ID/名称
-    
-    返回:
-        加载的语音参考数据，如果加载失败则返回None
-    """
-    voice_path = f"{ROOT_DIR}/voices/{speaker}.pt"
-    try:
-        # 检测是否有GPU可用
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        if not os.path.exists(voice_path):
-            return None
-        # 加载语音模型数据
-        voice_data = torch.load(voice_path, map_location=device)
-        return voice_data.get('audio_ref')
-    except Exception as e:
-        raise ValueError(f"加载音色文件失败: {e}")
 
 while True:
+    # 交互式循环，可以反复输入文本生成语音
+    # speaker = "xiaoluo_mandarin"
+    # speaker = "Donald J. Trump"
+    default_speaker = "wll"
+    default_tts_text = "CosyVoice迎来全面升级，提供更准、更稳、更快、 更好的语音生成能力。make america great again. "
+    default_instruct_text = "用很慢的语速读这个故事"
+    speaker = default_speaker
+    tts_text = default_tts_text
+    instruct_text = default_instruct_text
     # 获取用户输入
-    user_input = input(f"请输入文本 (默认: '{default_tts_text}'): ")
+    user_input = input(f"请输入文本 (格式: ' speaker @ tts_text @ instruct_text')  退出: q ")
 
     # 检查是否退出
     if user_input.strip() == "q":
         print("退出语音生成循环")
         break
 
-    # 决定使用哪个文本
-    tts_text = (
-        default_tts_text if len(user_input.strip()) < 2 else user_input.split("@")[0]
-    )
+    if len(user_input)>2:
+        speaker = user_input.split("@")[0]
     if len(user_input.split("@")) > 1:
-        instruct_text = user_input.split("@")[1] 
-    else:
-        instruct_text = default_instruct_text
+        speaker = user_input.split("@")[0]
+        tts_text = user_input.split("@")[1]
+    if len(user_input.split("@")) > 2:
+        speaker = user_input.split("@")[0]
+        tts_text = user_input.split("@")[1]
+        instruct_text = user_input.split("@")[2]
 
     print(
-        f"ATTENTION: 文本已经给到模型，开始生成语音啦！！！  指令是： {instruct_text}"
+        f"SPEAKER 是： {speaker}， prompt_text 是： {tts_text}"
     )
     start_time = time.time()
-    # speaker = "Donald J. Trump"
-    speaker = "xiaoluo_mandarin"
-    prompt_speech_16k = load_voice_data(speaker)
-    # 确保prompt_speech_16k不是 none， 用 assert
-    assert prompt_speech_16k is not None, "prompt_speech_16k is None"
     for i, j in enumerate(
         # cosyvoice.inference_instruct2(
         #     tts_text,
@@ -130,11 +130,10 @@ while True:
             tts_text,
             speaker,
             stream=True,
-            speed=1.5,
         )
     ):
         current_time = time.time()
-        logging.info(f"第 {i} 次生成耗时: {current_time - start_time:.2f} 秒")
+        # logging.info(f"第 {i} 次生成耗时: {current_time - start_time:.2f} 秒")
         start_time = current_time
 
         player.play(j["tts_speech"].numpy().T)

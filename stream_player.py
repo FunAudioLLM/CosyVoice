@@ -175,7 +175,7 @@ class StreamPlayer:
                 logging.debug(f"缓冲区已裁剪，新长度: {len(self.buffer)}")
             
             # logging.debug(f"缓冲区状态: {self.get_buffer_status()}")
-            logging.debug(f"添加了 {len(audio_data)} 个样本，当前缓冲区大小: {len(self.buffer)}, 当前位置: {self.position}")
+            # logging.debug(f"添加了 {len(audio_data)} 个样本，当前缓冲区大小: {len(self.buffer)}, 当前位置: {self.position}")
     
     def stop(self):
         """停止音频流并清理资源"""

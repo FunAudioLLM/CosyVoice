@@ -164,17 +164,6 @@ class CosyVoice:
             #         map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             #     )
                 
-            #     # 更新模型输入中的音色特征
-            #     spk_fields = [
-            #         "flow_embedding", "llm_embedding",
-            #         "llm_prompt_speech_token", "llm_prompt_speech_token_len",
-            #         "flow_prompt_speech_token", "flow_prompt_speech_token_len", 
-            #         "prompt_speech_feat_len", "prompt_speech_feat",
-            #         "prompt_text", "prompt_text_len"
-            #     ]
-                
-            #     for field in spk_fields:
-            #         model_input[field] = newspk[field]
 
             yield from self._process_with_progress(model_input, text_segment, stream, speed)
 

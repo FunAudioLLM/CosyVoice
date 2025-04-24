@@ -150,14 +150,41 @@ class CosyVoiceFrontEnd:
         return texts if split is True else text
 
     def frontend_sft(self, tts_text, spk_id):
-        tts_text_token, tts_text_token_len = self._extract_text_token(tts_text)
-        # 打印spk_id, 并且看spk2info[spk_id]有哪些key
-        # print(f"spk_id: {spk_id}")
-        # print(f"spk2info[spk_id]: {self.spk2info[spk_id]}")
-        embedding = self.spk2info[spk_id]['llm_embedding']
         if spk_id not in self.spk2info:
             logging.warning(f"in Frontend.py line 157, 说话人ID {spk_id} 不存在于 spk2info 中, embedding is {embedding}")
-        model_input = {'text': tts_text_token, 'text_len': tts_text_token_len, 'llm_embedding': embedding, 'flow_embedding': embedding}
+        # 更新模型输入中的音色特征
+        spk_fields = [
+            "flow_embedding", "llm_embedding",
+            "llm_prompt_speech_token", "llm_prompt_speech_token_len",
+            "flow_prompt_speech_token", "flow_prompt_speech_token_len", 
+            "prompt_speech_feat_len", "prompt_speech_feat",
+            "prompt_text", "prompt_text_len"
+        ]
+        model_input = {}
+        for field in spk_fields:
+            if field in self.spk2info[spk_id]:
+                model_input[field] = self.spk2info[spk_id][field]
+
+        tts_text_token, tts_text_token_len = self._extract_text_token(tts_text)
+
+        if 'llm_embedding' in self.spk2info[spk_id]:
+            embedding = self.spk2info[spk_id]['llm_embedding']
+        elif 'embedding' in self.spk2info[spk_id]:
+            embedding = self.spk2info[spk_id]['embedding']
+        else:
+            embedding = self.spk2info[spk_id]['flow_embedding']
+        
+        # 确保即使 model_input 中已有相同的键，也会被更新
+        update_fields = {
+            'text': tts_text_token, 
+            'text_len': tts_text_token_len, 
+            'llm_embedding': embedding, 
+            'flow_embedding': embedding
+        }
+        
+        # 更新 model_input 中的字段
+        for key, value in update_fields.items():
+            model_input[key] = value
         return model_input
 
     def frontend_zero_shot(self, tts_text, prompt_text, prompt_speech_16k, resample_rate, zero_shot_spk_id):

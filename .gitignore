@@ -42,7 +42,7 @@ tensorboard
 compile_commands.json
 
 # train/inference files
-*.wav
+# *.wav
 *.m4a
 *.aac
 *.pt

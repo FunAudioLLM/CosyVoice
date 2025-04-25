@@ -57,44 +57,44 @@ cosyvoice = CosyVoice2(
 print(cosyvoice.list_available_spks())
 
 
-# prompt_speech_16k = load_wav("./asset/sqr3.wav", 16000)
-# prompt_speech_16k = load_wav("./asset/wll3.wav", 16000)
-# prompt_speech_16k = load_wav("./asset/wzy_read_poet_27s.wav", 16000)
-prompt_speech_16k = load_wav("./asset/harry_potter_snape_injured.wav", 16000)
-# prompt_speech_16k = load_wav("./asset/laoxu.wav", 16000)
-for i, j in enumerate(
-    cosyvoice.inference_zero_shot(
-        "收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。",
-        # "声纹识别能力，多测一些",
-        # '明天是星期六啦，我要去上果粒课啦，你们知道吗？',
-        "I’m not hungry. That explains the blood. Listen. Last night, I'm guessing Snape let the troll in as a diversion, so he could get past that dog. But he got bit, that's why he's limping. The day I was at Gringotts, Hagrid took something out of the vault. Said it was Hogwarts business, very secret. That's what the dog's guarding. That's what Snape wants.  I never get mail.",
-        # "啊这个也能理解啊，因为七牛毕竟，是国内最早做云存储的公司。嗯，所以我想，就是和云存储相关的交流，可以在这个这个会之后自由讨论的时候，我们只管沟通啊。知无不言，言无不尽，哼哼。",
-        # "我最喜欢夏天，满地的鲜花，这里一朵，那里一朵， 真比天上的星星还多。 夜晚，我数着天上的星星，真比地上的花儿还要多。那里一颗，真比天上的花还，花儿还多。",
-        prompt_speech_16k,
-        stream=args.use_flow_cache,
-    )
-):
-    torchaudio.save(
-        "zero_shot_{}.wav".format(i), j["tts_speech"], cosyvoice.sample_rate
-    )
+# # prompt_speech_16k = load_wav("./asset/sqr3.wav", 16000)
+# # prompt_speech_16k = load_wav("./asset/wll3.wav", 16000)
+# # prompt_speech_16k = load_wav("./asset/wzy_read_poet_27s.wav", 16000)
+# prompt_speech_16k = load_wav("./asset/harry_potter_snape_injured.wav", 16000)
+# # prompt_speech_16k = load_wav("./asset/laoxu.wav", 16000)
+# for i, j in enumerate(
+#     cosyvoice.inference_zero_shot(
+#         "收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。",
+#         # "声纹识别能力，多测一些",
+#         # '明天是星期六啦，我要去上果粒课啦，你们知道吗？',
+#         "I’m not hungry. That explains the blood. Listen. Last night, I'm guessing Snape let the troll in as a diversion, so he could get past that dog. But he got bit, that's why he's limping. The day I was at Gringotts, Hagrid took something out of the vault. Said it was Hogwarts business, very secret. That's what the dog's guarding. That's what Snape wants.  I never get mail.",
+#         # "啊这个也能理解啊，因为七牛毕竟，是国内最早做云存储的公司。嗯，所以我想，就是和云存储相关的交流，可以在这个这个会之后自由讨论的时候，我们只管沟通啊。知无不言，言无不尽，哼哼。",
+#         # "我最喜欢夏天，满地的鲜花，这里一朵，那里一朵， 真比天上的星星还多。 夜晚，我数着天上的星星，真比地上的花儿还要多。那里一颗，真比天上的花还，花儿还多。",
+#         prompt_speech_16k,
+#         stream=args.use_flow_cache,
+#     )
+# ):
+#     torchaudio.save(
+#         "zero_shot_{}.wav".format(i), j["tts_speech"], cosyvoice.sample_rate
+#     )
 
-# save zero_shot spk for future usage
-assert (
-    cosyvoice.add_zero_shot_spk(
-        # "声纹识别能力，多测一些", prompt_speech_16k, "wll"
-        # '明天是星期六啦，我要去上果粒课啦，你们知道吗？', prompt_speech_16k, "wzy"
-        # "啊这个也能理解啊，因为七牛毕竟，是国内最早做云存储的公司。嗯，所以我想，就是和云存储相关的交流，可以在这个这个会之后自由讨论的时候，我们只管沟通啊。知无不言，言无不尽，哼哼。", prompt_speech_16k, "laoxu"
-        # "我最喜欢夏天，满地的鲜花，这里一朵，那里一朵， 真比天上的星星还多。 夜晚，我数着天上的星星，真比地上的花儿还要多。那里一颗，真比天上的花还，花儿还多。",
-        "I’m not hungry. That explains the blood. Listen. Last night, I'm guessing Snape let the troll in as a diversion, so he could get past that dog. But he got bit, that's why he's limping. The day I was at Gringotts, Hagrid took something out of the vault. Said it was Hogwarts business, very secret. That's what the dog's guarding. That's what Snape wants.  I never get mail.",
-        prompt_speech_16k,
-        "hp",
-    )
-    is True
-)
-cosyvoice.save_spkinfo()
+# # save zero_shot spk for future usage
+# assert (
+#     cosyvoice.add_zero_shot_spk(
+#         # "声纹识别能力，多测一些", prompt_speech_16k, "wll"
+#         # '明天是星期六啦，我要去上果粒课啦，你们知道吗？', prompt_speech_16k, "wzy"
+#         # "啊这个也能理解啊，因为七牛毕竟，是国内最早做云存储的公司。嗯，所以我想，就是和云存储相关的交流，可以在这个这个会之后自由讨论的时候，我们只管沟通啊。知无不言，言无不尽，哼哼。", prompt_speech_16k, "laoxu"
+#         # "我最喜欢夏天，满地的鲜花，这里一朵，那里一朵， 真比天上的星星还多。 夜晚，我数着天上的星星，真比地上的花儿还要多。那里一颗，真比天上的花还，花儿还多。",
+#         "I’m not hungry. That explains the blood. Listen. Last night, I'm guessing Snape let the troll in as a diversion, so he could get past that dog. But he got bit, that's why he's limping. The day I was at Gringotts, Hagrid took something out of the vault. Said it was Hogwarts business, very secret. That's what the dog's guarding. That's what Snape wants.  I never get mail.",
+#         prompt_speech_16k,
+#         "hp",
+#     )
+#     is True
+# )
+# cosyvoice.save_spkinfo()
 
 
-player = StreamPlayer(sample_rate=cosyvoice.sample_rate, channels=1, block_size=8048)
+player = StreamPlayer(sample_rate=cosyvoice.sample_rate, channels=1, block_size=18048)
 player.start()
 
 

@@ -177,11 +177,10 @@ def compute_fbank(data,
         waveform = sample['speech']
         feat = feat_extractor(waveform).squeeze(dim=0).transpose(0, 1)
 
-        # padding with replicate mode (align to speech_token len * token_mel_ratio)
-        pad_len = sample["speech_token"].shape[0] * token_mel_ratio - feat.shape[0]
-        if pad_len > 0:
-            feat_to_pad = feat[-1:].repeat((pad_len, 1))
-            feat = torch.cat([feat, feat_to_pad], dim=0)
+        # trim to align speech_token and speech_feat
+        token_len = min(feat.shape[0] // token_mel_ratio, sample["speech_token"].shape[0])
+        feat = feat[:token_mel_ratio * token_len]
+        sample["speech_token"] = sample["speech_token"][:token_len]
 
         sample['speech_feat'] = feat
         yield sample

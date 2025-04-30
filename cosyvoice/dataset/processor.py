@@ -159,6 +159,7 @@ def truncate(data, truncate_length=24576, mode='train'):
 
 def compute_fbank(data,
                   feat_extractor,
+                  token_mel_ratio=2,
                   mode='train'):
     """ Extract fbank
 
@@ -174,8 +175,14 @@ def compute_fbank(data,
         assert 'utt' in sample
         assert 'text_token' in sample
         waveform = sample['speech']
-        mat = feat_extractor(waveform).squeeze(dim=0).transpose(0, 1)
-        sample['speech_feat'] = mat
+        feat = feat_extractor(waveform).squeeze(dim=0).transpose(0, 1)
+
+        # trim to align speech_token and speech_feat
+        token_len = min(feat.shape[0] // token_mel_ratio, sample["speech_token"].shape[0])
+        feat = feat[:token_mel_ratio * token_len]
+        sample["speech_token"] = sample["speech_token"][:token_len]
+
+        sample['speech_feat'] = feat
         yield sample
 
 

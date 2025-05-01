@@ -3,6 +3,8 @@
 conformer==0.3.2
 deepspeed==0.14.2; sys_platform == 'linux'
 diffusers==0.29.0
+fastapi==0.115.6
+fastapi-cli==0.0.4
 gdown==5.1.0
 gradio==5.4.0
 grpcio==1.57.0
@@ -34,7 +36,5 @@ torch==2.3.1
 torchaudio==2.3.1
 transformers==4.40.1
 uvicorn==0.30.0
-wget==3.2
-fastapi==0.115.6
-fastapi-cli==0.0.4
 WeTextProcessing==1.0.3
+wget==3.2

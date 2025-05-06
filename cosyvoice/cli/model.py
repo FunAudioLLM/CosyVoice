@@ -24,14 +24,38 @@ from cosyvoice.utils.common import fade_in_out
 from cosyvoice.utils.file_utils import convert_onnx_to_trt
 
 
+def set_device() -> torch.device:
+    """Assign GPU device if possible"""
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        return torch.device("mps")
+    elif torch.xpu.is_available():
+        return torch.device("xpu")
+    else:
+        return torch.device("cpu")
+
+def clear_cache() -> None:
+    """Empty device caches"""
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    elif torch.backends.mps.is_available():
+        torch.mps.empty_cache()
+    elif torch.xpu.is_available():
+        torch.xpu.empty_cache()
+
+
 class CosyVoiceModel:
 
     def __init__(self,
                  llm: torch.nn.Module,
                  flow: torch.nn.Module,
                  hift: torch.nn.Module,
+
                  fp16: bool = False):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        self.device = set_device()
+
         self.llm = llm
         self.flow = flow
         self.hift = hift
@@ -81,7 +105,7 @@ class CosyVoiceModel:
         self.flow.encoder = flow_encoder
 
     def load_trt(self, flow_decoder_estimator_model, flow_decoder_onnx_model, fp16):
-        assert torch.cuda.is_available(), 'tensorrt only supports gpu!'
+        assert torch.cuda.is_available() or torch.backends.mps.is_available() or torch.xpu.is_available(), 'tensorrt only supports gpu!'
         if not os.path.exists(flow_decoder_estimator_model):
             convert_onnx_to_trt(flow_decoder_estimator_model, self.get_trt_kwargs(), flow_decoder_onnx_model, fp16)
         if os.path.getsize(flow_decoder_estimator_model) == 0:
@@ -231,7 +255,10 @@ class CosyVoiceModel:
             self.mel_overlap_dict.pop(this_uuid)
             self.hift_cache_dict.pop(this_uuid)
             self.flow_cache_dict.pop(this_uuid)
-        torch.cuda.empty_cache()
+        import gc
+        gc.collect()
+        clear_cache()
+
 
 
 class CosyVoice2Model(CosyVoiceModel):
@@ -242,7 +269,16 @@ class CosyVoice2Model(CosyVoiceModel):
                  hift: torch.nn.Module,
                  fp16: bool = False,
                  use_flow_cache: bool = False):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+        elif torch.backends.mps.is_available():
+            self.device = torch.device('mps')
+        elif torch.xpu.is_available():
+            self.device = torch.device('xpu')
+        else:
+            self.device = torch.device('cpu')
+
         self.llm = llm
         self.flow = flow
         self.hift = hift
@@ -405,4 +441,5 @@ class CosyVoice2Model(CosyVoiceModel):
             self.llm_end_dict.pop(this_uuid)
             self.hift_cache_dict.pop(this_uuid)
             self.flow_cache_dict.pop(this_uuid)
-        torch.cuda.empty_cache()
+
+        clear_cache()

@@ -78,7 +78,19 @@ sudo yum install sox sox-devel
 
 **Model download**
 
-We strongly recommend that you download our pretrained `CosyVoice2-0.5B` `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `CosyVoice-ttsfrd` resource.
+We strongly recommend that you download our pretrained `CosyVoice2-0.5B` `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `CosyVoice-ttsfrd` resource using the script:
+
+On Windows:
+```bash
+python .\tools\models_download.py
+```
+
+On Linux/Mac:
+```bash
+python ./tools/models_download.py
+```
+
+Alternatively, you can also download models manually:
 
 ``` python
 # SDK模型下载

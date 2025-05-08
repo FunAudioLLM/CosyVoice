@@ -1,4 +1,5 @@
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 import sys
 import argparse
 import logging
@@ -11,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import numpy as np
 import io
-from typing import Iterator, Any
+from typing import Iterator, Any, List
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/../../..'.format(ROOT_DIR))
 sys.path.append('{}/../../../third_party/Matcha-TTS'.format(ROOT_DIR))
@@ -34,6 +35,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"])
 
+def process_audio_chunk(audio_data) -> bytes:
+    """将模型输出的音频数据转换为字节格式"""
+    try:
+        # 当前使用标准16位PCM格式以确保兼容性
+        audio_bytes = (audio_data.numpy() * (2 ** 15)).astype(np.int16).tobytes()
+        return audio_bytes
+    except Exception as e:
+        logging.error(f"处理音频数据时出错: {e}")
+        return b''
+
 def generate_data(model_output) -> Iterator[bytes]:
     """
     处理模型输出的语音数据，将其转换为适合流式传输的格式
@@ -51,15 +62,19 @@ def generate_data(model_output) -> Iterator[bytes]:
     如果整个系统都支持浮点音频，可以考虑简化为float16格式
     """
     try:
-        for i in model_output:
-            # 可以考虑使用这种更简洁的方式，如果客户端支持
-            # tts_audio = i['tts_speech'].numpy().astype(np.float16).tobytes()
-            
-            # 当前使用标准16位PCM格式以确保兼容性
-            tts_audio = (i['tts_speech'].numpy() * (2 ** 15)).astype(np.int16).tobytes()
-            # tts_audio = i['tts_speech'].numpy().astype(np.float32).tobytes()
-            logging.debug(f"发送音频数据片段，大小: {len(tts_audio)} 字节")
-            yield tts_audio
+        # 检查model_output是否为可迭代对象
+        if hasattr(model_output, '__iter__'):
+            for i, item in enumerate(model_output):
+                if 'tts_speech' in item:
+                    audio_bytes = process_audio_chunk(item['tts_speech'])
+                    logging.debug(f"发送音频数据片段[{i}]，大小: {len(audio_bytes)} 字节")
+                    yield audio_bytes
+        else:
+            # 处理单个输出的情况
+            if hasattr(model_output, 'tts_speech'):
+                audio_bytes = process_audio_chunk(model_output.tts_speech)
+                logging.debug(f"发送单个音频数据片段，大小: {len(audio_bytes)} 字节")
+                yield audio_bytes
     except Exception as e:
         logging.error(f"生成数据时发生错误: {e}")
         raise
@@ -69,14 +84,29 @@ def generate_data(model_output) -> Iterator[bytes]:
 @app.post("/inference_sft")
 async def inference_sft(tts_text: str = Form(), spk_id: str = Form()):
     # 使用流式模式生成语音，inference_sft本身会返回一个生成器
-    # 直接将这个生成器传递给StreamingResponse，通过generate_data函数处理每个小段语音
     try:
         logging.info(f"开始语音合成: '{tts_text[:30]}...'")
-        model_output = cosyvoice.inference_sft(tts_text, spk_id, stream=True)
+        
+        # 获取所有生成的音频数据
+        all_outputs = []
+        
+        # 对生成的每个片段进行处理
+        async def stream_generator():
+            for chunk in cosyvoice.inference_sft(tts_text, spk_id, stream=True):
+                # 处理单个音频数据块
+                audio_bytes = process_audio_chunk(chunk['tts_speech'])
+                logging.debug(f"流式发送音频数据片段，大小: {len(audio_bytes)} 字节")
+                yield audio_bytes
+        
+        # 返回流式响应
         return StreamingResponse(
-            generate_data(model_output),
-            media_type="audio/wav",
-            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+            stream_generator(),
+            media_type="audio/wave",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Transfer-Encoding": "chunked"
+            }
         )
     except Exception as e:
         logging.error(f"inference_sft处理失败: {e}")
@@ -95,7 +125,7 @@ async def inference_zero_shot(tts_text: str = Form(), prompt_text: str = Form(),
 @app.post("/inference_cross_lingual")
 async def inference_cross_lingual(tts_text: str = Form(), prompt_wav: UploadFile = File()):
     prompt_speech_16k = load_wav(prompt_wav.file, 16000)
-    model_output = cosyvoice.inference_cross_lingual(tts_text, prompt_speech_16k)
+    model_output = cosyvoice.inference_cross_lingual(tts_text, prompt_speech_16k, prompt_speech_16k)
     return StreamingResponse(generate_data(model_output))
 
 

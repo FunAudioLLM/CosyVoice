@@ -10,12 +10,12 @@ import sys
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/../../..'.format(ROOT_DIR))
 
-from stream_player import StreamPlayer
+# from stream_player import StreamPlayer
+
+# player = StreamPlayer(sample_rate=22050, channels=1, block_size=18048)
+# player.start()
 
 logging.basicConfig(level=logging.DEBUG)
-player = StreamPlayer(sample_rate=22050, channels=1, block_size=18048)
-player.start()
-
 def main():
     url = "http://{}:{}/inference_{}".format(args.host, args.port, args.mode)
     logging.info('请求URL: {}'.format(url))
@@ -63,17 +63,32 @@ def main():
         # 接收并处理音频数据
         tts_audio = b''
         chunk_count = 0
-        for r in response.iter_content(chunk_size=16000):
+        last_log_time = time.time()
+        
+        # 调整每次接收的块大小，建议设置为较大值以减少网络往返次数
+        # 但不要太大，否则会增加首次播放延迟
+        for r in response.iter_content(chunk_size=64000):
             if r:  # 过滤掉保持连接活跃的空块
+                now = time.time()
                 chunk_count += 1
-                logging.debug(f"接收到第{chunk_count}块音频数据，大小: {len(r)} 字节")
-                player.play(r)
                 tts_audio += r
+                
+                # # 播放音频
+                # player.play(r)
+                
+                # 避免日志过于频繁
+                if now - last_log_time > 0.5:
+                    logging.debug(f"接收到第{chunk_count}块音频数据，大小: {len(r)} 字节，已接收总量: {len(tts_audio)}")
+                    last_log_time = now
+        
+        # 记录最终接收到的数据量
+        logging.info(f"接收完成，共接收{chunk_count}块数据，总大小: {len(tts_audio)} 字节")
         
         if len(tts_audio) == 0:
             logging.error("未接收到任何音频数据!")
             return
             
+        # 将接收到的字节数据转换为PyTorch张量
         tts_speech = torch.from_numpy(np.array(np.frombuffer(tts_audio, dtype=np.int16))).unsqueeze(dim=0)
         time_end = time.time()
         logging.info('处理时间: {:.2f}秒'.format(time_end - time_start))

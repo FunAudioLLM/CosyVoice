@@ -22,51 +22,73 @@ def main():
 
     time_start = time.time()
     
-    if args.mode == 'sft':
-        payload = {
-            'tts_text': args.tts_text,
-            'spk_id': args.spk_id
-        }
-        response = requests.request("GET", url, data=payload, stream=True, timeout=30)
-    elif args.mode == 'zero_shot':
-        payload = {
-            'tts_text': args.tts_text,
-            'prompt_text': args.prompt_text
-        }
-        files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav, 'rb'), 'application/octet-stream'))]
-        response = requests.request("GET", url, data=payload, files=files, stream=True)
-    elif args.mode == 'cross_lingual':
-        payload = {
-            'tts_text': args.tts_text,
-        }
-        files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav, 'rb'), 'application/octet-stream'))]
-        response = requests.request("GET", url, data=payload, files=files, stream=True)
-    elif args.mode == 'instruct2':
-        payload = {
-            'tts_text': args.tts_text,
-            'instruct_text': args.instruct_text,
-            'spk_id': args.spk_id
-        }
-        # files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav, 'rb'), 'application/octet-stream'))]
-        # response = requests.request("GET", url, data=payload, files=files, stream=True)
-        response = requests.request("GET", url, data=payload, stream=True, timeout=30)
-    else:
-        payload = {
-            'tts_text': args.tts_text,
-            'spk_id': args.spk_id,
-            'instruct_text': args.instruct_text
-        }
-        response = requests.request("GET", url, data=payload, stream=True, timeout=30)
-    tts_audio = b''
-    for r in response.iter_content(chunk_size=16000):
-        player.play(r)
-        tts_audio += r
-    tts_speech = torch.from_numpy(np.array(np.frombuffer(tts_audio, dtype=np.int16))).unsqueeze(dim=0)
-    time_end = time.time()
-    logging.info('time cost: {}'.format(time_end - time_start))
-    logging.info('save response to {}'.format(args.tts_wav))
-    torchaudio.save(args.tts_wav, tts_speech, target_sr)
-    logging.info('get response')
+    try:
+        if args.mode == 'sft':
+            payload = {
+                'tts_text': args.tts_text,
+                'spk_id': args.spk_id
+            }
+            response = requests.request("GET", url, data=payload, stream=True, timeout=args.timeout)
+        elif args.mode == 'zero_shot':
+            payload = {
+                'tts_text': args.tts_text,
+                'prompt_text': args.prompt_text
+            }
+            files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav, 'rb'), 'application/octet-stream'))]
+            response = requests.request("GET", url, data=payload, files=files, stream=True, timeout=args.timeout)
+        elif args.mode == 'cross_lingual':
+            payload = {
+                'tts_text': args.tts_text,
+            }
+            files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav, 'rb'), 'application/octet-stream'))]
+            response = requests.request("GET", url, data=payload, files=files, stream=True, timeout=args.timeout)
+        elif args.mode == 'instruct2':
+            payload = {
+                'tts_text': args.tts_text,
+                'instruct_text': args.instruct_text,
+                'spk_id': args.spk_id
+            }
+            response = requests.request("GET", url, data=payload, stream=True, timeout=args.timeout)
+        else:
+            payload = {
+                'tts_text': args.tts_text,
+                'spk_id': args.spk_id,
+                'instruct_text': args.instruct_text
+            }
+            response = requests.request("GET", url, data=payload, stream=True, timeout=args.timeout)
+        
+        # 确保响应状态码正确
+        response.raise_for_status()
+        
+        # 接收并处理音频数据
+        tts_audio = b''
+        chunk_count = 0
+        for r in response.iter_content(chunk_size=16000):
+            if r:  # 过滤掉保持连接活跃的空块
+                chunk_count += 1
+                logging.debug(f"接收到第{chunk_count}块音频数据，大小: {len(r)} 字节")
+                player.play(r)
+                tts_audio += r
+        
+        if len(tts_audio) == 0:
+            logging.error("未接收到任何音频数据!")
+            return
+            
+        tts_speech = torch.from_numpy(np.array(np.frombuffer(tts_audio, dtype=np.int16))).unsqueeze(dim=0)
+        time_end = time.time()
+        logging.info('处理时间: {:.2f}秒'.format(time_end - time_start))
+        logging.info('保存音频到: {}'.format(args.tts_wav))
+        torchaudio.save(args.tts_wav, tts_speech, target_sr)
+        logging.info('音频合成完成')
+        
+    except requests.exceptions.Timeout:
+        logging.error(f"请求超时！请尝试增加超时时间(当前: {args.timeout}秒)")
+    except requests.exceptions.ConnectionError:
+        logging.error("连接服务器失败！请检查服务器是否正在运行")
+    except requests.exceptions.HTTPError as e:
+        logging.error(f"HTTP错误: {e}")
+    except Exception as e:
+        logging.error(f"发生未知错误: {e}")
 
 
 if __name__ == "__main__":

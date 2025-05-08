@@ -155,7 +155,12 @@ class StreamPlayer:
         """
         添加音频数据到连续缓冲区
         """
-        if not isinstance(audio_data, np.ndarray):
+        if isinstance(audio_data, bytes):
+            # 处理从网络接收的int16字节流数据
+            audio_data = np.frombuffer(audio_data, dtype=np.int16)
+            # 将int16数据转换回[-1,1]范围的float32
+            audio_data = audio_data.astype(np.float32) / (2 ** 15)
+        elif not isinstance(audio_data, np.ndarray):
             audio_data = np.array(audio_data, dtype=np.float32)
         
         # 保证数据是一维的

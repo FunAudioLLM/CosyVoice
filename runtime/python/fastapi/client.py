@@ -1,16 +1,3 @@
-# Copyright (c) 2024 Alibaba Inc (authors: Xiang Lyu)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#   http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 import argparse
 import logging
 import requests
@@ -18,12 +5,20 @@ import torch
 import torchaudio
 import numpy as np
 import time
+import os
+import sys
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append('{}/../../..'.format(ROOT_DIR))
+
+from stream_player import StreamPlayer
 
 logging.basicConfig(level=logging.DEBUG)
+player = StreamPlayer(sample_rate=22050, channels=1, block_size=18048)
+player.start()
 
 def main():
     url = "http://{}:{}/inference_{}".format(args.host, args.port, args.mode)
-    logging.info('request url: {}'.format(url))
+    logging.info('请求URL: {}'.format(url))
 
     time_start = time.time()
     
@@ -32,7 +27,7 @@ def main():
             'tts_text': args.tts_text,
             'spk_id': args.spk_id
         }
-        response = requests.request("GET", url, data=payload, stream=True)
+        response = requests.request("GET", url, data=payload, stream=True, timeout=30)
     elif args.mode == 'zero_shot':
         payload = {
             'tts_text': args.tts_text,
@@ -54,16 +49,17 @@ def main():
         }
         # files = [('prompt_wav', ('prompt_wav', open(args.prompt_wav, 'rb'), 'application/octet-stream'))]
         # response = requests.request("GET", url, data=payload, files=files, stream=True)
-        response = requests.request("GET", url, data=payload, stream=True)
+        response = requests.request("GET", url, data=payload, stream=True, timeout=30)
     else:
         payload = {
             'tts_text': args.tts_text,
             'spk_id': args.spk_id,
             'instruct_text': args.instruct_text
         }
-        response = requests.request("GET", url, data=payload, stream=True)
+        response = requests.request("GET", url, data=payload, stream=True, timeout=30)
     tts_audio = b''
     for r in response.iter_content(chunk_size=16000):
+        player.play(r)
         tts_audio += r
     tts_speech = torch.from_numpy(np.array(np.frombuffer(tts_audio, dtype=np.int16))).unsqueeze(dim=0)
     time_end = time.time()
@@ -84,7 +80,7 @@ if __name__ == "__main__":
     parser.add_argument('--mode',
                         default='sft',
                         choices=['sft', 'zero_shot', 'cross_lingual', 'instruct', 'instruct2'],
-                        help='request mode')
+                        help='请求模式')
     parser.add_argument('--tts_text',
                         type=str,
                         default='你好，我是通义千问语音合成大模型，请问有什么可以帮您的吗？')
@@ -104,6 +100,10 @@ if __name__ == "__main__":
     parser.add_argument('--tts_wav',
                         type=str,
                         default='demo.wav')
+    parser.add_argument('--timeout',
+                        type=int,
+                        default=300,
+                        help='请求超时时间(秒)')
     args = parser.parse_args()
     prompt_sr, target_sr = 16000, 22050
     main()

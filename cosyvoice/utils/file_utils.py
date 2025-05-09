@@ -1,5 +1,6 @@
 # Copyright (c) 2021 Mobvoi Inc. (authors: Binbin Zhang)
 #               2024 Alibaba Inc (authors: Xiang Lyu, Zetao Hu)
+#               2025 Alibaba Inc (authors: Xiang Lyu, Yabin Li)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import json
-import torchaudio
+import torch, torchaudio
 import logging
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.basicConfig(level=logging.DEBUG,
@@ -83,3 +85,43 @@ def convert_onnx_to_trt(trt_model, trt_kwargs, onnx_model, fp16):
     with open(trt_model, "wb") as f:
         f.write(engine_bytes)
     logging.info("Succesfully convert onnx to trt...")
+
+
+def export_cosyvoice2_vllm(model, model_path, device):
+    if os.path.exists(model_path):
+        return
+    pad_to = DEFAULT_VOCAB_PADDING_SIZE = 64
+    vocab_size = model.speech_embedding.num_embeddings
+    feature_size = model.speech_embedding.embedding_dim
+    pad_vocab_size = ((vocab_size + pad_to - 1) // pad_to) * pad_to
+
+    dtype = torch.bfloat16
+    # lm_head
+    new_lm_head = torch.nn.Linear(in_features=feature_size, out_features=pad_vocab_size, bias=True)
+    with torch.no_grad():
+        new_lm_head.weight[:vocab_size] = model.llm_decoder.weight
+        new_lm_head.bias[:vocab_size] = model.llm_decoder.bias
+        new_lm_head.weight[vocab_size:] = 0
+        new_lm_head.bias[vocab_size:] = 0
+    model.llm.model.lm_head = new_lm_head
+    new_codec_embed = torch.nn.Linear(in_features=feature_size, out_features=pad_vocab_size)
+    # embed_tokens
+    embed_tokens = model.llm.model.model.embed_tokens
+    with torch.no_grad():
+        new_codec_embed.weight[:vocab_size] = model.speech_embedding.weight
+        new_codec_embed.weight[vocab_size:] = 0
+    model.llm.model.set_input_embeddings(new_codec_embed)
+    model.llm.model.to(device)
+    model.llm.model.to(dtype)
+    tmp_vocab_size = model.llm.model.config.vocab_size
+    tmp_tie_embedding = model.llm.model.config.tie_word_embeddings
+    del model.llm.model.generation_config.eos_token_id
+    del model.llm.model.config.bos_token_id
+    del model.llm.model.config.eos_token_id
+    model.llm.model.config.vocab_size = pad_vocab_size
+    model.llm.model.config.tie_word_embeddings = False
+    model.llm.model.config.use_bias = True
+    model.llm.model.save_pretrained(model_path)
+    model.llm.model.config.vocab_size = tmp_vocab_size
+    model.llm.model.config.tie_word_embeddings = tmp_tie_embedding
+    model.llm.model.set_input_embeddings(embed_tokens)

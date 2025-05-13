@@ -38,3 +38,6 @@ transformers==4.40.1
 uvicorn==0.30.0
 WeTextProcessing==1.0.3
 wget==3.2
+psutil==7.0.0
+GPUtil==1.4.0
+onnxruntime-gpu==1.20.0

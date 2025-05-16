@@ -163,6 +163,8 @@ class CosyVoice2(CosyVoice):
             load_jit, load_trt, fp16 = False, False, False
             logging.warning('no cuda device, set load_jit/load_trt/fp16 to False')
         self.model = CosyVoice2Model(configs['llm'], configs['flow'], configs['hift'], fp16, use_flow_cache)
+        self.model.llm.llm.model.resize_token_embeddings(151698)
+
         self.model.load('{}/llm.pt'.format(model_dir),
                         '{}/flow.pt'.format(model_dir) if use_flow_cache is False else '{}/flow.cache.pt'.format(model_dir),
                         '{}/hift.pt'.format(model_dir))

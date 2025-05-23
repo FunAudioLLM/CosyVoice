@@ -49,34 +49,34 @@
 
 ## Install
 
-**Clone and install**
+### Clone and install
 
 - Clone the repo
-``` sh
-git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
-# If you failed to clone submodule due to network failures, please run following command until success
-cd CosyVoice
-git submodule update --init --recursive
-```
+    ``` sh
+    git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
+    # If you failed to clone submodule due to network failures, please run following command until success
+    cd CosyVoice
+    git submodule update --init --recursive
+    ```
 
 - Install Conda: please see https://docs.conda.io/en/latest/miniconda.html
 - Create Conda env:
 
-``` sh
-conda create -n cosyvoice -y python=3.10
-conda activate cosyvoice
-# pynini is required by WeTextProcessing, use conda to install it as it can be executed on all platform.
-conda install -y -c conda-forge pynini==2.1.5
-pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+    ``` sh
+    conda create -n cosyvoice -y python=3.10
+    conda activate cosyvoice
+    # pynini is required by WeTextProcessing, use conda to install it as it can be executed on all platform.
+    conda install -y -c conda-forge pynini==2.1.5
+    pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+    
+    # If you encounter sox compatibility issues
+    # ubuntu
+    sudo apt-get install sox libsox-dev
+    # centos
+    sudo yum install sox sox-devel
+    ```
 
-# If you encounter sox compatibility issues
-# ubuntu
-sudo apt-get install sox libsox-dev
-# centos
-sudo yum install sox sox-devel
-```
-
-**Model download**
+### Model download
 
 We strongly recommend that you download our pretrained `CosyVoice2-0.5B` `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `CosyVoice-ttsfrd` resource.
 
@@ -111,7 +111,7 @@ pip install ttsfrd_dependency-0.1-py3-none-any.whl
 pip install ttsfrd-0.4.2-cp310-cp310-linux_x86_64.whl
 ```
 
-**Basic Usage**
+### Basic Usage
 
 We strongly recommend using `CosyVoice2-0.5B` for better performance.
 Follow code below for detailed usage of each model.
@@ -124,7 +124,7 @@ from cosyvoice.utils.file_utils import load_wav
 import torchaudio
 ```
 
-**CosyVoice2 Usage**
+#### CosyVoice2 Usage
 ```python
 cosyvoice = CosyVoice2('pretrained_models/CosyVoice2-0.5B', load_jit=False, load_trt=False, fp16=False)
 
@@ -159,7 +159,7 @@ for i, j in enumerate(cosyvoice.inference_zero_shot(text_generator(), '希望你
     torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
 ```
 
-**CosyVoice Usage**
+#### CosyVoice Usage
 ```python
 cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-SFT', load_jit=False, load_trt=False, fp16=False)
 # sft usage
@@ -189,7 +189,7 @@ for i, j in enumerate(cosyvoice.inference_instruct('在面对挑战时，他展�
     torchaudio.save('instruct_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
 ```
 
-**Start web demo**
+#### Start web demo
 
 You can use our web demo page to get familiar with CosyVoice quickly.
 
@@ -200,11 +200,11 @@ Please see the demo website for details.
 python3 webui.py --port 50000 --model_dir pretrained_models/CosyVoice-300M
 ```
 
-**Advanced Usage**
+#### Advanced Usage
 
 For advanced user, we have provided train and inference scripts in `examples/libritts/cosyvoice/run.sh`.
 
-**Build for deployment**
+#### Build for deployment
 
 Optionally, if you want service deployment,
 you can run following steps.

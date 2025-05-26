@@ -15,7 +15,7 @@ token_mel_ratio: 2
 
 # stream related params
 chunk_size: 25 # streaming inference chunk size, in token
-num_decoding_left_chunks: 1 # streaming inference flow decoder left chunk size, <0 means use all left chunks
+num_decoding_left_chunks: -1 # streaming inference flow decoder left chunk size, <0 means use all left chunks
 
 # model params
 # for all class/function included in this repo, we use !<name> or !<new> for intialization, so that user may find all corresponding class/function according to one single yaml.

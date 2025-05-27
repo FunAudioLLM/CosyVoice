@@ -83,7 +83,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
   fi
   cp data/train/parquet/data.list data/train.data.list
   cp data/dev/parquet/data.list data/dev.data.list
-  for model in llm flow; do
+  for model in llm flow hifigan; do
     torchrun --nnodes=1 --nproc_per_node=$num_gpus \
         --rdzv_id=$job_id --rdzv_backend="c10d" --rdzv_endpoint="localhost:0" \
       cosyvoice/bin/train.py \
@@ -99,8 +99,23 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
       --num_workers ${num_workers} \
       --prefetch ${prefetch} \
       --pin_memory \
+      --use_amp \
       --deepspeed_config ./conf/ds_stage2.json \
       --deepspeed.save_states model+optimizer
+  done
+fi
+
+# average model
+average_num=5
+if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
+  for model in llm flow hifigan; do
+    decode_checkpoint=`pwd`/exp/cosyvoice/$model/$train_engine/${model}.pt
+    echo "do model average and final checkpoint is $decode_checkpoint"
+    python cosyvoice/bin/average_model.py \
+      --dst_model $decode_checkpoint \
+      --src_path `pwd`/exp/cosyvoice/$model/$train_engine  \
+      --num ${average_num} \
+      --val_best
   done
 fi
 

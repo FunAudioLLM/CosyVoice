@@ -158,6 +158,7 @@ feat_extractor: !name:matcha.utils.audio.mel_spectrogram
     center: False
 compute_fbank: !name:cosyvoice.dataset.processor.compute_fbank
     feat_extractor: !ref <feat_extractor>
+    token_mel_ratio: 2
 compute_f0: !name:cosyvoice.dataset.processor.compute_f0
     sample_rate: !ref <sample_rate>
     hop_size: 480

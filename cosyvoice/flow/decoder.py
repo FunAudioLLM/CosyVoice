@@ -419,10 +419,6 @@ class CausalConditionalDecoder(ConditionalDecoder):
         Returns:
             _type_: _description_
         """
-        if hasattr(self, 'streaming'):
-            assert self.training is False, 'you have self.streaming attr, make sure that you are running inference mode'
-            streaming = self.streaming
-
         t = self.time_embeddings(t).to(t.dtype)
         t = self.time_mlp(t)
 

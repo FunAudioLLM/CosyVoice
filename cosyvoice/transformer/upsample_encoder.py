@@ -272,9 +272,6 @@ class UpsampleConformerEncoder(torch.nn.Module):
             checkpointing API because `__call__` attaches all the hooks of the module.
             https://discuss.pytorch.org/t/any-different-between-model-input-and-model-forward-input/3690/2
         """
-        if hasattr(self, 'streaming'):
-            assert self.training is False, 'you have self.streaming attr, make sure that you are running inference mode'
-            streaming = self.streaming
         T = xs.size(1)
         masks = ~make_pad_mask(xs_lens, T).unsqueeze(1)  # (B, 1, T)
         if self.global_cmvn is not None:

@@ -169,17 +169,18 @@ def mask_to_bias(mask: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
 
 
 class TrtContextWrapper:
-    def __init__(self, trt_engine, trt_concurrent=1):
-        self.trt_context_pool = queue.Queue()
+    def __init__(self, trt_engine, trt_concurrent=1, device='cuda:0'):
+        self.trt_context_pool = queue.Queue(maxsize=trt_concurrent)
         self.trt_engine = trt_engine
         for _ in range(trt_concurrent):
             trt_context = trt_engine.create_execution_context()
+            trt_stream = torch.cuda.stream(torch.cuda.Stream(device))
             assert trt_context is not None, 'failed to create trt context, maybe not enough CUDA memory, try reduce current trt concurrent {}'.format(trt_concurrent)
-            self.trt_context_pool.put(trt_context)
+            self.trt_context_pool.put([trt_context, trt_stream])
         assert self.trt_context_pool.empty() is False, 'no avaialbe estimator context'
 
     def acquire_estimator(self):
         return self.trt_context_pool.get(), self.trt_engine
 
-    def release_estimator(self, context):
-        self.trt_context_pool.put(context)
+    def release_estimator(self, context, stream):
+        self.trt_context_pool.put([context, stream])

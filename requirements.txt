@@ -1,7 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cu121
 --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/ # https://github.com/microsoft/onnxruntime/issues/21684
 conformer==0.3.2
-deepspeed==0.14.2; sys_platform == 'linux'
+deepspeed==0.15.1; sys_platform == 'linux'
 diffusers==0.29.0
 fastapi==0.115.6
 fastapi-cli==0.0.4

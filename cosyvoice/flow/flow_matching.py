@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import threading
 import torch
 import torch.nn.functional as F
 from matcha.models.components.flow_matching import BASECFM
@@ -136,12 +135,12 @@ class ConditionalCFM(BASECFM):
                 estimator.set_input_shape('spks', (2, 80))
                 estimator.set_input_shape('cond', (2, 80, x.size(2)))
                 data_ptrs = [x.contiguous().data_ptr(),
-                            mask.contiguous().data_ptr(),
-                            mu.contiguous().data_ptr(),
-                            t.contiguous().data_ptr(),
-                            spks.contiguous().data_ptr(),
-                            cond.contiguous().data_ptr(),
-                            x.data_ptr()]
+                             mask.contiguous().data_ptr(),
+                             mu.contiguous().data_ptr(),
+                             t.contiguous().data_ptr(),
+                             spks.contiguous().data_ptr(),
+                             cond.contiguous().data_ptr(),
+                             x.data_ptr()]
                 for i, j in enumerate(data_ptrs):
                     estimator.set_tensor_address(trt_engine.get_tensor_name(i), j)
                 # run trt engine

@@ -163,6 +163,7 @@ for i, j in enumerate(cosyvoice.inference_zero_shot(text_generator(), '希望你
     torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
 ```
 
+#### CosyVoice2 vllm Usage
 If you want to use vllm for inference, please install `vllm==v0.9.0`. Older vllm version do not support CosyVoice2 inference.
 
 Notice that `vllm==v0.9.0` has a lot of specific requirements, for example `torch==2.7.0`. You can create a new env to in case your hardward do not support vllm and old env is corrupted.
@@ -172,6 +173,8 @@ conda create -n cosyvoice_vllm --clone cosyvoice
 pip install vllm==v0.9.0 -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
 conda activate cosyvoice_vllm
 ```
+
+Remember to register `CosyVoice2ForCausalLM` for vllm inference at the start of the code.
 
 ```python
 import sys
@@ -184,7 +187,7 @@ ModelRegistry.register_model("CosyVoice2ForCausalLM", CosyVoice2ForCausalLM)
 cosyvoice = CosyVoice2('pretrained_models/CosyVoice2-0.5B', load_jit=False, load_trt=False, load_vllm=True, fp16=False)
 ```
 
-**CosyVoice Usage**
+#### CosyVoice Usage
 ```python
 cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-SFT', load_jit=False, load_trt=False, fp16=False)
 # sft usage

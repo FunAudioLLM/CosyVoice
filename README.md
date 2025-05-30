@@ -172,19 +172,7 @@ Notice that `vllm==v0.9.0` has a lot of specific requirements, for example `torc
 conda create -n cosyvoice_vllm --clone cosyvoice
 pip install vllm==v0.9.0 -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
 conda activate cosyvoice_vllm
-```
-
-Remember to register `CosyVoice2ForCausalLM` for vllm inference at the start of the code.
-
-```python
-import sys
-sys.path.append('third_party/Matcha-TTS')
-from cosyvoice.cli.cosyvoice import CosyVoice2
-from vllm import ModelRegistry
-from cosyvoice.vllm.cosyvoice2 import CosyVoice2ForCausalLM
-ModelRegistry.register_model("CosyVoice2ForCausalLM", CosyVoice2ForCausalLM)
-
-cosyvoice = CosyVoice2('pretrained_models/CosyVoice2-0.5B', load_jit=False, load_trt=False, load_vllm=True, fp16=False)
+python vllm_example.py
 ```
 
 #### CosyVoice Usage

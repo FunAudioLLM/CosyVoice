@@ -58,7 +58,7 @@
 - Clone the repo
     ``` sh
     git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
-    # If you failed to clone submodule due to network failures, please run following command until success
+    # If you failed to clone the submodule due to network failures, please run the following command until success
     cd CosyVoice
     git submodule update --init --recursive
     ```
@@ -69,7 +69,7 @@
     ``` sh
     conda create -n cosyvoice -y python=3.10
     conda activate cosyvoice
-    # pynini is required by WeTextProcessing, use conda to install it as it can be executed on all platform.
+    # pynini is required by WeTextProcessing, use conda to install it as it can be executed on all platforms.
     conda install -y -c conda-forge pynini==2.1.5
     pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
     
@@ -104,7 +104,7 @@ git clone https://www.modelscope.cn/iic/CosyVoice-300M-Instruct.git pretrained_m
 git clone https://www.modelscope.cn/iic/CosyVoice-ttsfrd.git pretrained_models/CosyVoice-ttsfrd
 ```
 
-Optionally, you can unzip `ttsfrd` resouce and install `ttsfrd` package for better text normalization performance.
+Optionally, you can unzip `ttsfrd` resource and install `ttsfrd` package for better text normalization performance.
 
 Notice that this step is not necessary. If you do not install `ttsfrd` package, we will use WeTextProcessing by default.
 
@@ -118,7 +118,7 @@ pip install ttsfrd-0.4.2-cp310-cp310-linux_x86_64.whl
 ### Basic Usage
 
 We strongly recommend using `CosyVoice2-0.5B` for better performance.
-Follow code below for detailed usage of each model.
+Follow the code below for detailed usage of each model.
 
 ``` python
 import sys
@@ -218,12 +218,12 @@ python3 webui.py --port 50000 --model_dir pretrained_models/CosyVoice-300M
 
 #### Advanced Usage
 
-For advanced user, we have provided train and inference scripts in `examples/libritts/cosyvoice/run.sh`.
+For advanced users, we have provided training and inference scripts in `examples/libritts/cosyvoice/run.sh`.
 
 #### Build for deployment
 
 Optionally, if you want service deployment,
-you can run following steps.
+You can run the following steps.
 
 ``` sh
 cd runtime/python

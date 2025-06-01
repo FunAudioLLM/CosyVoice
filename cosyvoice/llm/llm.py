@@ -441,6 +441,8 @@ class Qwen2LM(TransformerLM):
                     # in stream mode, yield token one by one
                     yield top_ids
                     out_tokens.append(top_ids)
+                    if len(out_tokens) == max_len:
+                        break
                 time.sleep(0.001)
             with self.lock:
                 self.vllm_output_queue.pop(uuid)

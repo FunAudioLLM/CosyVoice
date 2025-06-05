@@ -95,14 +95,21 @@ ROCm is be part of PyTorch which could be installed as https://pytorch.org/. The
     ```
     
    - Install the requirements
-     Just comments the first two lines of [requirements.txt](https://github.com/FunAudioLLM/CosyVoice/blob/main/requirements.txt)
+     You need do some modification about the [requirements.txt](https://github.com/FunAudioLLM/CosyVoice/blob/main/requirements.txt) before installing the depency library.
+     1.  To comments the first two lines of [requirements.txt](https://github.com/FunAudioLLM/CosyVoice/blob/main/requirements.txt)
      
      ```shell
      # requirements.txt
      #--extra-index-url https://download.pytorch.org/whl/cu121
      #--extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/ # https://github.com/microsoft/onnxruntime/issues/21684
      ```
-     
+     2. Force to use onnxruntime
+
+     ```shell
+     #onnxruntime-gpu==1.18.0; sys_platform == 'linux'
+     onnxruntime==1.18.0; sys_platform == 'linux'
+     ```
+
      And then run
      
      ```shell

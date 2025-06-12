@@ -66,19 +66,67 @@
 - Install Conda: please see https://docs.conda.io/en/latest/miniconda.html
 - Create Conda env:
 
-    ``` sh
-    conda create -n cosyvoice -y python=3.10
-    conda activate cosyvoice
-    # pynini is required by WeTextProcessing, use conda to install it as it can be executed on all platforms.
-    conda install -y -c conda-forge pynini==2.1.5
-    pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
-    
-    # If you encounter sox compatibility issues
-    # ubuntu
-    sudo apt-get install sox libsox-dev
-    # centos
-    sudo yum install sox sox-devel
+``` sh
+conda create -n cosyvoice -y python=3.10
+conda activate cosyvoice
+# pynini is required by WeTextProcessing, use conda to install it as it can be executed on all platform.
+conda install -y -c conda-forge pynini==2.1.5
+pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+
+# If you encounter sox compatibility issues
+# ubuntu
+sudo apt-get install sox libsox-dev
+# centos
+sudo yum install sox sox-devel
+```
+
+Run with AMD GPU
+
+Above env setup is for CUDA. CosyVoice could run on AMD GPU with AMD ROCm. The only difference with the setup of CUDA GPU is to use PyTorch-ROCm to replace the PyTorch-CUDA.
+ROCm is be part of PyTorch which could be installed as https://pytorch.org/. The steps are,
+1. Install ROCm driver and Runtime.
+    Rerfer to https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html
+2. Create conda env (
+   - create the env
+     ```shell
+     conda create -n cosyvoice -y python=3.10
+     conda activate cosyvoice
+     ```
+   - Install PyTorch-ROCm to replace the PyTorch-CUDA
+     
+    ```shell
+    pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.3
     ```
+    
+   - Install the requirements
+     You need do some modification about the [requirements.txt](https://github.com/FunAudioLLM/CosyVoice/blob/main/requirements.txt) before installing the depency library.
+     1.  To comments the first two lines of [requirements.txt](https://github.com/FunAudioLLM/CosyVoice/blob/main/requirements.txt)
+     
+     ```shell
+     # requirements.txt
+     #--extra-index-url https://download.pytorch.org/whl/cu121
+     #--extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/ # https://github.com/microsoft/onnxruntime/issues/21684
+     ```
+     2. Force to use onnxruntime
+
+     ```shell
+     #onnxruntime-gpu==1.18.0; sys_platform == 'linux'
+     onnxruntime==1.18.0; sys_platform == 'linux'
+     ```
+
+     And then run
+     
+     ```shell
+     conda install -y -c conda-forge pynini==2.1.5
+     pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+        
+     # If you encounter sox compatibility issues
+     # ubuntu
+     sudo apt-get install sox libsox-dev
+     # centos
+     sudo yum install sox sox-devel
+     ```
+    You could refer to the tutorial [Play CosyVoice on AMD ROCm GPU](https://medium.com/@alexhe.amd/play-cosyvoice-on-amd-rocm-gpu-459c942f7214) to get the details. This tutorial also provide a ROCm env file to help setuping.
 
 ### Model download
 

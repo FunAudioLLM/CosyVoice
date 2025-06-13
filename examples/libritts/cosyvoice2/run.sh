@@ -51,25 +51,6 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
   done
 fi
 
-# inference
-if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
-  echo "Run inference. Please make sure utt in tts_text is in prompt_data"
-  # TODO consider remove bin/inference.py, or use similar initilization method as in readme
-  for mode in sft zero_shot; do
-    python cosyvoice/bin/inference.py --mode $mode \
-      --gpu 0 \
-      --config conf/cosyvoice2.yaml \
-      --prompt_data data/test-clean/parquet/data.list \
-      --prompt_utt2data data/test-clean/parquet/utt2data.list \
-      --tts_text `pwd`/tts_text.json \
-      --qwen_pretrain_path $pretrained_model_dir/CosyVoice-BlankEN \
-      --llm_model $pretrained_model_dir/llm.pt \
-      --flow_model $pretrained_model_dir/flow.pt \
-      --hifigan_model $pretrained_model_dir/hift.pt \
-      --result_dir `pwd`/exp/cosyvoice/test-clean/$mode
-  done
-fi
-
 # train llm
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 num_gpus=$(echo $CUDA_VISIBLE_DEVICES | awk -F "," '{print NF}')
@@ -86,7 +67,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
   cat data/{train-clean-100,train-clean-360,train-other-500}/parquet/data.list > data/train.data.list
   cat data/{dev-clean,dev-other}/parquet/data.list > data/dev.data.list
   # NOTE will update llm/hift training later
-  for model in llm flow; do
+  for model in llm flow hifigan; do
     torchrun --nnodes=1 --nproc_per_node=$num_gpus \
         --rdzv_id=$job_id --rdzv_backend="c10d" --rdzv_endpoint="localhost:1234" \
       cosyvoice/bin/train.py \

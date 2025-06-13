@@ -51,23 +51,6 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
   done
 fi
 
-# inference
-if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
-  echo "Run inference. Please make sure utt in tts_text is in prompt_data"
-  for mode in sft zero_shot; do
-    python cosyvoice/bin/inference.py --mode $mode \
-      --gpu 0 \
-      --config conf/cosyvoice.yaml \
-      --prompt_data data/test/parquet/data.list \
-      --prompt_utt2data data/test/parquet/utt2data.list \
-      --tts_text `pwd`/tts_text.json \
-      --llm_model $pretrained_model_dir/llm.pt \
-      --flow_model $pretrained_model_dir/flow.pt \
-      --hifigan_model $pretrained_model_dir/hift.pt \
-      --result_dir `pwd`/exp/cosyvoice/test/$mode
-  done
-fi
-
 # train llm
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 num_gpus=$(echo $CUDA_VISIBLE_DEVICES | awk -F "," '{print NF}')

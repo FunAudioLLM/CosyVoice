@@ -97,6 +97,10 @@ class ConditionalDecoder(nn.Module):
         num_mid_blocks=2,
         num_heads=4,
         act_fn="snake",
+        stg_applied_layers_idx=None,
+        stg_scale=0.0,
+        do_rescaling=False,
+        stg_mode="attention"
     ):
         """
         This decoder requires an input with the same shape of the target. So, if your text content
@@ -114,6 +118,12 @@ class ConditionalDecoder(nn.Module):
             time_embed_dim=time_embed_dim,
             act_fn="silu",
         )
+
+        self.stg_applied_layers_idx = stg_applied_layers_idx or []
+        self.stg_scale = stg_scale
+        self.do_rescaling = do_rescaling
+        self.stg_mode = stg_mode
+
         self.down_blocks = nn.ModuleList([])
         self.mid_blocks = nn.ModuleList([])
         self.up_blocks = nn.ModuleList([])
@@ -238,6 +248,8 @@ class ConditionalDecoder(nn.Module):
 
         hiddens = []
         masks = [mask]
+        layer_idx = 0
+
         for resnet, transformer_blocks, downsample in self.down_blocks:
             mask_down = masks[-1]
             x = resnet(x, mask_down, t)
@@ -245,11 +257,26 @@ class ConditionalDecoder(nn.Module):
             attn_mask = add_optional_chunk_mask(x, mask_down.bool(), False, False, 0, 0, -1).repeat(1, x.size(1), 1)
             attn_mask = mask_to_bias(attn_mask, x.dtype)
             for transformer_block in transformer_blocks:
-                x = transformer_block(
-                    hidden_states=x,
-                    attention_mask=attn_mask,
-                    timestep=t,
-                )
+                if self.stg_scale > 0 and layer_idx in self.stg_applied_layers_idx:
+                    if self.stg_mode == "attention":
+                        x = transformer_block.forward_with_stg(
+                            hidden_states=x,
+                            attention_mask=attn_mask,
+                            timestep=t,
+                        )
+                    else:
+                        x = transformer_block.forward_with_stg_residual(
+                            hidden_states=x,
+                            attention_mask=attn_mask,
+                            timestep=t,
+                        )
+                else:
+                    x = transformer_block(
+                        hidden_states=x,
+                        attention_mask=attn_mask,
+                        timestep=t,
+                    )
+                layer_idx += 1
             x = rearrange(x, "b t c -> b c t").contiguous()
             hiddens.append(x)  # Save hidden states for skip connections
             x = downsample(x * mask_down)
@@ -263,11 +290,26 @@ class ConditionalDecoder(nn.Module):
             attn_mask = add_optional_chunk_mask(x, mask_mid.bool(), False, False, 0, 0, -1).repeat(1, x.size(1), 1)
             attn_mask = mask_to_bias(attn_mask, x.dtype)
             for transformer_block in transformer_blocks:
-                x = transformer_block(
-                    hidden_states=x,
-                    attention_mask=attn_mask,
-                    timestep=t,
-                )
+                if self.stg_scale > 0 and layer_idx in self.stg_applied_layers_idx:
+                    if self.stg_mode == "attention":
+                        x = transformer_block.forward_with_stg(
+                            hidden_states=x,
+                            attention_mask=attn_mask,
+                            timestep=t,
+                        )
+                    else:
+                        x = transformer_block.forward_with_stg_residual(
+                            hidden_states=x,
+                            attention_mask=attn_mask,
+                            timestep=t,
+                        )
+                else:
+                    x = transformer_block(
+                        hidden_states=x,
+                        attention_mask=attn_mask,
+                        timestep=t,
+                    )
+                layer_idx += 1
             x = rearrange(x, "b t c -> b c t").contiguous()
 
         for resnet, transformer_blocks, upsample in self.up_blocks:
@@ -279,11 +321,26 @@ class ConditionalDecoder(nn.Module):
             attn_mask = add_optional_chunk_mask(x, mask_up.bool(), False, False, 0, 0, -1).repeat(1, x.size(1), 1)
             attn_mask = mask_to_bias(attn_mask, x.dtype)
             for transformer_block in transformer_blocks:
-                x = transformer_block(
-                    hidden_states=x,
-                    attention_mask=attn_mask,
-                    timestep=t,
-                )
+                if self.stg_scale > 0 and layer_idx in self.stg_applied_layers_idx:
+                    if self.stg_mode == "attention":
+                        x = transformer_block.forward_with_stg(
+                            hidden_states=x,
+                            attention_mask=attn_mask,
+                            timestep=t,
+                        )
+                    else:
+                        x = transformer_block.forward_with_stg_residual(
+                            hidden_states=x,
+                            attention_mask=attn_mask,
+                            timestep=t,
+                        )
+                else:
+                    x = transformer_block(
+                        hidden_states=x,
+                        attention_mask=attn_mask,
+                        timestep=t,
+                    )
+                layer_idx += 1
             x = rearrange(x, "b t c -> b c t").contiguous()
             x = upsample(x * mask_up)
         x = self.final_block(x, mask_up)

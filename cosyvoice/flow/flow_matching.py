@@ -122,9 +122,65 @@ class ConditionalCFM(BASECFM):
 
         return sol[-1].float()
 
-    def forward_estimator(self, x, mask, mu, t, spks, cond, streaming=False):
+    def solve_euler_stg(self, x, t_span, mu, mask, spks, cond, streaming=False):
+        t, _, dt = t_span[0], t_span[-1], t_span[1] - t_span[0]
+        t = t.unsqueeze(dim=0)
+
+        sol = []
+
+        x_in = torch.zeros([3, 80, x.size(2)], device=x.device, dtype=x.dtype)
+        mask_in = torch.zeros([3, 1, x.size(2)], device=x.device, dtype=x.dtype)
+        mu_in = torch.zeros([3, 80, x.size(2)], device=x.device, dtype=x.dtype)
+        t_in = torch.zeros([3], device=x.device, dtype=x.dtype)
+        spks_in = torch.zeros([3, 80], device=x.device, dtype=x.dtype)
+        cond_in = torch.zeros([3, 80, x.size(2)], device=x.device, dtype=x.dtype)
+
+        for step in range(1, len(t_span)):
+            x_in[:] = x
+            mask_in[:] = mask
+            mu_in[0] = mu
+            mu_in[2] = mu
+            t_in[:] = t.unsqueeze(0)
+            if spks is not None:
+                spks_in[0] = spks
+                spks_in[2] = spks
+            if cond is not None:
+                cond_in[0] = cond
+                cond_in[2] = cond
+
+            dphi_dt = self.forward_estimator(
+                x_in, mask_in, 
+                mu_in, t_in, 
+                spks_in, 
+                cond_in, 
+                streaming=streaming, 
+                use_stg=True)
+
+            dphi_dt_cond, dphi_dt_uncond, dphi_dt_perturb = torch.split(dphi_dt, [x.size(0), x.size(0), x.size(0)], dim=0)
+
+            dphi_dt = dphi_dt_uncond + 3.12 * (dphi_dt_cond - dphi_dt_uncond) + self.stg_scale * (dphi_dt_cond - dphi_dt_perturb)
+
+            if self.do_rescaling:
+                rescaling_scale = 0.7
+                factor = dphi_dt_cond.std() / dphi_dt.std()
+                factor = rescaling_scale * factor + (1 - rescaling_scale)
+                dphi_dt = dphi_dt * factor
+
+            x = x + dt * dphi_dt
+            t = t + dt
+            sol.append(x)
+            if step < len(t_span) - 1:
+                dt = t_span[step + 1] - t
+
+        return sol[-1].float()
+    
+
+    def forward_estimator(self, x, mask, mu, t, spks, cond, streaming=False, use_stg=False):
         if isinstance(self.estimator, torch.nn.Module):
-            return self.estimator(x, mask, mu, t, spks, cond, streaming=streaming)
+            if use_stg:
+                return self.estimator.forward_with_stg(x, mask, mu, t, spks, cond, streaming=streaming)
+            else:
+                return self.estimator(x, mask, mu, t, spks, cond, streaming=streaming)
         else:
             [estimator, stream], trt_engine = self.estimator.acquire_estimator()
             with stream:
@@ -192,13 +248,17 @@ class ConditionalCFM(BASECFM):
 
 
 class CausalConditionalCFM(ConditionalCFM):
-    def __init__(self, in_channels, cfm_params, n_spks=1, spk_emb_dim=64, estimator: torch.nn.Module = None):
+    def __init__(self, in_channels, cfm_params, n_spks=1, spk_emb_dim=64, estimator: torch.nn.Module = None, stg_applied_layers_idx=None, stg_scale=0.0, do_rescaling=False, stg_mode="attention"):
         super().__init__(in_channels, cfm_params, n_spks, spk_emb_dim, estimator)
         set_all_random_seed(0)
+        self.stg_applied_layers_idx = stg_applied_layers_idx or []
+        self.stg_scale = stg_scale
+        self.do_rescaling = do_rescaling
+        self.stg_mode = stg_mode
         self.rand_noise = torch.randn([1, 80, 50 * 300])
 
     @torch.inference_mode()
-    def forward(self, mu, mask, n_timesteps, temperature=1.0, spks=None, cond=None, streaming=False):
+    def forward(self, mu, mask, n_timesteps, temperature=1.0, spks=None, cond=None, streaming=False, use_stg=False):
         """Forward diffusion
 
         Args:
@@ -222,4 +282,7 @@ class CausalConditionalCFM(ConditionalCFM):
         t_span = torch.linspace(0, 1, n_timesteps + 1, device=mu.device, dtype=mu.dtype)
         if self.t_scheduler == 'cosine':
             t_span = 1 - torch.cos(t_span * 0.5 * torch.pi)
-        return self.solve_euler(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond, streaming=streaming), None
+        if not use_stg:
+            return self.solve_euler(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond, streaming=streaming), None
+        else:
+            return self.solve_euler_stg(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond, streaming=streaming), None

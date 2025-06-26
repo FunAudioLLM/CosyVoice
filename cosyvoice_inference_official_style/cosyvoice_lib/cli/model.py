@@ -33,7 +33,8 @@ class CosyVoiceModel:
                  flow: torch.nn.Module,
                  hift: torch.nn.Module,
                  fp16: bool = False):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        assert torch.cuda.is_available(), "CUDA is required for CosyVoiceModel."
+        self.device = torch.device('cuda')
         self.llm = llm
         self.flow = flow
         self.hift = hift
@@ -55,7 +56,7 @@ class CosyVoiceModel:
         # rtf and decoding related
         self.stream_scale_factor = 1
         assert self.stream_scale_factor >= 1, 'stream_scale_factor should be greater than 1, change it according to your actual rtf'
-        self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device)) if torch.cuda.is_available() else nullcontext()
+        self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device)) # CUDA is asserted
         self.lock = threading.Lock()
         # dict used to store session related variable
         self.tts_speech_token_dict = {}
@@ -222,7 +223,8 @@ class CosyVoice2Model(CosyVoiceModel):
                  flow: torch.nn.Module,
                  hift: torch.nn.Module,
                  fp16: bool = False):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        assert torch.cuda.is_available(), "CUDA is required for CosyVoice2Model."
+        self.device = torch.device('cuda')
         self.llm = llm
         self.flow = flow
         self.hift = hift
@@ -238,7 +240,7 @@ class CosyVoice2Model(CosyVoiceModel):
         # speech fade in out
         self.speech_window = np.hamming(2 * self.source_cache_len)
         # rtf and decoding related
-        self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device)) if torch.cuda.is_available() else nullcontext()
+        self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device)) # CUDA is asserted
         self.lock = threading.Lock()
         # dict used to store session related variable
         self.tts_speech_token_dict = {}

@@ -46,9 +46,7 @@ class CosyVoice:
                                           '{}/spk2info.pt'.format(model_dir),
                                           configs['allowed_special'])
         self.sample_rate = configs['sample_rate']
-        if torch.cuda.is_available() is False and fp16 is True: # Simplified GPU check
-            fp16 = False # Keep self.fp16 as user intended, but disable for this op
-            logging.warning('no cuda device, set fp16 to False for this operation')
+        # Removed GPU check for fp16, as CUDA is asserted in Model and Frontend
         self.model = CosyVoiceModel(configs['llm'], configs['flow'], configs['hift'], self.fp16) # Use self.fp16
         self.model.load('{}/llm.pt'.format(model_dir),
                         '{}/flow.pt'.format(model_dir),
@@ -157,9 +155,7 @@ class CosyVoice2(CosyVoice):
                                           '{}/spk2info.pt'.format(model_dir),
                                           configs['allowed_special'])
         self.sample_rate = configs['sample_rate']
-        if torch.cuda.is_available() is False and fp16 is True: # Simplified GPU check
-            fp16 = False # Keep self.fp16, but disable for this op
-            logging.warning('no cuda device, set fp16 to False for this operation')
+        # Removed GPU check for fp16, as CUDA is asserted in Model and Frontend
         self.model = CosyVoice2Model(configs['llm'], configs['flow'], configs['hift'], self.fp16) # Use self.fp16
         self.model.load('{}/llm.pt'.format(model_dir),
                         '{}/flow.pt'.format(model_dir),

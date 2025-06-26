@@ -25,14 +25,9 @@ import torchaudio.transforms as T # Added
 import os
 import re
 import inflect
-try:
-    import ttsfrd
-    use_ttsfrd = True
-except ImportError:
-    print("failed to import ttsfrd, use WeTextProcessing instead")
-    from tn.chinese.normalizer import Normalizer as ZhNormalizer
-    from tn.english.normalizer import Normalizer as EnNormalizer
-    use_ttsfrd = False
+# Removed ttsfrd try-except block
+from tn.chinese.normalizer import Normalizer as ZhNormalizer # Keep this
+from tn.english.normalizer import Normalizer as EnNormalizer # Keep this
 from ..utils.file_utils import logging
 from ..utils.frontend_utils import contains_chinese, replace_blank, replace_corner_mark, remove_bracket, spell_out_number, split_paragraph, is_only_punctuation
 
@@ -48,30 +43,33 @@ class CosyVoiceFrontEnd:
                  allowed_special: str = 'all'):
         self.tokenizer = get_tokenizer()
         self.feat_extractor = feat_extractor
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        assert torch.cuda.is_available(), "CUDA is required for CosyVoiceFrontEnd."
+        self.device = torch.device('cuda') # GPU only
         option = onnxruntime.SessionOptions()
         option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
         option.intra_op_num_threads = 1
-        self.campplus_session = onnxruntime.InferenceSession(campplus_model, sess_options=option, providers=["CPUExecutionProvider"])
+
+        # Campplus typically runs fine on CPU, but for consistency with GPU-only focus:
+        # However, if it's small and doesn't benefit, CPU is fine. Let's keep it CPU for robustness of this specific small model.
+        # If strict GPU-only is desired for *all* ONNX, this could be changed.
+        # For now, assuming campplus is okay on CPU as per original.
+        # To enforce GPU for campplus:
+        # self.campplus_session = onnxruntime.InferenceSession(campplus_model, sess_options=option, providers=['CUDAExecutionProvider'])
+        self.campplus_session = onnxruntime.InferenceSession(campplus_model, sess_options=option, providers=["CPUExecutionProvider"]) # Keeping CPU for campplus
+
         self.speech_tokenizer_session = onnxruntime.InferenceSession(speech_tokenizer_model, sess_options=option,
-                                                                     providers=["CUDAExecutionProvider" if torch.cuda.is_available() else
-                                                                                "CPUExecutionProvider"])
+                                                                     providers=['CUDAExecutionProvider'])
         if os.path.exists(spk2info):
             self.spk2info = torch.load(spk2info, map_location=self.device)
         else:
             self.spk2info = {}
         self.allowed_special = allowed_special
-        self.use_ttsfrd = use_ttsfrd
-        if self.use_ttsfrd:
-            self.frd = ttsfrd.TtsFrontendEngine()
-            ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-            assert self.frd.initialize('{}/../../pretrained_models/CosyVoice-ttsfrd/resource'.format(ROOT_DIR)) is True, \
-                'failed to initialize ttsfrd resource'
-            self.frd.set_lang_type('pinyinvg')
-        else:
-            self.zh_tn_model = ZhNormalizer(remove_erhua=False, full_to_half=False, overwrite_cache=True)
-            self.en_tn_model = EnNormalizer()
-            self.inflect_parser = inflect.engine()
+        # self.use_ttsfrd = use_ttsfrd # Removed
+        # Removed ttsfrd initialization block
+        # Always initialize WeTextProcessing normalizers
+        self.zh_tn_model = ZhNormalizer(remove_erhua=False, full_to_half=False, overwrite_cache=True)
+        self.en_tn_model = EnNormalizer()
+        self.inflect_parser = inflect.engine()
 
     def _extract_text_token(self, text):
         if isinstance(text, Generator):
@@ -145,13 +143,10 @@ class CosyVoiceFrontEnd:
         if text_frontend is False or text == '':
             return [text] if split is True else text
         text = text.strip()
-        if self.use_ttsfrd:
-            texts = [i["text"] for i in json.loads(self.frd.do_voicegen_frd(text))["sentences"]]
-            text = ''.join(texts)
-        else:
-            if contains_chinese(text):
-                text = self.zh_tn_model.normalize(text)
-                text = text.replace("\n", "")
+        # Removed self.use_ttsfrd conditional block, directly use WeTextProcessing path
+        if contains_chinese(text):
+            text = self.zh_tn_model.normalize(text)
+            text = text.replace("\n", "")
                 text = replace_blank(text)
                 text = replace_corner_mark(text)
                 text = text.replace(".", "。")

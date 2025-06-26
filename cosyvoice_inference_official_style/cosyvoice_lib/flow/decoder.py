@@ -403,8 +403,9 @@ class CausalConditionalDecoder(ConditionalDecoder):
         # ONNX Session
         self.onnx_session = None
         if onnx_model_path:
+            assert torch.cuda.is_available(), "CUDA is required for ONNX flow decoder estimator."
             if onnx_providers is None:
-                onnx_providers = ['CUDAExecutionProvider' if torch.cuda.is_available() else 'CPUExecutionProvider']
+                onnx_providers = ['CUDAExecutionProvider']
             try:
                 self.onnx_session = onnxruntime.InferenceSession(onnx_model_path, providers=onnx_providers)
                 logging.info(f"ONNX session initialized for CausalConditionalDecoder: {onnx_model_path} with providers: {self.onnx_session.get_providers()}")

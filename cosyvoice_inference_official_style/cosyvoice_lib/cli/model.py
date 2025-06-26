@@ -22,8 +22,8 @@ from torch.nn import functional as F
 from contextlib import nullcontext
 import uuid
 from ..utils.common import fade_in_out
-from ..utils.file_utils import convert_onnx_to_trt, export_cosyvoice2_vllm
-from ..utils.common import TrtContextWrapper
+# from ..utils.file_utils import convert_onnx_to_trt, export_cosyvoice2_vllm # Removed
+# from ..utils.common import TrtContextWrapper # Removed
 
 
 class CosyVoiceModel:
@@ -74,36 +74,14 @@ class CosyVoiceModel:
         self.hift.load_state_dict(hift_state_dict, strict=True)
         self.hift.to(self.device).eval()
 
-    def load_jit(self, llm_text_encoder_model, llm_llm_model, flow_encoder_model):
-        llm_text_encoder = torch.jit.load(llm_text_encoder_model, map_location=self.device)
-        self.llm.text_encoder = llm_text_encoder
-        llm_llm = torch.jit.load(llm_llm_model, map_location=self.device)
-        self.llm.llm = llm_llm
-        flow_encoder = torch.jit.load(flow_encoder_model, map_location=self.device)
-        self.flow.encoder = flow_encoder
-
-    def load_trt(self, flow_decoder_estimator_model, flow_decoder_onnx_model, trt_concurrent, fp16):
-        assert torch.cuda.is_available(), 'tensorrt only supports gpu!'
-        if not os.path.exists(flow_decoder_estimator_model) or os.path.getsize(flow_decoder_estimator_model) == 0:
-            convert_onnx_to_trt(flow_decoder_estimator_model, self.get_trt_kwargs(), flow_decoder_onnx_model, fp16)
-        del self.flow.decoder.estimator
-        import tensorrt as trt
-        with open(flow_decoder_estimator_model, 'rb') as f:
-            estimator_engine = trt.Runtime(trt.Logger(trt.Logger.INFO)).deserialize_cuda_engine(f.read())
-        assert estimator_engine is not None, 'failed to load trt {}'.format(flow_decoder_estimator_model)
-        self.flow.decoder.estimator = TrtContextWrapper(estimator_engine, trt_concurrent=trt_concurrent, device=self.device)
-
-    def get_trt_kwargs(self):
-        min_shape = [(2, 80, 4), (2, 1, 4), (2, 80, 4), (2, 80, 4)]
-        opt_shape = [(2, 80, 500), (2, 1, 500), (2, 80, 500), (2, 80, 500)]
-        max_shape = [(2, 80, 3000), (2, 1, 3000), (2, 80, 3000), (2, 80, 3000)]
-        input_names = ["x", "mask", "mu", "cond"]
-        return {'min_shape': min_shape, 'opt_shape': opt_shape, 'max_shape': max_shape, 'input_names': input_names}
+    # Removed load_jit, load_trt, get_trt_kwargs
 
     def llm_job(self, text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):
-        with self.llm_context, torch.cuda.amp.autocast(self.fp16 is True and hasattr(self.llm, 'vllm') is False):
+        # Removed hasattr(self.llm, 'vllm') from autocast condition
+        with self.llm_context, torch.cuda.amp.autocast(self.fp16 is True):
             if isinstance(text, Generator):
-                assert isinstance(self, CosyVoice2Model) and not hasattr(self.llm, 'vllm'), 'streaming input text is only implemented for CosyVoice2 and do not support vllm!'
+                # Removed 'and not hasattr(self.llm, 'vllm')' from assert
+                assert isinstance(self, CosyVoice2Model), 'streaming input text is only implemented for CosyVoice2!'
                 for i in self.llm.inference_bistream(text=text,
                                                      prompt_text=prompt_text.to(self.device),
                                                      prompt_text_len=torch.tensor([prompt_text.shape[1]], dtype=torch.int32).to(self.device),
@@ -267,20 +245,7 @@ class CosyVoice2Model(CosyVoiceModel):
         self.llm_end_dict = {}
         self.hift_cache_dict = {}
 
-    def load_jit(self, flow_encoder_model):
-        flow_encoder = torch.jit.load(flow_encoder_model, map_location=self.device)
-        self.flow.encoder = flow_encoder
-
-    def load_vllm(self, model_dir):
-        export_cosyvoice2_vllm(self.llm, model_dir, self.device)
-        from vllm import EngineArgs, LLMEngine
-        engine_args = EngineArgs(model=model_dir,
-                                 skip_tokenizer_init=True,
-                                 enable_prompt_embeds=True,
-                                 gpu_memory_utilization=0.2)
-        self.llm.vllm = LLMEngine.from_engine_args(engine_args)
-        self.llm.lock = threading.Lock()
-        del self.llm.llm.model.model.layers
+    # Removed load_jit and load_vllm from CosyVoice2Model
 
     def token2wav(self, token, prompt_token, prompt_feat, embedding, token_offset, uuid, stream=False, finalize=False, speed=1.0):
         with torch.cuda.amp.autocast(self.fp16):

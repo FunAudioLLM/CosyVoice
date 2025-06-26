@@ -12,101 +12,125 @@ source cosyvoice_env/bin/activate  # On Windows: cosyvoice_env\Scripts\activate
 ```
 
 Install the necessary Python packages:
-
 ```bash
 pip install -r requirements.txt
 ```
+
 If you have a CUDA-enabled GPU and want to use `onnxruntime-gpu`:
-1. Uninstall `onnxruntime` if it was installed: `pip uninstall onnxruntime`
+1. Uninstall `onnxruntime` if it was installed via `requirements.txt`: `pip uninstall onnxruntime`
 2. Install `onnxruntime-gpu`. Ensure its version is compatible with your CUDA toolkit.
    Refer to [ONNX Runtime Execution Providers](https://onnxruntime.ai/docs/execution-providers/) for more details.
    For example: `pip install onnxruntime-gpu`
 
-## 2. Download Models
+## 2. Dependencies and External Code
 
-This script expects the official CosyVoice2 model files to be downloaded and organized locally.
+### Matcha-TTS
+This version of CosyVoice2 relies on components from the `Matcha-TTS` library, specifically for parts of its flow-based acoustic model (e.g., `CausalCFMDecoder`, `SinusoidalPosEmb`). Since `Matcha-TTS` is not available as a standard PyPI package, you need to make its Python modules available.
 
-Create a base directory for your models, for example, `./models` inside `cosyvoice_inference_official_style/` or a path like `/path/to/my/models/`.
-The `run_inference.py` script takes a `--model_base_dir` argument pointing to this location.
+1.  Clone the `Matcha-TTS` repository. It's often included as a submodule in the full CosyVoice repository (`third_party/Matcha-TTS`), or you can find it on Hugging Face (`FunAudioLLM/Matcha-TTS`).
+    ```bash
+    # Example:
+    git clone https://huggingface.co/FunAudioLLM/Matcha-TTS
+    ```
+2.  Add the path to the directory containing the `matcha` package (i.e., the directory *above* the `matcha` folder itself) to your `PYTHONPATH`.
+    For example, if you cloned `Matcha-TTS` such that you have `/path/to/Matcha-TTS/matcha/...`, you would add `/path/to/Matcha-TTS` to your `PYTHONPATH`:
+    ```bash
+    export PYTHONPATH=/path/to/Matcha-TTS:$PYTHONPATH
+    ```
+    Verify that you can run `python -c "import matcha.models.components"` without errors from your environment.
 
-Inside your `--model_base_dir`, you should have the specific model snapshot directory, e.g., `CosyVoice2-0.5B`.
-The expected structure is:
+Failure to correctly set up `Matcha-TTS` will result in `ModuleNotFoundError` when the script tries to import components like `matcha.models.components.flow_matching.BASECFM`.
+
+## 3. Download Models
+
+This script expects the official CosyVoice2 model files to be downloaded and organized locally. **The `modelscope` library for automatic downloads has been removed to minimize dependencies.**
+
+You must manually download the model snapshot for `FunAudioLLM/CosyVoice2-0.5B` from Hugging Face (or your chosen CosyVoice2 model version).
+
+Create a base directory for your models (e.g., `./models` inside this `cosyvoice_inference_official_style/` directory, or `/path/to/my/all_tts_models/`). The `run_inference.py` script takes a `--model_base_dir` argument pointing to this location.
+
+Inside your `--model_base_dir`, create a directory for the specific model, for example, `CosyVoice2-0.5B`. The structure should be:
+
 ```
 <model_base_dir>/
-└── CosyVoice2-0.5B/      # This is the snapshot directory for the model
-    ├── cosyvoice2.yaml   # Or cosyvoice.yaml, depending on the snapshot
+└── CosyVoice2-0.5B/      # This is the downloaded snapshot directory
+    ├── cosyvoice2.yaml   # Or cosyvoice.yaml, as found in the snapshot. This is CRITICAL.
     ├── llm.pt
-    ├── flow.pt
+    ├── flow.pt           # Contains weights for the FlowModel (encoder, parts of decoder not in ONNX)
     ├── hift.pt
     ├── campplus.onnx
     ├── speech_tokenizer_v2.onnx
     ├── spk2info.pt
+    ├── flow.decoder.estimator.fp32.onnx # The ONNX model for the flow decoder's estimator
     ├── asset/            # Contains prompt examples like zero_shot_prompt.wav
     │   └── ...
     └── CosyVoice-BlankEN/  # Qwen pretrain path for tokenizer (referenced in yaml)
         └── ...           # (tokenizer.json, config.json, etc.)
 ```
-Download these files from the Hugging Face model repository (e.g., `FunAudioLLM/CosyVoice2-0.5B`).
+Ensure all these files, especially `flow.decoder.estimator.fp32.onnx`, are present in this structure.
 
-**Additionally, for text normalization (especially for Chinese using `ttsfrd`):**
-The text normalization component `ttsfrd` (if its Python package is installed and preferred by the frontend) expects its resources in a specific relative path. If you intend to use `ttsfrd`, create the following structure at the root of this `cosyvoice_inference_official_style` package:
-```
-cosyvoice_inference_official_style/
-├── pretrained_models/          # This name is fixed due to frontend.py's relative path logic
-│   └── CosyVoice-ttsfrd/
-│       └── resource/
-│           └── # ... ttsfrd resource files ...
-├── cosyvoice_lib/
-├── models/                     # Example model_base_dir
-└── run_inference.py
-...
-```
-You'll need to obtain the `CosyVoice-ttsfrd` resources. These are often part of full CosyVoice or FunASR releases/snapshots. If `ttsfrd` is not found or its resources are missing, the system will fall back to `WeTextProcessing` for text normalization, which might have different quality/coverage.
+**Text Normalization Resources (`ttsfrd` - Optional but Recommended for Chinese):**
+If you intend to use `ttsfrd` for better text normalization:
+1. Obtain the `CosyVoice-ttsfrd` resources.
+2. Create the following directory structure at the root of this `cosyvoice_inference_official_style` package:
+   ```
+   cosyvoice_inference_official_style/
+   ├── pretrained_models/          # This name is fixed.
+   │   └── CosyVoice-ttsfrd/
+   │       └── resource/
+   │           └── # ... place ttsfrd resource files here ...
+   ...
+   ```
+If `ttsfrd` (the Python package, often `pyFunTTSExt`) is not installed or its resources are missing, the system will fall back to `WeTextProcessing`.
 
-## 3. Run Inference
+## 4. Configuring ONNX Flow Decoder (Optional)
+
+By default, the system uses the PyTorch implementation for the flow decoder's estimator. To use the ONNX version (`flow.decoder.estimator.fp32.onnx`):
+You need to modify your `<model_base_dir>/CosyVoice2-0.5B/cosyvoice2.yaml` (or `cosyvoice.yaml`).
+Locate the `flow` model configuration, then its `decoder` (which is `CausalCFMDecoder`), and then the `denoiser_params` for `CausalConditionalDecoder`. Add the `onnx_model_path` key:
+
+```yaml
+# Example snippet from your cosyvoice2.yaml (or cosyvoice.yaml)
+# ... other parts of the YAML ...
+
+flow: !new:cosyvoice_lib.flow.flow.CausalMaskedDiffWithXvec # Ensure path matches if changed
+  # ... other CausalMaskedDiffWithXvec params ...
+  decoder: !new:matcha.models.decoder.CausalCFMDecoder # This is from Matcha-TTS
+    # ... other CausalCFMDecoder params ...
+    denoiser_cls: cosyvoice_lib.flow.decoder.CausalConditionalDecoder # Path to our decoder
+    denoiser_params:
+      in_channels: 240  # Or the actual value from your original YAML (packed input channels)
+      out_channels: 80 # Or the actual value (mel channels)
+      channels: [256, 256, 256, 256] # Example, use actual values
+      # ... other CausalConditionalDecoder PyTorch parameters ...
+
+      # Add this line to enable ONNX estimator:
+      onnx_model_path: !ref <root_dir>/flow.decoder.estimator.fp32.onnx
+      # Optional: specify ONNX providers, e.g., ['CUDAExecutionProvider', 'CPUExecutionProvider']
+      # onnx_providers: ['CUDAExecutionProvider']
+```
+The `!ref <root_dir>/` syntax ensures the path is relative to the YAML file itself. Make sure `flow.decoder.estimator.fp32.onnx` is in the same directory as your `cosyvoice2.yaml`.
+
+## 5. Run Inference
 
 The `run_inference.py` script provides examples for running text-to-speech.
 
 **Command Line Arguments:**
-
-*   `--model_base_dir` (Required): Base directory where your model snapshots are stored (e.g., `./models` or `/path/to/all_my_tts_models`). The script will look for a model snapshot named `CosyVoice2-0.5B` (by default, can be changed in script) inside this directory.
-*   `--text`: Text to synthesize. Default: "你好，欢迎使用慷燕语音合成服务。"
-*   `--speaker_id`: Speaker ID for SFT inference (e.g., one from `spk2info.pt` like " кан_Ян").
-*   `--prompt_wav`: Path to a prompt WAV file for zero-shot inference.
-*   `--prompt_text`: Text accompanying the prompt WAV for zero-shot (optional, a default is used if empty).
-*   `--output_wav`: Path to save the offline synthesized WAV file. Default: `output_offline.wav`.
-
-**Important:** You must provide either `--speaker_id` or `--prompt_wav`. If neither is provided, the script defaults to using `speaker_id=" кан_Ян"`.
+(Same as before)
+*   `--model_base_dir` (Required)
+*   `--text`
+*   `--speaker_id`
+*   `--prompt_wav`
+*   `--prompt_text`
+*   `--output_wav`
 
 **Example Usages:**
-
-1.  **SFT (pre-defined speaker):**
-    Make sure your `spk2info.pt` inside `<model_base_dir>/CosyVoice2-0.5B/` contains the speaker ID.
-    ```bash
-    python run_inference.py \
-        --model_base_dir ./models \
-        --text "Hello, this is a test of Cosy Voice." \
-        --speaker_id " кан_Ян" \
-        --output_wav sft_output.wav
-    ```
-
-2.  **Zero-shot (using a prompt audio):**
-    You can use one of the prompt audios from the model's `asset` directory or your own 16kHz mono WAV file.
-    ```bash
-    python run_inference.py \
-        --model_base_dir ./models \
-        --text "This voice is generated using a prompt audio." \
-        --prompt_wav ./models/CosyVoice2-0.5B/asset/zero_shot_prompt.wav \
-        --prompt_text "This is a zero shot prompt." \
-        --output_wav zeroshot_output.wav
-    ```
-    If the provided `--prompt_wav` path is not found, the script will attempt to use a default prompt located at `<model_base_dir>/CosyVoice2-0.5B/asset/zero_shot_prompt.wav`.
-
-The script will perform both offline synthesis (saving to the output file) and then demonstrate streaming synthesis (printing chunk information to the console).
+(Same as before)
 
 ## Notes
 
-*   **Model Paths in YAML:** The `cosyvoice2.yaml` (or `cosyvoice.yaml`) inside your model snapshot directory (e.g., `models/CosyVoice2-0.5B/`) uses `!ref <root_dir>/filename` to refer to model files. `HyperPyYAML` resolves `<root_dir>` to the directory containing the YAML file itself. Ensure paths for `campplus.onnx`, `speech_tokenizer_v2.onnx`, `spk2info.pt`, and the `CosyVoice-BlankEN` directory (for `qwen_pretrain_path`) are correct relative to this YAML or use this `<root_dir>` reference.
-*   **GPU/CPU:** The script will attempt to use CUDA if available for PyTorch and ONNX Runtime.
-*   **Dependencies:** This setup aims for a more minimal set of dependencies compared to the full original repository but still requires several libraries for core functionality.
+*   **Model Paths in YAML:** `HyperPyYAML` resolves `<root_dir>` to the directory containing the YAML file. Ensure all paths referenced (like for `CosyVoice-BlankEN`) are correct.
+*   **GPU/CPU:** The script attempts to use CUDA if available.
+*   **Mel Spectrograms:** The dependency on `openai-whisper` for feature extraction has been removed. Mel spectrograms are now computed using `torchaudio`.
+*   **JIT/TRT/vLLM:** Support for these specialized model formats has been removed from this version to simplify dependencies.
 ```

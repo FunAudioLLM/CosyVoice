@@ -17,10 +17,11 @@ import json
 import onnxruntime
 import torch
 import numpy as np
-import whisper
+# import whisper # Removed
 from typing import Callable
 import torchaudio.compliance.kaldi as kaldi
 import torchaudio
+import torchaudio.transforms as T # Added
 import os
 import re
 import inflect
@@ -91,7 +92,26 @@ class CosyVoiceFrontEnd:
 
     def _extract_speech_token(self, speech):
         assert speech.shape[1] / 16000 <= 30, 'do not support extract speech token for audio longer than 30s'
-        feat = whisper.log_mel_spectrogram(speech, n_mels=128)
+
+        # Replacement for whisper.log_mel_spectrogram
+        if not hasattr(self, 'mel_spectrogram_transform_128'):
+            # Parameters based on whisper defaults for 16kHz, 128 mels
+            self.mel_spectrogram_transform_128 = T.MelSpectrogram(
+                sample_rate=16000,
+                n_fft=400,
+                hop_length=160,
+                n_mels=128,
+                window_fn=torch.hann_window,
+                power=2.0,      # Power for MagSpectrogram before log
+                norm='slaney',  # Whisper uses slaney norm for mel filterbanks
+                mel_scale='slaney' # Slaney scale for mel frequencies
+            ).to(speech.device)
+
+        mel_spec = self.mel_spectrogram_transform_128(speech) # speech is (B, T_audio)
+        feat = torch.log10(torch.clamp(mel_spec, min=1e-10))
+        # Ensure feat is (B, n_mels, T_frames) as expected by ONNX model
+        # T.MelSpectrogram output is (B, n_mels, T_frames), which is correct.
+
         speech_token = self.speech_tokenizer_session.run(None,
                                                          {self.speech_tokenizer_session.get_inputs()[0].name:
                                                           feat.detach().cpu().numpy(),

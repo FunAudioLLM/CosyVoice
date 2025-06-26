@@ -1,0 +1,21 @@
+--extra-index-url https://download.pytorch.org/whl/cu121
+# For specific onnxruntime-gpu versions with CUDA 12, you might need:
+# --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+
+torch
+torchaudio
+onnxruntime # For CPU. For GPU, use onnxruntime-gpu (and check CUDA compatibility)
+HyperPyYAML
+soundfile
+numpy
+librosa
+tiktoken
+transformers>=4.30.0
+WeTextProcessing
+inflect
+regex
+omegaconf
+einops
+tqdm
+# modelscope # Removed
+# openai-whisper # Removed

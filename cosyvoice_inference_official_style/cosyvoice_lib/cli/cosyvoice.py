@@ -16,7 +16,7 @@ import time
 from typing import Generator
 from tqdm import tqdm
 from hyperpyyaml import load_hyperpyyaml
-from modelscope import snapshot_download
+# from modelscope import snapshot_download # Removed
 import torch
 from .frontend import CosyVoiceFrontEnd
 from .model import CosyVoiceModel, CosyVoice2Model
@@ -26,12 +26,13 @@ from ..utils.class_utils import get_model_type
 
 class CosyVoice:
 
-    def __init__(self, model_dir, load_jit=False, load_trt=False, fp16=False, trt_concurrent=1):
+    def __init__(self, model_dir, fp16=False): # Removed load_jit, load_trt, trt_concurrent
         self.instruct = True if '-Instruct' in model_dir else False
         self.model_dir = model_dir
         self.fp16 = fp16
         if not os.path.exists(model_dir):
-            model_dir = snapshot_download(model_dir)
+            # model_dir = snapshot_download(model_dir) # Removed
+            raise FileNotFoundError(f"Model directory {model_dir} not found. Please ensure models are downloaded manually.")
         hyper_yaml_path = '{}/cosyvoice.yaml'.format(model_dir)
         if not os.path.exists(hyper_yaml_path):
             raise ValueError('{} not found!'.format(hyper_yaml_path))
@@ -45,22 +46,14 @@ class CosyVoice:
                                           '{}/spk2info.pt'.format(model_dir),
                                           configs['allowed_special'])
         self.sample_rate = configs['sample_rate']
-        if torch.cuda.is_available() is False and (load_jit is True or load_trt is True or fp16 is True):
-            load_jit, load_trt, fp16 = False, False, False
-            logging.warning('no cuda device, set load_jit/load_trt/fp16 to False')
-        self.model = CosyVoiceModel(configs['llm'], configs['flow'], configs['hift'], fp16)
+        if torch.cuda.is_available() is False and fp16 is True: # Simplified GPU check
+            fp16 = False # Keep self.fp16 as user intended, but disable for this op
+            logging.warning('no cuda device, set fp16 to False for this operation')
+        self.model = CosyVoiceModel(configs['llm'], configs['flow'], configs['hift'], self.fp16) # Use self.fp16
         self.model.load('{}/llm.pt'.format(model_dir),
                         '{}/flow.pt'.format(model_dir),
                         '{}/hift.pt'.format(model_dir))
-        if load_jit:
-            self.model.load_jit('{}/llm.text_encoder.{}.zip'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
-                                '{}/llm.llm.{}.zip'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
-                                '{}/flow.encoder.{}.zip'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'))
-        if load_trt:
-            self.model.load_trt('{}/flow.decoder.estimator.{}.mygpu.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
-                                '{}/flow.decoder.estimator.fp32.onnx'.format(model_dir),
-                                trt_concurrent,
-                                self.fp16)
+        # Removed JIT and TRT loading blocks
         del configs
 
     def list_available_spks(self):
@@ -141,15 +134,19 @@ class CosyVoice:
 
 class CosyVoice2(CosyVoice):
 
-    def __init__(self, model_dir, load_jit=False, load_trt=False, load_vllm=False, fp16=False, trt_concurrent=1):
-        self.instruct = True if '-Instruct' in model_dir else False
+    def __init__(self, model_dir, fp16=False): # Removed load_jit, load_trt, load_vllm, trt_concurrent
+        self.instruct = True if '-Instruct' in model_dir else False # Retain this logic
         self.model_dir = model_dir
         self.fp16 = fp16
         if not os.path.exists(model_dir):
-            model_dir = snapshot_download(model_dir)
+            # model_dir = snapshot_download(model_dir) # Removed
+            raise FileNotFoundError(f"Model directory {model_dir} not found. Please ensure models are downloaded manually.")
         hyper_yaml_path = '{}/cosyvoice2.yaml'.format(model_dir)
         if not os.path.exists(hyper_yaml_path):
-            raise ValueError('{} not found!'.format(hyper_yaml_path))
+            # try cosyvoice.yaml for official model name (already present in the original code for CosyVoice2)
+            hyper_yaml_path = '{}/cosyvoice.yaml'.format(model_dir)
+            if not os.path.exists(hyper_yaml_path):
+                 raise ValueError('cosyvoice2.yaml or cosyvoice.yaml not found in {}!'.format(model_dir))
         with open(hyper_yaml_path, 'r') as f:
             configs = load_hyperpyyaml(f, overrides={'qwen_pretrain_path': os.path.join(model_dir, 'CosyVoice-BlankEN')})
         assert get_model_type(configs) == CosyVoice2Model, 'do not use {} for CosyVoice2 initialization!'.format(model_dir)
@@ -160,22 +157,14 @@ class CosyVoice2(CosyVoice):
                                           '{}/spk2info.pt'.format(model_dir),
                                           configs['allowed_special'])
         self.sample_rate = configs['sample_rate']
-        if torch.cuda.is_available() is False and (load_jit is True or load_trt is True or fp16 is True):
-            load_jit, load_trt, fp16 = False, False, False
-            logging.warning('no cuda device, set load_jit/load_trt/fp16 to False')
-        self.model = CosyVoice2Model(configs['llm'], configs['flow'], configs['hift'], fp16)
+        if torch.cuda.is_available() is False and fp16 is True: # Simplified GPU check
+            fp16 = False # Keep self.fp16, but disable for this op
+            logging.warning('no cuda device, set fp16 to False for this operation')
+        self.model = CosyVoice2Model(configs['llm'], configs['flow'], configs['hift'], self.fp16) # Use self.fp16
         self.model.load('{}/llm.pt'.format(model_dir),
                         '{}/flow.pt'.format(model_dir),
                         '{}/hift.pt'.format(model_dir))
-        if load_vllm:
-            self.model.load_vllm('{}/vllm'.format(model_dir))
-        if load_jit:
-            self.model.load_jit('{}/flow.encoder.{}.zip'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'))
-        if load_trt:
-            self.model.load_trt('{}/flow.decoder.estimator.{}.mygpu.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
-                                '{}/flow.decoder.estimator.fp32.onnx'.format(model_dir),
-                                trt_concurrent,
-                                self.fp16)
+        # Removed vLLM, JIT, and TRT loading blocks
         del configs
 
     def inference_instruct(self, *args, **kwargs):

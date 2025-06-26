@@ -25,9 +25,14 @@ import torchaudio.transforms as T # Added
 import os
 import re
 import inflect
-# Removed ttsfrd try-except block
-from tn.chinese.normalizer import Normalizer as ZhNormalizer # Keep this
-from tn.english.normalizer import Normalizer as EnNormalizer # Keep this
+try:
+    import ttsfrd
+    use_ttsfrd = True
+except ImportError:
+    print("failed to import ttsfrd, use WeTextProcessing instead")
+    from tn.chinese.normalizer import Normalizer as ZhNormalizer
+    from tn.english.normalizer import Normalizer as EnNormalizer
+    use_ttsfrd = False
 from ..utils.file_utils import logging
 from ..utils.frontend_utils import contains_chinese, replace_blank, replace_corner_mark, remove_bracket, spell_out_number, split_paragraph, is_only_punctuation
 
@@ -64,12 +69,36 @@ class CosyVoiceFrontEnd:
         else:
             self.spk2info = {}
         self.allowed_special = allowed_special
-        # self.use_ttsfrd = use_ttsfrd # Removed
-        # Removed ttsfrd initialization block
-        # Always initialize WeTextProcessing normalizers
-        self.zh_tn_model = ZhNormalizer(remove_erhua=False, full_to_half=False, overwrite_cache=True)
-        self.en_tn_model = EnNormalizer()
-        self.inflect_parser = inflect.engine()
+        self.use_ttsfrd = use_ttsfrd # Restored
+        if self.use_ttsfrd: # Restored block
+            self.frd = ttsfrd.TtsFrontendEngine()
+            ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+            # Path for ttsfrd resources
+            ttsfrd_resource_path = os.path.join(ROOT_DIR, '..', '..', 'pretrained_models', 'CosyVoice-ttsfrd', 'resource')
+            if not os.path.exists(ttsfrd_resource_path):
+                 logging.error(f"ttsfrd resource path not found: {ttsfrd_resource_path}")
+                 logging.error("Please ensure CosyVoice-ttsfrd/resource is placed in cosyvoice_inference_official_style/pretrained_models/")
+                 logging.warning("Falling back to WeTextProcessing due to missing ttsfrd resources.")
+                 self.use_ttsfrd = False
+                 # Initialize fallbacks if ttsfrd resources are missing
+                 self.zh_tn_model = ZhNormalizer(remove_erhua=False, full_to_half=False, overwrite_cache=True)
+                 self.en_tn_model = EnNormalizer()
+                 self.inflect_parser = inflect.engine()
+            elif not self.frd.initialize(ttsfrd_resource_path):
+                logging.error(f"Failed to initialize ttsfrd resource from {ttsfrd_resource_path}")
+                logging.warning("Falling back to WeTextProcessing due to ttsfrd initialization failure.")
+                self.use_ttsfrd = False
+                 # Initialize fallbacks if ttsfrd init fails
+                self.zh_tn_model = ZhNormalizer(remove_erhua=False, full_to_half=False, overwrite_cache=True)
+                self.en_tn_model = EnNormalizer()
+                self.inflect_parser = inflect.engine()
+            else:
+                self.frd.set_lang_type('pinyinvg')
+
+        if not self.use_ttsfrd: # Ensure this block runs if ttsfrd failed or was never True
+            self.zh_tn_model = ZhNormalizer(remove_erhua=False, full_to_half=False, overwrite_cache=True)
+            self.en_tn_model = EnNormalizer()
+            self.inflect_parser = inflect.engine()
 
     def _extract_text_token(self, text):
         if isinstance(text, Generator):
@@ -143,10 +172,13 @@ class CosyVoiceFrontEnd:
         if text_frontend is False or text == '':
             return [text] if split is True else text
         text = text.strip()
-        # Removed self.use_ttsfrd conditional block, directly use WeTextProcessing path
-        if contains_chinese(text):
-            text = self.zh_tn_model.normalize(text)
-            text = text.replace("\n", "")
+        if self.use_ttsfrd: # Restored conditional logic
+            texts = [i["text"] for i in json.loads(self.frd.do_voicegen_frd(text))["sentences"]]
+            text = ''.join(texts) # This was missing in my manual reconstruction, important for ttsfrd path
+        else:
+            if contains_chinese(text):
+                text = self.zh_tn_model.normalize(text)
+                text = text.replace("\n", "")
                 text = replace_blank(text)
                 text = replace_corner_mark(text)
                 text = text.replace(".", "。")

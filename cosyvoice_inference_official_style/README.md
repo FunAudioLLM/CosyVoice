@@ -36,7 +36,33 @@ This version of CosyVoice2 relies on components from the `Matcha-TTS` library, s
     ```
     Verify that you can run `python -c "import matcha.models.components"` without errors from your environment.
 
-Failure to correctly set up `Matcha-TTS` will result in `ModuleNotFoundError` when the script tries to import components like `matcha.models.components.flow_matching.BASECFM`.
+Failure to correctly set up `Matcha-TTS` will result in `ModuleNotFoundError` for `matcha.models.components...`.
+
+### Text Normalization (`ttsfrd` and `WeTextProcessing`)
+For robust text normalization, especially for Chinese, CosyVoice2 can use `ttsfrd` (via `pyFunTTSExt`) or fall back to `WeTextProcessing`.
+
+*   **`WeTextProcessing`**: This is listed in `requirements.txt` and will be installed automatically. It provides good general text normalization.
+*   **`ttsfrd` (Recommended for best Chinese normalization):**
+    1.  **Install `pyFunTTSExt`**: The `ttsfrd` engine is usually part of the `pyFunTTSExt` package. This package is often distributed via ModelScope or FunASR. A common way to install it is:
+        ```bash
+        pip install "modelscope[funasr]" -f https://funasr.oss-cn-hangzhou.aliyuncs.com/wheels/index.html
+        # Or, if you have modelscope already, you might just need funasr components:
+        # pip install funasr -f https://funasr.oss-cn-hangzhou.aliyuncs.com/wheels/index.html
+        ```
+        Verify by trying `python -c "import ttsfrd"`. If this fails, you may need to find specific installation instructions for `pyFunTTSExt` compatible with your environment.
+    2.  **Download `CosyVoice-ttsfrd` Resources**:
+        Obtain the `CosyVoice-ttsfrd` resources (these are separate from the main TTS model snapshot). They are often part of full CosyVoice or FunASR releases.
+        Place them in the following structure at the root of this `cosyvoice_inference_official_style` package:
+        ```
+        cosyvoice_inference_official_style/
+        ├── pretrained_models/          # This directory name is fixed due to frontend.py's path logic
+        │   └── CosyVoice-ttsfrd/
+        │       └── resource/
+        │           └── # ... place all ttsfrd resource files and subdirectories here ...
+        ├── cosyvoice_lib/
+        ...
+        ```
+    If `ttsfrd` is successfully imported and its resources are found at the specified path, it will be used. Otherwise, the system automatically falls back to `WeTextProcessing`.
 
 ## 3. Download Models
 
@@ -66,8 +92,6 @@ Inside your `--model_base_dir`, create a directory for the specific model, for e
 ```
 Ensure all these files, especially `flow.decoder.estimator.fp32.onnx`, are present in this structure.
 
-**Text Normalization:**
-Text normalization now relies on `WeTextProcessing`. The `ttsfrd` specific setup has been removed for simplification.
 
 ## 4. Configuring ONNX Flow Decoder (Optional)
 

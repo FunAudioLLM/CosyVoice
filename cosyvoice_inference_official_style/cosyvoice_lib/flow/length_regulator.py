@@ -15,7 +15,7 @@ from typing import Tuple
 import torch.nn as nn
 import torch
 from torch.nn import functional as F
-from cosyvoice.utils.mask import make_pad_mask
+from ..utils.mask import make_pad_mask
 
 
 class InterpolateRegulator(nn.Module):

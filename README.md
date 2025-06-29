@@ -69,8 +69,6 @@
     ``` sh
     conda create -n cosyvoice -y python=3.10
     conda activate cosyvoice
-    # pynini is required by WeTextProcessing, use conda to install it as it can be executed on all platforms.
-    conda install -y -c conda-forge pynini==2.1.5
     pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
     
     # If you encounter sox compatibility issues
@@ -106,7 +104,7 @@ git clone https://www.modelscope.cn/iic/CosyVoice-ttsfrd.git pretrained_models/C
 
 Optionally, you can unzip `ttsfrd` resource and install `ttsfrd` package for better text normalization performance.
 
-Notice that this step is not necessary. If you do not install `ttsfrd` package, we will use WeTextProcessing by default.
+Notice that this step is not necessary. If you do not install `ttsfrd` package, we will use wetext by default.
 
 ``` sh
 cd pretrained_models/CosyVoice-ttsfrd/

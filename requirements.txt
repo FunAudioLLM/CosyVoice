@@ -36,5 +36,5 @@ torch==2.3.1
 torchaudio==2.3.1
 transformers==4.40.1
 uvicorn==0.30.0
-WeTextProcessing==1.0.3
+wetext==0.0.4
 wget==3.2

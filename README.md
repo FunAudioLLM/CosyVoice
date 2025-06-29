@@ -72,7 +72,7 @@
     # pynini is required by WeTextProcessing, use conda to install it as it can be executed on all platforms.
     conda install -y -c conda-forge pynini==2.1.5
     pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
-    
+
     # If you encounter sox compatibility issues
     # ubuntu
     sudo apt-get install sox libsox-dev

@@ -36,8 +36,8 @@ pyworld = "0.3.4"
 rich = "13.7.1"
 soundfile = "0.12.1"
 tensorboard = "2.14.0"
-torch = { version = "2.3.1", source = "pytorch-cu121" }
-torchaudio = { version = "2.3.1", source = "pytorch-cu121" }
+torch = {version = "^2.7.0", source = "torch_cu128"}
+torchaudio = { version = "2.3.1", source = "torch_cu128" }
 transformers = "4.40.1"
 uvicorn = "0.30.0"
 wetext = "0.0.4"
@@ -45,9 +45,9 @@ wget = "3.2"
 tqdm = "^4.67.1"
 
 [[tool.poetry.source]]
-name = "pytorch-cu121"
-url = "https://download.pytorch.org/whl/cu121"
-priority = "supplemental"
+name = "torch_cu128"
+url = "https://download.pytorch.org/whl/cu128"
+priority = "explicit"
 
 [[tool.poetry.source]]
 name = "onnxruntime-cuda-12"

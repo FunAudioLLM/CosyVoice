@@ -6,7 +6,7 @@ authors = ["Your Name <you@example.com>"]
 license = "Apache-2.0"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "3.11.9"
 conformer = "0.3.2"
 deepspeed = { version = "0.15.1", markers = "sys_platform == 'linux'" }
 diffusers = "0.29.0"

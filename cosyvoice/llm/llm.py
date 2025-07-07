@@ -401,7 +401,8 @@ class Qwen2LM(TransformerLM):
         speech_token_combined_emb = self.speech_embedding(speech_token_combined)
 
         # 3. prepare llm_input/target
-        lm_target, lm_input, lm_input_len = self.prepare_lm_input_target(text_token.repeat(2, 1), text_token_emb.repeat(2, 1, 1), text_token_len.repeat(2), speech_token_combined, speech_token_combined_emb, speech_token_combined_len)
+        lm_target, lm_input, lm_input_len = self.prepare_lm_input_target(text_token.repeat(2, 1), text_token_emb.repeat(2, 1, 1), text_token_len.repeat(2), \
+                                                                         speech_token_combined, speech_token_combined_emb, speech_token_combined_len)
         lm_target = lm_target.to(device)
 
         # 4. run lm forward

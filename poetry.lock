@@ -6914,17 +6914,6 @@ tests = ["autopep8", "isort", "llnl-hatchet", "numpy", "pytest", "pytest-forked"
 tutorials = ["matplotlib", "pandas", "tabulate"]
 
 [[package]]
-name = "ttsfrd"
-version = "0.1.0"
-description = "A minimal example Python package"
-optional = false
-python-versions = ">=3.6"
-files = [
-    {file = "ttsfrd-0.1.0-py3-none-any.whl", hash = "sha256:552d71a685776cd62e23fe87cd7e5869dd52abf44b8aad437e4c89c87df99d29"},
-    {file = "ttsfrd-0.1.0.tar.gz", hash = "sha256:84e4bb95434af5e820ead4f365a605285ae04a18cc90b58092f76e62296e3213"},
-]
-
-[[package]]
 name = "typeguard"
 version = "4.4.4"
 description = "Run-time type checker for Python"
@@ -7603,4 +7592,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "3.11.9"
-content-hash = "c5180eac39890c813e0e6491201beec2405b411770caf03a0d71df95dece6be0"
+content-hash = "20e1e771e36f78e8ba1a50bb0fc03d9fc4f37983d8002088948375d837810c59"

@@ -27,7 +27,6 @@ networkx = "3.1"
 omegaconf = "2.3.0"
 onnx = "1.16.0"
 onnxruntime-gpu = "*"
-onnxruntime = "*"
 protobuf = "*"
 pyarrow = "18.1.0"
 pydantic = "^2.7.0"
@@ -42,6 +41,7 @@ uvicorn = "0.30.0"
 wetext = "0.0.4"
 wget = "3.2"
 tqdm = "^4.67.1"
+ttsfrd = "*"
 openai-whisper = {git = "https://github.com/openai/whisper.git", rev = "main"}
 matcha-tts = {git = "https://github.com/shivammehta25/Matcha-TTS", rev = "main"}
 

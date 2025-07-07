@@ -13,7 +13,7 @@ diffusers = "0.29.0"
 fastapi = "*"
 fastapi-cli = "*"
 gdown = "5.1.0"
-gradio = "5.4.0"
+gradio = "*"
 grpcio = "^1.57.0"
 grpcio-tools = "^1.57.0"
 hydra-core = "1.3.2"
@@ -43,6 +43,7 @@ wetext = "0.0.4"
 wget = "3.2"
 tqdm = "^4.67.1"
 openai-whisper = {git = "https://github.com/openai/whisper.git", rev = "main"}
+matcha-tts = {git = "https://github.com/shivammehta25/Matcha-TTS", rev = "main"}
 
 [[tool.poetry.source]]
 name = "torch_cu128"

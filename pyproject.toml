@@ -22,7 +22,7 @@ inflect = "7.3.1"
 librosa = "0.10.2"
 lightning = "2.2.4"
 matplotlib = "3.7.5"
-modelscope = "1.20.0"
+modelscope = "*"
 networkx = "3.1"
 omegaconf = "2.3.0"
 onnx = "1.16.0"
@@ -35,7 +35,7 @@ pyworld = "^0.3.5"
 rich = "13.7.1"
 soundfile = "0.12.1"
 tensorboard = "2.14.0"
-torch = {version = "^2.7.0", source = "torch_cu128"}
+torch = {version = "2.7.0", source = "torch_cu128"}
 torchaudio = { version = "2.7.0", source = "torch_cu128" }
 transformers = "^4.40.1"
 uvicorn = "0.30.0"

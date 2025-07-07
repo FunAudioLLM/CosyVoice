@@ -26,8 +26,8 @@ modelscope = "1.20.0"
 networkx = "3.1"
 omegaconf = "2.3.0"
 onnx = "1.16.0"
-onnxruntime-gpu = { version = "1.18.0", markers = "sys_platform == 'linux'" }
-onnxruntime = { version = "1.18.0", markers = "sys_platform == 'darwin' or sys_platform == 'win32'" }
+onnxruntime-gpu = "*"
+onnxruntime = "*"
 protobuf = "*"
 pyarrow = "18.1.0"
 pydantic = "^2.7.0"
@@ -49,11 +49,6 @@ matcha-tts = {git = "https://github.com/shivammehta25/Matcha-TTS", rev = "main"}
 name = "torch_cu128"
 url = "https://download.pytorch.org/whl/cu128"
 priority = "explicit"
-
-[[tool.poetry.source]]
-name = "onnxruntime-cuda-12"
-url = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/"
-priority = "supplemental"
 
 [build-system]
 requires = ["poetry-core>=1.8"]

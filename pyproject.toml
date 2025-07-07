@@ -38,7 +38,7 @@ torch = {version = "2.7.0", source = "torch_cu128"}
 torchaudio = { version = "2.7.0", source = "torch_cu128" }
 transformers = "^4.40.1"
 uvicorn = "0.30.0"
-wetext = "*"
+WeTextProcessing = "*"
 wget = "3.2"
 tqdm = "^4.67.1"
 openai-whisper = {git = "https://github.com/openai/whisper.git", rev = "main"}

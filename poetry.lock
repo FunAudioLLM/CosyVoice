@@ -2660,57 +2660,6 @@ files = [
 ]
 
 [[package]]
-name = "kaldifst"
-version = "1.7.14"
-description = ""
-optional = false
-python-versions = "*"
-files = [
-    {file = "kaldifst-1.7.14-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:2195ea16ffed7a93119fe8fb3b5a15434f0718ed28fd36a65bb4d0aa8713cf1b"},
-    {file = "kaldifst-1.7.14-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:dd5df76306605bf07a7fdd88278cffc93312f87185f793bede1aeba4621ad37f"},
-    {file = "kaldifst-1.7.14-cp310-cp310-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:8e5f878ff426637b9593ab60499858c4003557a83afded7a2ff952576d4568f6"},
-    {file = "kaldifst-1.7.14-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a60903de1a74c82ac99f49405b04bcc40762132f75a6ad598cd5895faff5ac14"},
-    {file = "kaldifst-1.7.14-cp310-cp310-win32.whl", hash = "sha256:97be44b5e3817a2de791988cd788a61dae4274d22820b53260c2bbcdc8ec54dc"},
-    {file = "kaldifst-1.7.14-cp310-cp310-win_amd64.whl", hash = "sha256:d96f7b3a89213751e8853661a9b1e442f85dee0670827cc1b8109b4c624177f8"},
-    {file = "kaldifst-1.7.14-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:a12d2735212f5b65aa9208d1b5fdf5e3609353126a09c97841491148fbdd252b"},
-    {file = "kaldifst-1.7.14-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bdc4e7e9f8313e9c82be1c044ab91f3cba8ecc0ccf370a7b455c0e840b883c23"},
-    {file = "kaldifst-1.7.14-cp311-cp311-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:8fca5f2b782f365eccfa924e4ababafde05c6230ac29294bc12457479faa93f8"},
-    {file = "kaldifst-1.7.14-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:cd7919c4181158b43d3d7a603f7f5f2cb6856dc178d09b3853fb6cb4586a06c5"},
-    {file = "kaldifst-1.7.14-cp311-cp311-win32.whl", hash = "sha256:db659a1607e11fe5c7db5aad396d2085ed3338e0cfe3bf1784dfdfcc72681696"},
-    {file = "kaldifst-1.7.14-cp311-cp311-win_amd64.whl", hash = "sha256:a0bb15ed1f56e2ed320b916f1f55516278460eb89b6b8a2a26ad5eb7b9f6d0cd"},
-    {file = "kaldifst-1.7.14-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:68a8a2a5c058b15767690482039c5e88de4848d75483c449240b5f6a68a8735a"},
-    {file = "kaldifst-1.7.14-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f06659c6e551c20c7bf6e764520dd11abe055ed32b7a7f9edaa1791dd15b534d"},
-    {file = "kaldifst-1.7.14-cp312-cp312-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:149e7a1a77d40b2cccb5f1a5eb7d4816062e03e44bbb8d4000abe61ba6358756"},
-    {file = "kaldifst-1.7.14-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0b20b5e47800d811f3c400ea5b8200dcdc14a7c7f60eab1b68438d7e2330f2d6"},
-    {file = "kaldifst-1.7.14-cp312-cp312-win32.whl", hash = "sha256:b7ec6f6a00f4ca27596bb1cf654096fc14eca6960f0e1ff2c649832da02ed07c"},
-    {file = "kaldifst-1.7.14-cp312-cp312-win_amd64.whl", hash = "sha256:e602d9e24f2895f4debe35083168b4aca1de0e8592cedabed7a8aeaff5cd31ea"},
-    {file = "kaldifst-1.7.14-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:baee73f1ae6f43ab82364495acbeaa721a6c8ef53e25514f7cf717c1092f1f83"},
-    {file = "kaldifst-1.7.14-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:dfe620fad80085392e0271d2811d457ec21ced90193d5dfaeced2e58c0918b10"},
-    {file = "kaldifst-1.7.14-cp313-cp313-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:2d82505744997ce686f933d0042d26157fcb567c88e052a45e6c3394cb997cce"},
-    {file = "kaldifst-1.7.14-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fc6e6bc0b430f98e6136846c46bdd7d72a86248e4594a07c8449e4fcb7646bd2"},
-    {file = "kaldifst-1.7.14-cp313-cp313-win32.whl", hash = "sha256:238bc2391a920a170a029f7cfea96d0049b55ca1881d5bf88f87ebfc2efb6420"},
-    {file = "kaldifst-1.7.14-cp313-cp313-win_amd64.whl", hash = "sha256:8296bdeb5910a4a225af9e5bcfd044a0f05a1b71220d7bca7185c17b80cf99d6"},
-    {file = "kaldifst-1.7.14-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9173c77b59723cc2260659021ed1f8780a60a0a83e005449f7980089ba17b307"},
-    {file = "kaldifst-1.7.14-cp37-cp37m-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:f8646b11c4926d792cb65a16b02086d9662e7a84ec70f7232e600f55eff12cc2"},
-    {file = "kaldifst-1.7.14-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8418ab6144d6f5b72d76cef17ff8866d0e5551f1bf46ac53cfe70c262886cba4"},
-    {file = "kaldifst-1.7.14-cp37-cp37m-win32.whl", hash = "sha256:4f1cc9c64d2bbaeb5bab283f703087d05a40cf36a5524c87d44d7f6d2e273ef3"},
-    {file = "kaldifst-1.7.14-cp37-cp37m-win_amd64.whl", hash = "sha256:4914cae403d0df4a494c6674308747290a88a8b541d4eede84b4d59a535311a6"},
-    {file = "kaldifst-1.7.14-cp38-cp38-macosx_10_9_universal2.whl", hash = "sha256:03a66a22e2bc0347f1ac22be343452664c80fcc98dc441d0bbe9e034d550d7cc"},
-    {file = "kaldifst-1.7.14-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:b1dac099755cc8b133ddafc98e4a5e0b888e9e38db3682cbdfbfe87e6ce6a131"},
-    {file = "kaldifst-1.7.14-cp38-cp38-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:928297b23670cd0f1addc44155d44f10b1cc858ca4d1079a63183d75acc8aabb"},
-    {file = "kaldifst-1.7.14-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f2cfb4fbf9930c131391cfd6fe647f36263fe30f9f4a20ef4668a058887a5462"},
-    {file = "kaldifst-1.7.14-cp38-cp38-win32.whl", hash = "sha256:2aa4bcb269d0aff26fe072b81f467b7a2f7114b34137ebfcf65907727b04b297"},
-    {file = "kaldifst-1.7.14-cp38-cp38-win_amd64.whl", hash = "sha256:9b5c6a937260b9ce855787a4e4b03d929cde30e01d8cde515ca1d2d31353ca85"},
-    {file = "kaldifst-1.7.14-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:525771203ff1846bda3a5acd1284a0d37390ce3fbec0de899d5b2c40d488950f"},
-    {file = "kaldifst-1.7.14-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:6dc103ca6f8170b998a6b24c98a5a8c0ef11b1d380d40828c74c8acc70d4550f"},
-    {file = "kaldifst-1.7.14-cp39-cp39-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:7065ba875b0ff2575029b3a48a4cf231e972e58b336d8e36daa0467bbb1afa8c"},
-    {file = "kaldifst-1.7.14-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:443b6847682278bdcb7720fd8203750c6903da251b1fe630934cfca2bd0ec27a"},
-    {file = "kaldifst-1.7.14-cp39-cp39-win32.whl", hash = "sha256:73a35b667ee59c4f94243e3769d96f435c5963a942e8eb46c6544fe8108cb852"},
-    {file = "kaldifst-1.7.14-cp39-cp39-win_amd64.whl", hash = "sha256:9f61c37dc4990dc7ae744f51d61c97af20b85fcc8a154518733e2a75d4a606ed"},
-    {file = "kaldifst-1.7.14.tar.gz", hash = "sha256:572fee3b70c041ea59ada9714dd2b924de18d1aaca58f75c40bb90d637177b4d"},
-]
-
-[[package]]
 name = "kiwisolver"
 version = "1.4.8"
 description = "A fast implementation of the Cassowary constraint solver"
@@ -5032,6 +4981,26 @@ files = [
 
 [package.extras]
 windows-terminal = ["colorama (>=0.4.6)"]
+
+[[package]]
+name = "pynini"
+version = "2.1.6"
+description = "Finite-state grammar compilation"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "pynini-2.1.6-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:d04d3000cda1cd006c791d8c08ecf9472e3710430024b3130eac3fad26afee60"},
+    {file = "pynini-2.1.6-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:a9c2b168bc2b5c6cee82a77515122ad14cbdcd9292cb050eb2824b1b48be1b37"},
+    {file = "pynini-2.1.6-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:f32d1c0b3aa05a76153c7e0e395e553e93acddf4a436cbec5d50d1eb1d354bcd"},
+    {file = "pynini-2.1.6-cp37-cp37m-manylinux_2_28_x86_64.whl", hash = "sha256:36813f54676b212cea8342f37b6ed2b05b6a501918e8a216fad93fbd279b2839"},
+    {file = "pynini-2.1.6-cp38-cp38-manylinux_2_28_x86_64.whl", hash = "sha256:58cf8cfb4a7ec951cf6602bb7f1683139a1ae1cd55aa3d0b89aad76017158904"},
+    {file = "pynini-2.1.6-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:294c9ae1c9db54f6d3f235f240332c9f5c84409df5f62c695fe609b337277f4d"},
+    {file = "pynini-2.1.6-pp310-pypy310_pp73-manylinux_2_28_x86_64.whl", hash = "sha256:bb6bef42826b015d778ae6874e3972e8d06417c7f48c7d7635a2bef7d13eb840"},
+    {file = "pynini-2.1.6-pp37-pypy37_pp73-manylinux_2_28_x86_64.whl", hash = "sha256:f9ad3b8eac04a02510cfb4628e45eba2d34cce01d742cdacb591acc9c294dfa2"},
+    {file = "pynini-2.1.6-pp38-pypy38_pp73-manylinux_2_28_x86_64.whl", hash = "sha256:e40421f06f0b95301078fe64899d83f7d102cf437a0ac283e99eac8d7d17626b"},
+    {file = "pynini-2.1.6-pp39-pypy39_pp73-manylinux_2_28_x86_64.whl", hash = "sha256:1a856cb4314602db27b293b9380ba1c77077e33e21860ece24eedcc1a70aa3f0"},
+    {file = "pynini-2.1.6.tar.gz", hash = "sha256:b09b6dda73608cedf962dbfbcfa5826b0984d1b43a8f995761972e6e032921c6"},
+]
 
 [[package]]
 name = "pyparsing"
@@ -7404,18 +7373,19 @@ MarkupSafe = ">=2.1.1"
 watchdog = ["watchdog (>=2.3)"]
 
 [[package]]
-name = "wetext"
-version = "0.0.4"
-description = "WeTextProcessing Runtime"
+name = "wetextprocessing"
+version = "1.0.4.1"
+description = "WeTextProcessing, including TN & ITN"
 optional = false
 python-versions = "*"
 files = [
-    {file = "wetext-0.0.4-py3-none-any.whl", hash = "sha256:8f755d60b0a67fa5507d28ba618ed2a6a0c1a2d29bcfb98dc5a54db9c2f9ebb8"},
+    {file = "WeTextProcessing-1.0.4.1-py3-none-any.whl", hash = "sha256:2080c4788ae9de4e8cda07a9cd100003e951b8f2ecee64ad14afa34a79b0dfb4"},
+    {file = "WeTextProcessing-1.0.4.1.tar.gz", hash = "sha256:95eabf1b1c4c102e886b234ee70b13e11ff19ac57ea18d6581aae0cc814f7801"},
 ]
 
 [package.dependencies]
-kaldifst = "*"
-modelscope = "*"
+importlib-resources = "*"
+pynini = "2.1.6"
 
 [[package]]
 name = "wget"
@@ -7592,4 +7562,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "3.11.9"
-content-hash = "20e1e771e36f78e8ba1a50bb0fc03d9fc4f37983d8002088948375d837810c59"
+content-hash = "2a5032b29793e3b680e19eae5aef84bcd6db42ca2664a3964f803f9315ef22f4"

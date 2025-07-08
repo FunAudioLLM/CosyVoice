@@ -6443,6 +6443,19 @@ files = [
 ]
 
 [[package]]
+name = "tensorrt"
+version = "10.12.0.36"
+description = "TensorRT Metapackage"
+optional = false
+python-versions = "*"
+files = [
+    {file = "tensorrt-10.12.0.36.tar.gz", hash = "sha256:b246a830c26713e097b73151917e101cfb81aa0e7274c3c3b4c1f9f8b886be2e"},
+]
+
+[package.dependencies]
+tensorrt_cu12 = "10.12.0.36"
+
+[[package]]
 name = "tensorrt-cu12"
 version = "10.12.0.36"
 description = "A high performance deep learning inference library"
@@ -7622,4 +7635,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "3.11.9"
-content-hash = "572d3772bf098c86e12ae01a8d9feb70abe4dde64d7da9dce6eae56508ac4142"
+content-hash = "1f38c8d76b488e849a79ec819e901eecdfc8c5a2b5efc65e6ce32ae64805a072"

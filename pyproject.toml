@@ -36,7 +36,7 @@ soundfile = "0.12.1"
 tensorboard = "2.14.0"
 torch = {version = "2.7.0", source = "torch_cu128"}
 torchaudio = { version = "2.7.0", source = "torch_cu128" }
-transformers = "^4.40.1"
+transformers = "*"
 uvicorn = "0.30.0"
 WeTextProcessing = "*"
 wget = "3.2"

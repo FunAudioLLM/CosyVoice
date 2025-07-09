@@ -1,0 +1,32 @@
+paths:
+  run_dir: results/${project}
+  ckpt_dir: ${paths.run_dir}/checkpoints
+seed: 42
+trainer:
+  _target_: lightning.Fabric
+  accelerator: gpu
+  num_nodes: 1
+  devices: auto
+  precision: bf16-mixed
+  strategy:
+    _target_: lightning.fabric.strategies.DDPStrategy
+    process_group_backend: nccl
+  loggers:
+    _target_: wandb.integration.lightning.fabric.logger.WandbLogger
+    name: ${project}
+    version: ${project}
+    save_dir: ${paths.run_dir}
+    project: fish-speech
+    log_model: false
+    tags:
+    - llm
+    - sft
+loop:
+  gc_interval: 1000
+project: s2st_pipeline_vanilla
+asr:
+  model: openai/whisper-large-v3
+nmt:
+  model: Qwen/Qwen3-30B-A3B
+tts:
+  model: pretrained_models/CosyVoice2-0.5B

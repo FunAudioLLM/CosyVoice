@@ -1,0 +1,106 @@
+[2025-07-01 19:28:18,073][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 20:25:31,558][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 20:28:31,106][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 20:42:07,869][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 21:02:25,025][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 21:15:57,817][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 21:18:28,552][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 21:21:09,108][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 21:24:35,038][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 21:26:14,618][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 21:28:14,557][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 21:32:35,904][root][INFO] - input frame rate=25
+[2025-07-01 21:33:57,131][root][INFO] - input frame rate=25
+[2025-07-01 21:34:22,519][root][INFO] - input frame rate=25
+[2025-07-01 22:08:19,168][root][INFO] - input frame rate=25
+[2025-07-01 22:08:57,987][root][INFO] - input frame rate=25
+[2025-07-01 22:17:40,327][root][INFO] - input frame rate=25
+[2025-07-01 22:35:29,738][root][INFO] - input frame rate=25
+[2025-07-01 22:37:29,740][root][INFO] - input frame rate=25
+[2025-07-01 22:37:39,488][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。
+[2025-07-01 22:37:44,763][root][INFO] - yield speech len 14.24, rtf 0.3703801149732611
+[2025-07-01 22:37:45,097][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。
+[2025-07-01 22:37:48,329][root][INFO] - yield speech len 8.84, rtf 0.36560876876520354
+[2025-07-01 22:38:16,230][root][INFO] - input frame rate=25
+[2025-07-01 22:38:25,761][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。
+[2025-07-01 22:38:31,007][root][INFO] - yield speech len 14.24, rtf 0.36838844920812025
+[2025-07-01 22:38:31,341][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。
+[2025-07-01 22:38:34,584][root][INFO] - yield speech len 8.84, rtf 0.36684423010813166
+[2025-07-01 22:40:36,905][root][INFO] - input frame rate=25
+[2025-07-01 22:40:48,326][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。
+[2025-07-01 22:40:53,555][root][INFO] - yield speech len 14.24, rtf 0.3672472379180822
+[2025-07-01 22:43:39,067][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。
+[2025-07-01 22:43:43,566][root][INFO] - yield speech len 8.84, rtf 0.5088865217579975
+[2025-07-01 22:47:19,372][root][INFO] - input frame rate=25
+[2025-07-01 22:47:30,313][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。
+[2025-07-01 22:47:35,550][root][INFO] - yield speech len 14.24, rtf 0.3677628013525116
+[2025-07-01 22:47:35,917][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。
+[2025-07-01 22:47:39,151][root][INFO] - yield speech len 8.84, rtf 0.36588486503152284
+[2025-07-01 22:54:08,733][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 22:55:25,138][root][INFO] - input frame rate=25
+[2025-07-01 22:55:55,073][root][INFO] - synthesis text 比赛已经开始,巴利控球。必须指出的是,他们曾在联赛首场比赛中交过手,当时切尔西以一比三获胜。巴利率先取得领先。需要提醒的是,在那场比赛中他们也曾领先,但最终切尔西轻松逆转。
+[2025-07-01 22:56:04,741][root][INFO] - yield speech len 26.72, rtf 0.3617931893485749
+[2025-07-01 22:56:05,144][root][INFO] - synthesis text 没错,这正是我想说的。我清楚地记得那场比赛。巴利开局不错,进了一球,但切尔西最终轻松取胜。因此,今天他们也不应该遇到太大的麻烦,但正如你所说的,足球比赛是复杂的。
+[2025-07-01 22:56:27,812][root][INFO] - yield speech len 64.8, rtf 0.3498192812189644
+[2025-07-01 22:56:28,268][root][INFO] - synthesis text 比赛已经开始,巴利控球。必须指出的是,他们曾在联赛首场比赛中交过手,当时切尔西以一比三获胜。巴利率先取得领先。需要提醒的是,在那场比赛中他们也曾领先,但最终切尔西轻松逆转。
+[2025-07-01 22:56:52,224][root][INFO] - yield speech len 68.8, rtf 0.3481974470060925
+[2025-07-01 22:56:52,631][root][INFO] - synthesis text 没错,这正是我想说的。我清楚地记得那场比赛。巴利开局不错,进了一球,但切尔西最终轻松取胜。因此,今天他们也不应该遇到太大的麻烦,但正如你所说的,足球比赛是复杂的。
+[2025-07-01 22:57:11,949][root][INFO] - yield speech len 58.16, rtf 0.3321577504051765
+[2025-07-01 23:00:14,305][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 23:01:33,184][root][INFO] - input frame rate=25
+[2025-07-01 23:01:58,709][root][INFO] - synthesis text 比赛已经开始,巴利控球。必须指出的是,他们曾在联赛首场比赛中交过手,当时切尔西以一比三获胜。巴利率先取得领先。需要提醒的是,在那场比赛中他们也曾领先,但最终切尔西轻松逆转。
+[2025-07-01 23:02:09,184][root][INFO] - yield speech len 26.72, rtf 0.39204793597409826
+[2025-07-01 23:02:09,558][root][INFO] - synthesis text 没错,这正是我想说的。我清楚地记得那场比赛。巴利开局不错,进了一球,但切尔西最终轻松取胜。因此,今天他们也不应该遇到太大的麻烦,但正如你所说的,足球比赛是复杂的。
+[2025-07-01 23:02:32,355][root][INFO] - yield speech len 64.8, rtf 0.3518150360495956
+[2025-07-01 23:02:32,750][root][INFO] - synthesis text 比赛已经开始,巴利控球。必须指出的是,他们曾在联赛首场比赛中交过手,当时切尔西以一比三获胜。巴利率先取得领先。需要提醒的是,在那场比赛中他们也曾领先,但最终切尔西轻松逆转。
+[2025-07-01 23:02:56,754][root][INFO] - yield speech len 68.8, rtf 0.3488864801650824
+[2025-07-01 23:02:57,122][root][INFO] - synthesis text 没错,这正是我想说的。我清楚地记得那场比赛。巴利开局不错,进了一球,但切尔西最终轻松取胜。因此,今天他们也不应该遇到太大的麻烦,但正如你所说的,足球比赛是复杂的。
+[2025-07-01 23:03:16,519][root][INFO] - yield speech len 58.16, rtf 0.3335158098514667
+[2025-07-01 23:05:31,228][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 23:06:32,492][root][INFO] - input frame rate=25
+[2025-07-01 23:07:08,836][root][INFO] - synthesis text 比赛已经开始,巴利控球。必须指出的是,他们曾在联赛首场比赛中交过手,当时切尔西以一比三获胜。巴利率先取得领先。需要提醒的是,在那场比赛中他们也曾领先,但最终切尔西轻松逆转。
+[2025-07-01 23:07:19,082][root][INFO] - yield speech len 26.72, rtf 0.38348311435676624
+[2025-07-01 23:07:19,476][root][INFO] - synthesis text 没错,这正是我想说的。我清楚地记得那场比赛。巴利开局不错,进了一球,但切尔西最终轻松取胜。因此,今天他们也不应该遇到太大的麻烦,但正如你所说的,足球比赛是复杂的。
+[2025-07-01 23:07:42,164][root][INFO] - yield speech len 64.8, rtf 0.35012271669175893
+[2025-07-01 23:07:42,528][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物,那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐,笑容如花儿般绽放。希望你以后能够做的比我还好呦。
+[2025-07-01 23:08:00,465][root][INFO] - yield speech len 52.0, rtf 0.3449301857214708
+[2025-07-01 23:08:00,879][root][INFO] - synthesis text 比赛已经开始,巴利控球。必须指出的是,他们曾在联赛首场比赛中交过手,当时切尔西以一比三获胜。巴利率先取得领先。需要提醒的是,在那场比赛中他们也曾领先,但最终切尔西轻松逆转。
+[2025-07-01 23:08:24,893][root][INFO] - yield speech len 68.8, rtf 0.34904160818388297
+[2025-07-01 23:08:25,256][root][INFO] - synthesis text 没错,这正是我想说的。我清楚地记得那场比赛。巴利开局不错,进了一球,但切尔西最终轻松取胜。因此,今天他们也不应该遇到太大的麻烦,但正如你所说的,足球比赛是复杂的。
+[2025-07-01 23:08:47,871][root][INFO] - yield speech len 64.8, rtf 0.3490010419009644
+[2025-07-01 23:08:48,253][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物,那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐,笑容如花儿般绽放。希望你以后能够做的比我还好呦。
+[2025-07-01 23:09:06,045][root][INFO] - yield speech len 52.0, rtf 0.34215038556319016
+[2025-07-01 23:12:56,362][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 23:14:25,456][root][INFO] - input frame rate=25
+[2025-07-01 23:14:56,635][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。希望你以后能够做的比我还好呦。
+[2025-07-01 23:15:07,398][root][INFO] - yield speech len 26.76, rtf 0.4021966849385534
+[2025-07-01 23:15:07,791][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。希望你以后能够做的比我还好呦。
+[2025-07-01 23:15:25,874][root][INFO] - yield speech len 52.0, rtf 0.34775615196961623
+[2025-07-01 23:31:52,289][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 23:32:55,964][root][INFO] - input frame rate=25
+[2025-07-01 23:33:51,125][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。希望你以后能够做的比我还好呦。
+[2025-07-01 23:34:01,111][root][INFO] - yield speech len 26.76, rtf 0.37318061820060144
+[2025-07-01 23:34:01,487][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。希望你以后能够做的比我还好呦。
+[2025-07-01 23:34:19,500][root][INFO] - yield speech len 52.0, rtf 0.34640055894851685
+[2025-07-01 23:58:43,416][accelerate.utils.modeling][INFO] - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+[2025-07-01 23:59:56,386][root][INFO] - input frame rate=25
+[2025-07-02 00:00:29,641][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。希望你以后能够做的比我还好呦。
+[2025-07-02 00:00:39,989][root][INFO] - yield speech len 26.76, rtf 0.3867043240722519
+[2025-07-02 00:00:40,371][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。希望你以后能够做的比我还好呦。
+[2025-07-02 00:00:57,398][root][INFO] - yield speech len 52.0, rtf 0.32743961535967314
+[2025-07-02 00:04:18,732][root][INFO] - input frame rate=25
+[2025-07-02 00:04:28,656][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。希望你以后能够做的比我还好呦。
+[2025-07-02 00:04:39,169][root][INFO] - yield speech len 30.4, rtf 0.34582589801989105
+[2025-07-02 00:04:39,540][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。希望你以后能够做的比我还好呦。
+[2025-07-02 00:04:44,002][root][INFO] - yield speech len 11.92, rtf 0.3743651529286532
+[2025-07-02 22:19:45,911][root][INFO] - input frame rate=25
+[2025-07-02 22:29:02,894][root][INFO] - input frame rate=25
+[2025-07-02 22:29:17,976][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。希望你以后能够做的比我还好呦。
+[2025-07-02 22:29:29,998][root][INFO] - yield speech len 30.4, rtf 0.39546005035701554
+[2025-07-02 22:29:30,362][root][INFO] - synthesis text 收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。希望你以后能够做的比我还好呦。
+[2025-07-02 22:29:34,852][root][INFO] - yield speech len 11.92, rtf 0.37667619301968774
+[2025-07-02 22:33:03,359][root][INFO] - input frame rate=25
+[2025-07-02 22:33:09,350][root][INFO] - synthesis text check this sentence.
+[2025-07-02 22:33:11,326][root][INFO] - yield speech len 3.2, rtf 0.617297887802124
+[2025-07-02 22:33:11,652][root][INFO] - synthesis text check this sentence.
+[2025-07-02 22:33:13,198][root][INFO] - yield speech len 3.2, rtf 0.4828795790672302

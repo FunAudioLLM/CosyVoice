@@ -1,0 +1,11 @@
+defaults:
+  - base
+  - _self_
+
+project: s2st_pipeline_vanilla
+asr:
+  model: openai/whisper-large-v3
+nmt:
+  model: Qwen/Qwen3-30B-A3B
+tts:
+  model: 'pretrained_models/CosyVoice2-0.5B'

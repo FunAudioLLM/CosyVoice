@@ -1,0 +1,38 @@
+# Base configuration for training a model
+paths:
+  run_dir: results/${project}
+  ckpt_dir: ${paths.run_dir}/checkpoints
+
+hydra:
+  run:
+    dir: ${paths.run_dir}
+
+seed: 42
+
+# Lightning Trainer
+trainer:
+  _target_: lightning.Fabric
+  accelerator: gpu
+  num_nodes: 1
+  devices: auto
+  precision: bf16-mixed
+  strategy:
+    _target_: lightning.fabric.strategies.DDPStrategy
+    process_group_backend: nccl
+  loggers:
+    # _target_: lightning.fabric.loggers.tensorboard.TensorBoardLogger
+    # root_dir: ${paths.run_dir}/logs
+    # name: ${project}
+    # version: ${now:%Y-%m-%d_%H-%M-%S}
+
+    _target_: wandb.integration.lightning.fabric.logger.WandbLogger
+    name: ${project}
+    version: ${project}
+    save_dir: ${paths.run_dir}
+    project: fish-speech
+    log_model: false
+    tags: [llm, sft]
+
+loop:
+  # Manually trigger garbage collection
+  gc_interval: 1000

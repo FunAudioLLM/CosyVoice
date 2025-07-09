@@ -43,9 +43,9 @@ wget = "3.2"
 tqdm = "^4.67.1"
 openai-whisper = {git = "https://github.com/openai/whisper.git", rev = "main"}
 matcha-tts = {git = "https://github.com/shivammehta25/Matcha-TTS", rev = "main"}
-tensorrt-cu12 = {version = "^10.9.0", platform = "linux", source = "tensorrt-cu12"}
-tensorrt-cu12-bindings = {version = "^10.9.0", platform = "linux", source = "tensorrt-cu12"}
-tensorrt-cu12-libs = {version = "^10.9.0", platform = "linux", source = "tensorrt-cu12"}
+tensorrt-cu12 = {version = "~10.9.0", platform = "linux", source = "tensorrt-cu12"}
+tensorrt-cu12-bindings = {version = "~10.9.0", platform = "linux", source = "tensorrt-cu12"}
+tensorrt-cu12-libs = {version = "~10.9.0", platform = "linux", source = "tensorrt-cu12"}
 
 [[tool.poetry.source]]
 name = "torch_cu128"

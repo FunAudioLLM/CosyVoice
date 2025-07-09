@@ -43,11 +43,18 @@ wget = "3.2"
 tqdm = "^4.67.1"
 openai-whisper = {git = "https://github.com/openai/whisper.git", rev = "main"}
 matcha-tts = {git = "https://github.com/shivammehta25/Matcha-TTS", rev = "main"}
-tensorrt = "^10.12.0.36"
+tensorrt-cu12 = {version = "^10.9.0", platform = "linux", source = "tensorrt-cu12"}
+tensorrt-cu12-bindings = {version = "^10.9.0", platform = "linux", source = "tensorrt-cu12"}
+tensorrt-cu12-libs = {version = "^10.9.0", platform = "linux", source = "tensorrt-cu12"}
 
 [[tool.poetry.source]]
 name = "torch_cu128"
 url = "https://download.pytorch.org/whl/cu128"
+priority = "explicit"
+
+[[tool.poetry.source]]
+name = "tensorrt-cu12"
+url = "https://pypi.nvidia.com"
 priority = "explicit"
 
 [build-system]

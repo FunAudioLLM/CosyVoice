@@ -1,0 +1,62 @@
+[tool.poetry]
+name = "cosyvoice"
+version = "0.1.0"
+description = "Unofficial package of CosyVoice 2.0 with vendorred Matcha-TTS"
+authors = ["Your Name <you@example.com>"]
+license = "Apache-2.0"
+
+[tool.poetry.dependencies]
+python = "3.11.9"
+conformer = "0.3.2"
+deepspeed = { version = "0.15.1", markers = "sys_platform == 'linux'" }
+diffusers = "0.29.0"
+fastapi = "*"
+fastapi-cli = "*"
+gdown = "5.1.0"
+gradio = "*"
+grpcio = "^1.57.0"
+grpcio-tools = "^1.57.0"
+hydra-core = "1.3.2"
+HyperPyYAML = "1.2.2"
+inflect = "7.3.1"
+librosa = "0.10.2"
+lightning = "2.2.4"
+matplotlib = "3.7.5"
+modelscope = "*"
+networkx = "3.1"
+omegaconf = "2.3.0"
+onnx = "1.16.0"
+onnxruntime-gpu = "*"
+protobuf = "*"
+pyarrow = "18.1.0"
+pydantic = "^2.7.0"
+pyworld = "^0.3.5"
+rich = "13.7.1"
+soundfile = "0.12.1"
+tensorboard = "2.14.0"
+torch = {version = "2.7.0", source = "torch_cu128"}
+torchaudio = { version = "2.7.0", source = "torch_cu128" }
+transformers = "*"
+uvicorn = "0.30.0"
+WeTextProcessing = "*"
+wget = "3.2"
+tqdm = "^4.67.1"
+openai-whisper = {git = "https://github.com/openai/whisper.git", rev = "main"}
+matcha-tts = {git = "https://github.com/shivammehta25/Matcha-TTS", rev = "main"}
+tensorrt-cu12 = {version = "*", platform = "linux", source = "tensorrt-cu12"}
+tensorrt-cu12-bindings = {version = "*", platform = "linux", source = "tensorrt-cu12"}
+tensorrt-cu12-libs = {version = "*", platform = "linux", source = "tensorrt-cu12"}
+
+[[tool.poetry.source]]
+name = "torch_cu128"
+url = "https://download.pytorch.org/whl/cu128"
+priority = "explicit"
+
+[[tool.poetry.source]]
+name = "tensorrt-cu12"
+url = "https://pypi.nvidia.com"
+priority = "explicit"
+
+[build-system]
+requires = ["poetry-core>=1.8"]
+build-backend = "poetry.core.masonry.api"

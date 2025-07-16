@@ -3047,8 +3047,10 @@ version = "0.0.7.2"
 description = "🍵 Matcha-TTS: A fast TTS architecture with conditional flow matching"
 optional = false
 python-versions = ">=3.9.0"
-files = []
-develop = false
+files = [
+    {file = "matcha-tts-0.0.7.2.tar.gz", hash = "sha256:86af5e36343fe742cbaea04020ddb0d55fc787ee7cd6c251c471e84babcd20f1"},
+    {file = "matcha_tts-0.0.7.2-cp310-cp310-manylinux1_x86_64.whl", hash = "sha256:47dc5c4dbdb270bc26af06a3404e89cc3c8cd11e58572975fe0ad1259b6db219"},
+]
 
 [package.dependencies]
 conformer = "0.3.2"
@@ -3082,12 +3084,6 @@ torchmetrics = ">=0.11.4"
 torchvision = ">=0.15.0"
 Unidecode = "*"
 wget = "*"
-
-[package.source]
-type = "git"
-url = "https://github.com/shivammehta25/Matcha-TTS"
-reference = "main"
-resolved_reference = "108906c603fad5055f2649b3fd71d2bbdf222eac"
 
 [[package]]
 name = "matplotlib"
@@ -7639,4 +7635,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "3.11.9"
-content-hash = "6bce5ba91e324ac23596c9908d7777854082bc06152e0d9452d1dac5a88a62a1"
+content-hash = "bfc45dfc40fd4856079b891564a83fc0fe0389f7a1a99c69bcc2c23f8f1dfcba"

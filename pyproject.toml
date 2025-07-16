@@ -41,7 +41,7 @@ uvicorn = "0.30.0"
 WeTextProcessing = "*"
 wget = "3.2"
 tqdm = "^4.67.1"
-openai-whisper = {git = "https://github.com/openai/whisper.git", rev = "main"}
+openai-whisper = "*"
 matcha-tts = {git = "https://github.com/shivammehta25/Matcha-TTS", rev = "main"}
 tensorrt-cu12 = {version = "*", platform = "linux", source = "tensorrt-cu12"}
 tensorrt-cu12-bindings = {version = "*", platform = "linux", source = "tensorrt-cu12"}

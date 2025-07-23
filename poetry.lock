@@ -1218,13 +1218,13 @@ devel = ["colorama", "json-spec", "jsonschema", "pylint", "pytest", "pytest-benc
 
 [[package]]
 name = "ffmpy"
-version = "0.6.0"
+version = "0.6.1"
 description = "A simple Python wrapper for FFmpeg"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "ffmpy-0.6.0-py3-none-any.whl", hash = "sha256:c8369bf45f8bd5285ebad94c4a789a79e7af86eded74c1f8c36eccf57aaea58c"},
-    {file = "ffmpy-0.6.0.tar.gz", hash = "sha256:332dd93198a162db61e527e866a04578d3713e577bfe68f2ed26ba9d09dbc948"},
+    {file = "ffmpy-0.6.1-py3-none-any.whl", hash = "sha256:69a37e2d7d6feb840e233d5640f3499a8b0a8657336774c86e4c52a3219222d4"},
+    {file = "ffmpy-0.6.1.tar.gz", hash = "sha256:b5830fd05f72bace05b8fb28724d54a7a63c5119d7f74ca36a75df33f749142d"},
 ]
 
 [package.extras]
@@ -6474,30 +6474,22 @@ files = [
 ]
 
 [[package]]
-name = "tensorrt_cu12_bindings"
-version = "10.12.0.36"
+name = "tensorrt-cu12-bindings"
+version = "10.0.1"
 description = "A high performance deep learning inference library"
 optional = false
 python-versions = "*"
 files = [
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp310-none-manylinux_2_28_x86_64.whl", hash = "sha256:7ecdb6fc2555caed7d4fbbd8158ed7ced64e230c125484f62a5369c40dcc70e5"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp310-none-manylinux_2_31_aarch64.whl", hash = "sha256:d8548ab5976ca5c91279c68ee77f4c892e03460709cfa3fbd2a22aa8123cb731"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp310-none-win_amd64.whl", hash = "sha256:71be162a77ec9d5165d8c6ffad95179882e2c8604a68d7e21933258c182a8c0a"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp311-none-manylinux_2_28_x86_64.whl", hash = "sha256:58cf45605bb330e86f8ad49bc8997ed68cfdf5b09da229534fb7f84aa3fe5bf4"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp311-none-manylinux_2_31_aarch64.whl", hash = "sha256:ae0866a89caaeada1c16776de85413a523f78f53b1fd83f1b903c39eed264d82"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp311-none-win_amd64.whl", hash = "sha256:9d6687f056ce603c6a97235fd4291330c06410ac5b899db412597a06720b02bc"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp312-none-manylinux_2_28_x86_64.whl", hash = "sha256:fb3a2ce96c7472a46bbee2030ce6a54fd6a32deda401c1c67d9de057550e0171"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp312-none-manylinux_2_31_aarch64.whl", hash = "sha256:f5128b8b2a379e65c09745ba97df58abf3a418cbfd6508d37f76121d9bdd3bc8"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp312-none-win_amd64.whl", hash = "sha256:408af91113c22f58f2f08404bfc1548baa8d78ce6126bd543acdc9d5819662ff"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp313-none-manylinux_2_28_x86_64.whl", hash = "sha256:0eb8d3e41279b1d0d329b85372d5d720c8d2ff1228f6273142d717b44d75935b"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp313-none-manylinux_2_31_aarch64.whl", hash = "sha256:a850992cad842340e6fed41fe74f529064064ff61881d50ef5a2be1816526f9b"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp313-none-win_amd64.whl", hash = "sha256:3a1709e9dbaaef0f005681637a7d698f8609fec250716bbd184e3f3c40d8c4ea"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp38-none-manylinux_2_28_x86_64.whl", hash = "sha256:f015c27a17f315a7e4f820aa435dc3f6d8ac6e2eb817e81c3c6da142d1d6e88d"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp38-none-manylinux_2_31_aarch64.whl", hash = "sha256:70a49fb556cc96e46b7baf87104edf750017d7f6a231c560a026db8e9d53b8d8"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp38-none-win_amd64.whl", hash = "sha256:4df9010e161da03850b2d31a8f997f0613b7a046d2d69e85a02c3c7de5500cc9"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp39-none-manylinux_2_28_x86_64.whl", hash = "sha256:986cb86202ef9541279b59d4e254743aff43bae1def87d14dd06e02369107c8b"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp39-none-manylinux_2_31_aarch64.whl", hash = "sha256:c5b86638ae5e3a2101755d469ac2ce831d4bdece1d20fa2bd546c05c554b5952"},
-    {file = "tensorrt_cu12_bindings-10.12.0.36-cp39-none-win_amd64.whl", hash = "sha256:a4155715353b96f62ebbde60a0a52c734deb2840069fcb90f6bdbca5f5639d1a"},
+    {file = "tensorrt_cu12_bindings-10.0.1-cp310-none-manylinux_2_17_x86_64.whl", hash = "sha256:d6f27c61f640ce0c4e4eb140eb7e53e57e48d87e7a336e0e31c777f5ca13e844"},
+    {file = "tensorrt_cu12_bindings-10.0.1-cp310-none-win_amd64.whl", hash = "sha256:1995819857dabadea3448d0d0064e4e1146db469c582b1625b5d7a08d798e249"},
+    {file = "tensorrt_cu12_bindings-10.0.1-cp311-none-manylinux_2_17_x86_64.whl", hash = "sha256:f7cfe4edc7d1db20aa2a765cb0acb0dae8a6c4583b99aeade397f9e8f87f4a74"},
+    {file = "tensorrt_cu12_bindings-10.0.1-cp311-none-win_amd64.whl", hash = "sha256:1e4f708cbd864668385493dee8958ba4e538b2c54172239fd2f64ca45d6ca303"},
+    {file = "tensorrt_cu12_bindings-10.0.1-cp312-none-manylinux_2_17_x86_64.whl", hash = "sha256:4dac59171956cc1ec2ffef1fc39cf952ea89826da9b12908816fdb015ef02f79"},
+    {file = "tensorrt_cu12_bindings-10.0.1-cp312-none-win_amd64.whl", hash = "sha256:3798af0eb3eb7576d3c0d3c0470befa588580055598d9c42fd6ab623cbd9dac0"},
+    {file = "tensorrt_cu12_bindings-10.0.1-cp38-none-manylinux_2_17_x86_64.whl", hash = "sha256:091d6a97631b1da605b97046bde76c8d13e36a1c49d0be38ecfeae663f292c4c"},
+    {file = "tensorrt_cu12_bindings-10.0.1-cp38-none-win_amd64.whl", hash = "sha256:43da96372a6d3eeab197b9a0d55d514b923b1dc1bd2e78279c9a428843689d20"},
+    {file = "tensorrt_cu12_bindings-10.0.1-cp39-none-manylinux_2_17_x86_64.whl", hash = "sha256:7f199c33694a5a9eebd71736739f1c1ce54b87fd2aec943361373d13e5db9ffa"},
+    {file = "tensorrt_cu12_bindings-10.0.1-cp39-none-win_amd64.whl", hash = "sha256:57e2dfab73bce2a63f0077611e607e29306f88f5c0b1c39465c5cf1c0962a901"},
 ]
 
 [package.extras]
@@ -6505,19 +6497,18 @@ numpy = ["numpy"]
 
 [package.source]
 type = "legacy"
-url = "https://pypi.nvidia.com/simple"
+url = "https://pypi.nvidia.com"
 reference = "tensorrt-cu12"
 
 [[package]]
-name = "tensorrt_cu12_libs"
-version = "10.12.0.36"
+name = "tensorrt-cu12-libs"
+version = "10.0.1"
 description = "TensorRT Libraries"
 optional = false
 python-versions = "*"
 files = [
-    {file = "tensorrt_cu12_libs-10.12.0.36-py2.py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:3910039e1d49de0edfdc8bf273e40ad4b85a9d57c7c383fe0e22f75417df9610"},
-    {file = "tensorrt_cu12_libs-10.12.0.36-py2.py3-none-manylinux_2_31_aarch64.whl", hash = "sha256:1c117effa7318b65508457e9a11e67941859c8e5c346b59fd0090f66be28f2f4"},
-    {file = "tensorrt_cu12_libs-10.12.0.36-py2.py3-none-win_amd64.whl", hash = "sha256:d0e22a1fc312486ab980c2b19ccaadb74123829a51a56c69f6dd2b6d356a74e9"},
+    {file = "tensorrt_cu12_libs-10.0.1-py2.py3-none-manylinux_2_17_x86_64.whl", hash = "sha256:ad3b0af25d8b9f215ff877d6f565afbd084728294a1ee16c3b7f7729dcbfdff4"},
+    {file = "tensorrt_cu12_libs-10.0.1-py2.py3-none-win_amd64.whl", hash = "sha256:82212e1c2dec721ae2570cd759d6bf4e7e6f6c2c3f3c616324ca8aeb5d2d8c6f"},
 ]
 
 [package.dependencies]
@@ -6525,7 +6516,7 @@ nvidia-cuda-runtime-cu12 = "*"
 
 [package.source]
 type = "legacy"
-url = "https://pypi.nvidia.com/simple"
+url = "https://pypi.nvidia.com"
 reference = "tensorrt-cu12"
 
 [[package]]
@@ -7648,4 +7639,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "3.11.9"
-content-hash = "f48deebfca8111aadf2e97531f4e4336f45aacfe763e76c1dc7cec4b9c079f5c"
+content-hash = "1aaf2ae6316c4c86b9a4b987221912378c9c26c0f7c9465f98488d95afb53d89"

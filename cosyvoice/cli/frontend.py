@@ -175,6 +175,10 @@ class CosyVoiceFrontEnd:
                            'llm_embedding': embedding, 'flow_embedding': embedding}
         else:
             model_input = copy.deepcopy(self.spk2info[zero_shot_spk_id])
+            if prompt_text:
+                prompt_text_token, prompt_text_token_len = self._extract_text_token(prompt_text)
+                model_input["prompt_text"] = prompt_text_token
+                model_input["prompt_text_len"] = prompt_text_token_len
         model_input['text'] = tts_text_token
         model_input['text_len'] = tts_text_token_len
         return model_input

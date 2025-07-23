@@ -72,6 +72,7 @@ class CosyVoice:
         model_input = self.frontend.frontend_zero_shot('', prompt_text, prompt_speech_16k, self.sample_rate, '')
         del model_input['text']
         del model_input['text_len']
+        model_input['embedding'] = model_input['llm_embedding']
         self.frontend.spk2info[zero_shot_spk_id] = model_input
         return True
 

@@ -692,13 +692,13 @@ stevedore = ">=2.0.1"
 
 [[package]]
 name = "cmaes"
-version = "0.11.1"
+version = "0.12.0"
 description = "Lightweight Covariance Matrix Adaptation Evolution Strategy (CMA-ES) implementation for Python 3."
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "cmaes-0.11.1-py3-none-any.whl", hash = "sha256:1de77d2175045389680619c1e9b6d59d90e7888524d9e440e1704ba001de9fcc"},
-    {file = "cmaes-0.11.1.tar.gz", hash = "sha256:cf71fa3679814723be771f2c9edd85f465b1bc1e409e1ad6d8a9e481efcd5160"},
+    {file = "cmaes-0.12.0-py3-none-any.whl", hash = "sha256:d0e3e50ce28a36294bffa16a5626c15d23155824cf6b0a373db30dbbea9b2256"},
+    {file = "cmaes-0.12.0.tar.gz", hash = "sha256:6aab41eee2f38bf917560a7e7d1ba0060632cd44cdf7ac2a10704da994624182"},
 ]
 
 [package.dependencies]
@@ -6474,22 +6474,52 @@ files = [
 ]
 
 [[package]]
+name = "tensorrt-cu12"
+version = "10.13.0.35"
+description = "A high performance deep learning inference library"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "tensorrt_cu12-10.13.0.35.tar.gz", hash = "sha256:c4ef109263863d1c18332ba05fd8a7e8bd93a07c5c1baf970c3c627861d4603b"},
+]
+
+[package.dependencies]
+tensorrt_cu12_bindings = "10.13.0.35"
+tensorrt_cu12_libs = "10.13.0.35"
+
+[package.extras]
+numpy = ["numpy"]
+
+[package.source]
+type = "legacy"
+url = "https://pypi.nvidia.com"
+reference = "tensorrt-cu12"
+
+[[package]]
 name = "tensorrt-cu12-bindings"
-version = "10.0.1"
+version = "10.13.0.35"
 description = "A high performance deep learning inference library"
 optional = false
 python-versions = "*"
 files = [
-    {file = "tensorrt_cu12_bindings-10.0.1-cp310-none-manylinux_2_17_x86_64.whl", hash = "sha256:d6f27c61f640ce0c4e4eb140eb7e53e57e48d87e7a336e0e31c777f5ca13e844"},
-    {file = "tensorrt_cu12_bindings-10.0.1-cp310-none-win_amd64.whl", hash = "sha256:1995819857dabadea3448d0d0064e4e1146db469c582b1625b5d7a08d798e249"},
-    {file = "tensorrt_cu12_bindings-10.0.1-cp311-none-manylinux_2_17_x86_64.whl", hash = "sha256:f7cfe4edc7d1db20aa2a765cb0acb0dae8a6c4583b99aeade397f9e8f87f4a74"},
-    {file = "tensorrt_cu12_bindings-10.0.1-cp311-none-win_amd64.whl", hash = "sha256:1e4f708cbd864668385493dee8958ba4e538b2c54172239fd2f64ca45d6ca303"},
-    {file = "tensorrt_cu12_bindings-10.0.1-cp312-none-manylinux_2_17_x86_64.whl", hash = "sha256:4dac59171956cc1ec2ffef1fc39cf952ea89826da9b12908816fdb015ef02f79"},
-    {file = "tensorrt_cu12_bindings-10.0.1-cp312-none-win_amd64.whl", hash = "sha256:3798af0eb3eb7576d3c0d3c0470befa588580055598d9c42fd6ab623cbd9dac0"},
-    {file = "tensorrt_cu12_bindings-10.0.1-cp38-none-manylinux_2_17_x86_64.whl", hash = "sha256:091d6a97631b1da605b97046bde76c8d13e36a1c49d0be38ecfeae663f292c4c"},
-    {file = "tensorrt_cu12_bindings-10.0.1-cp38-none-win_amd64.whl", hash = "sha256:43da96372a6d3eeab197b9a0d55d514b923b1dc1bd2e78279c9a428843689d20"},
-    {file = "tensorrt_cu12_bindings-10.0.1-cp39-none-manylinux_2_17_x86_64.whl", hash = "sha256:7f199c33694a5a9eebd71736739f1c1ce54b87fd2aec943361373d13e5db9ffa"},
-    {file = "tensorrt_cu12_bindings-10.0.1-cp39-none-win_amd64.whl", hash = "sha256:57e2dfab73bce2a63f0077611e607e29306f88f5c0b1c39465c5cf1c0962a901"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp310-none-manylinux_2_28_x86_64.whl", hash = "sha256:60263d3b891ca32c211d4f0e3f5b31adc4c108bb6e4d446f1c8096e7fb980132"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp310-none-manylinux_2_31_aarch64.whl", hash = "sha256:ab344a3b8ab085b3d868e22d68d17baa05203dd279b8e584861c54dda3cf414c"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp310-none-win_amd64.whl", hash = "sha256:69007273cd98df49abd70e6c15617cfedf7245ef9ba3a2ad432230489cbb2916"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp311-none-manylinux_2_28_x86_64.whl", hash = "sha256:338c9d7b8f7bf9685869bc0b5da9ecf79d1f2a8a962a6e1a833798010f19f544"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp311-none-manylinux_2_31_aarch64.whl", hash = "sha256:f7b081a51e7ef9ccb83a917ba7387ced7164686a357788df58311522ed1e5926"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp311-none-win_amd64.whl", hash = "sha256:6e4d86b0f8e2afecc8efccf219e8218b6aad61e1e41f9022695ab644714d1f77"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp312-none-manylinux_2_28_x86_64.whl", hash = "sha256:2accbbd850b6b62c353e234fa8f6d9c33ed82791e3000a0cf28842cff1595935"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp312-none-manylinux_2_31_aarch64.whl", hash = "sha256:99fdcbb5729c60d9fe70ab4f27eda1d289fda4d3f14aac9be86d848645ed06e6"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp312-none-win_amd64.whl", hash = "sha256:cf1d666d4361c7412e8e4741ba29afed75e7c05511329c69dd5bab4940673b96"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp313-none-manylinux_2_28_x86_64.whl", hash = "sha256:3fb3c0d765c37311a412ead25e8335e6ed4fd7b25b2eb3ecc1788c8ceab81b42"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp313-none-manylinux_2_31_aarch64.whl", hash = "sha256:b0e27123bd5c1e87379fcbb20869479b80b114c3fe96554add561eadb3f079c8"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp313-none-win_amd64.whl", hash = "sha256:c5040b84dff27aa43f99ca36adca252f235d319889b1a834f2a67a1d8a710107"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp38-none-manylinux_2_28_x86_64.whl", hash = "sha256:65a104dc04c1a7f953f4eb28e2231a36b2694d17ea9b66ee6632966dd897bfcf"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp38-none-manylinux_2_31_aarch64.whl", hash = "sha256:8aa049c629398f27b6f00c7dd47bdab22ac6c8033c57438e7a67660814744d3b"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp38-none-win_amd64.whl", hash = "sha256:e24a78073bfcd2e7d0436ba3d819409f127e45f1d86fb7a3f3ae81dd93d7d3c9"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp39-none-manylinux_2_28_x86_64.whl", hash = "sha256:965cfb74d979a24e67dd42aafc0256d36e74c1e91b8b1b5e2f4448a191fea298"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp39-none-manylinux_2_31_aarch64.whl", hash = "sha256:86ec23da6e24f13e6ca47272d7152ed75dc6b261b9291d6d92a1113210b23e39"},
+    {file = "tensorrt_cu12_bindings-10.13.0.35-cp39-none-win_amd64.whl", hash = "sha256:bbb8fca57996d444a1c519d63dcd53122b208946949705acf94abae4afb8ad98"},
 ]
 
 [package.extras]
@@ -6502,13 +6532,14 @@ reference = "tensorrt-cu12"
 
 [[package]]
 name = "tensorrt-cu12-libs"
-version = "10.0.1"
+version = "10.13.0.35"
 description = "TensorRT Libraries"
 optional = false
 python-versions = "*"
 files = [
-    {file = "tensorrt_cu12_libs-10.0.1-py2.py3-none-manylinux_2_17_x86_64.whl", hash = "sha256:ad3b0af25d8b9f215ff877d6f565afbd084728294a1ee16c3b7f7729dcbfdff4"},
-    {file = "tensorrt_cu12_libs-10.0.1-py2.py3-none-win_amd64.whl", hash = "sha256:82212e1c2dec721ae2570cd759d6bf4e7e6f6c2c3f3c616324ca8aeb5d2d8c6f"},
+    {file = "tensorrt_cu12_libs-10.13.0.35-py2.py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:6dc691e6b0a2298946327e1cca3c829c23586e498c4c01ef74b5fd41f9042cb1"},
+    {file = "tensorrt_cu12_libs-10.13.0.35-py2.py3-none-manylinux_2_31_aarch64.whl", hash = "sha256:94305bab5f28d87f8d3c0fa92eceafd961a688575918399daf95d8e9b5e6f9f1"},
+    {file = "tensorrt_cu12_libs-10.13.0.35-py2.py3-none-win_amd64.whl", hash = "sha256:3b2f55d505afb05e137801026e53ff3df861c6b35ecffe90ce273a13c108672e"},
 ]
 
 [package.dependencies]
@@ -6738,13 +6769,13 @@ reference = "torch_cu128"
 
 [[package]]
 name = "torchmetrics"
-version = "1.7.4"
+version = "1.8.0"
 description = "PyTorch native Metrics"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "torchmetrics-1.7.4-py3-none-any.whl", hash = "sha256:9298ad0e893b0cf2956bee95b0f7eecdc65205ab84ddb4f6762eff157c240518"},
-    {file = "torchmetrics-1.7.4.tar.gz", hash = "sha256:506a1a5c7c304cd77ba323ca4b009e46b814fd2be9dcf0f4ccc2e5c0f5b4b0c1"},
+    {file = "torchmetrics-1.8.0-py3-none-any.whl", hash = "sha256:009832f0df5be9aca72f51a1e6c6a555a131ba53c1ce46a38348a202250c22df"},
+    {file = "torchmetrics-1.8.0.tar.gz", hash = "sha256:8b4d011963a602109fb8255018c2386391e8c4c7f48a09669fbf7bb7889fda8c"},
 ]
 
 [package.dependencies]
@@ -6754,15 +6785,16 @@ packaging = ">17.1"
 torch = ">=2.0.0"
 
 [package.extras]
-all = ["SciencePlots (>=2.0.0)", "einops (>=0.7.0)", "gammatone (>=1.0.0)", "ipadic (>=1.0.0)", "librosa (>=0.10.0)", "matplotlib (>=3.6.0)", "mecab-python3 (>=1.0.6)", "mypy (==1.16.1)", "nltk (>3.8.1)", "onnxruntime (>=1.12.0)", "pesq (>=0.0.4)", "piq (<=0.8.0)", "pycocotools (>2.0.0)", "pystoi (>=0.4.0)", "regex (>=2021.9.24)", "requests (>=2.19.0)", "scipy (>1.0.0)", "sentencepiece (>=0.2.0)", "timm (>=0.9.0)", "torch (==2.7.1)", "torch-fidelity (<=0.4.0)", "torch_linear_assignment (>=0.0.2)", "torchaudio (>=2.0.1)", "torchvision (>=0.15.1)", "torchvision (>=0.15.1)", "tqdm (<4.68.0)", "transformers (>=4.43.0)", "transformers (>=4.43.0)", "types-PyYAML", "types-emoji", "types-protobuf", "types-requests", "types-setuptools", "types-six", "types-tabulate"]
+all = ["SciencePlots (>=2.0.0)", "einops (>=0.7.0)", "einops (>=0.7.0)", "gammatone (>=1.0.0)", "ipadic (>=1.0.0)", "librosa (>=0.10.0)", "matplotlib (>=3.6.0)", "mecab-python3 (>=1.0.6)", "mypy (==1.17.0)", "nltk (>3.8.1)", "onnxruntime (>=1.12.0)", "pesq (>=0.0.4)", "piq (<=0.8.0)", "pycocotools (>2.0.0)", "pystoi (>=0.4.0)", "regex (>=2021.9.24)", "requests (>=2.19.0)", "scipy (>1.0.0)", "sentencepiece (>=0.2.0)", "timm (>=0.9.0)", "torch (==2.7.1)", "torch-fidelity (<=0.4.0)", "torch_linear_assignment (>=0.0.2)", "torchaudio (>=2.0.1)", "torchvision (>=0.15.1)", "torchvision (>=0.15.1)", "tqdm (<4.68.0)", "transformers (>=4.43.0)", "transformers (>=4.43.0)", "types-PyYAML", "types-emoji", "types-protobuf", "types-requests", "types-setuptools", "types-six", "types-tabulate", "vmaf-torch (>=1.1.0)"]
 audio = ["gammatone (>=1.0.0)", "librosa (>=0.10.0)", "onnxruntime (>=1.12.0)", "pesq (>=0.0.4)", "pystoi (>=0.4.0)", "requests (>=2.19.0)", "torchaudio (>=2.0.1)"]
 clustering = ["torch_linear_assignment (>=0.0.2)"]
 detection = ["pycocotools (>2.0.0)", "torchvision (>=0.15.1)"]
-dev = ["PyTDC (==0.4.1)", "SciencePlots (>=2.0.0)", "aeon (>=1.0.0)", "bert_score (==0.3.13)", "dists-pytorch (==0.1)", "dython (==0.7.9)", "einops (>=0.7.0)", "fairlearn", "fast-bss-eval (>=0.1.0)", "faster-coco-eval (>=1.6.3)", "gammatone (>=1.0.0)", "huggingface-hub (<0.34)", "ipadic (>=1.0.0)", "jiwer (>=2.3.0)", "kornia (>=0.6.7)", "librosa (>=0.10.0)", "lpips (<=0.1.4)", "matplotlib (>=3.6.0)", "mecab-ko (>=1.0.0,<1.1.0)", "mecab-ko-dic (>=1.0.0)", "mecab-python3 (>=1.0.6)", "mir-eval (>=0.6)", "monai (==1.4.0)", "mypy (==1.16.1)", "netcal (>1.0.0)", "nltk (>3.8.1)", "numpy (<2.4.0)", "onnxruntime (>=1.12.0)", "pandas (>1.4.0)", "permetrics (==2.0.0)", "pesq (>=0.0.4)", "piq (<=0.8.0)", "pycocotools (>2.0.0)", "pystoi (>=0.4.0)", "pytorch-msssim (==1.0.0)", "regex (>=2021.9.24)", "requests (>=2.19.0)", "rouge-score (>0.1.0)", "sacrebleu (>=2.3.0)", "scikit-image (>=0.19.0)", "scipy (>1.0.0)", "scipy (>1.0.0)", "sentencepiece (>=0.2.0)", "sewar (>=0.4.4)", "statsmodels (>0.13.5)", "timm (>=0.9.0)", "torch (==2.7.1)", "torch-fidelity (<=0.4.0)", "torch_complex (<0.5.0)", "torch_linear_assignment (>=0.0.2)", "torchaudio (>=2.0.1)", "torchvision (>=0.15.1)", "torchvision (>=0.15.1)", "tqdm (<4.68.0)", "transformers (>=4.43.0)", "transformers (>=4.43.0)", "types-PyYAML", "types-emoji", "types-protobuf", "types-requests", "types-setuptools", "types-six", "types-tabulate"]
+dev = ["PyTDC (==0.4.1)", "SciencePlots (>=2.0.0)", "aeon (>=1.0.0)", "bert_score (==0.3.13)", "dists-pytorch (==0.1)", "dython (==0.7.9)", "einops (>=0.7.0)", "einops (>=0.7.0)", "fairlearn", "fast-bss-eval (>=0.1.0)", "faster-coco-eval (>=1.6.3)", "gammatone (>=1.0.0)", "huggingface-hub (<0.34)", "ipadic (>=1.0.0)", "jiwer (>=2.3.0)", "kornia (>=0.6.7)", "librosa (>=0.10.0)", "lpips (<=0.1.4)", "matplotlib (>=3.6.0)", "mecab-ko (>=1.0.0,<1.1.0)", "mecab-ko-dic (>=1.0.0)", "mecab-python3 (>=1.0.6)", "mir-eval (>=0.6)", "monai (==1.4.0)", "mypy (==1.17.0)", "netcal (>1.0.0)", "nltk (>3.8.1)", "numpy (<2.4.0)", "onnxruntime (>=1.12.0)", "pandas (>1.4.0)", "permetrics (==2.0.0)", "pesq (>=0.0.4)", "piq (<=0.8.0)", "properscoring (==0.1)", "pycocotools (>2.0.0)", "pystoi (>=0.4.0)", "pytorch-msssim (==1.0.0)", "regex (>=2021.9.24)", "requests (>=2.19.0)", "rouge-score (>0.1.0)", "sacrebleu (>=2.3.0)", "scikit-image (>=0.19.0)", "scipy (>1.0.0)", "scipy (>1.0.0)", "sentencepiece (>=0.2.0)", "sewar (>=0.4.4)", "statsmodels (>0.13.5)", "timm (>=0.9.0)", "torch (==2.7.1)", "torch-fidelity (<=0.4.0)", "torch_complex (<0.5.0)", "torch_linear_assignment (>=0.0.2)", "torchaudio (>=2.0.1)", "torchvision (>=0.15.1)", "torchvision (>=0.15.1)", "tqdm (<4.68.0)", "transformers (>=4.43.0)", "transformers (>=4.43.0)", "types-PyYAML", "types-emoji", "types-protobuf", "types-requests", "types-setuptools", "types-six", "types-tabulate", "vmaf-torch (>=1.1.0)"]
 image = ["scipy (>1.0.0)", "torch-fidelity (<=0.4.0)", "torchvision (>=0.15.1)"]
 multimodal = ["einops (>=0.7.0)", "piq (<=0.8.0)", "timm (>=0.9.0)", "transformers (>=4.43.0)"]
 text = ["ipadic (>=1.0.0)", "mecab-python3 (>=1.0.6)", "nltk (>3.8.1)", "regex (>=2021.9.24)", "sentencepiece (>=0.2.0)", "tqdm (<4.68.0)", "transformers (>=4.43.0)"]
-typing = ["mypy (==1.16.1)", "torch (==2.7.1)", "types-PyYAML", "types-emoji", "types-protobuf", "types-requests", "types-setuptools", "types-six", "types-tabulate"]
+typing = ["mypy (==1.17.0)", "torch (==2.7.1)", "types-PyYAML", "types-emoji", "types-protobuf", "types-requests", "types-setuptools", "types-six", "types-tabulate"]
+video = ["einops (>=0.7.0)", "vmaf-torch (>=1.1.0)"]
 visual = ["SciencePlots (>=2.0.0)", "matplotlib (>=3.6.0)"]
 
 [[package]]
@@ -7639,4 +7671,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "3.11.9"
-content-hash = "1aaf2ae6316c4c86b9a4b987221912378c9c26c0f7c9465f98488d95afb53d89"
+content-hash = "bfc45dfc40fd4856079b891564a83fc0fe0389f7a1a99c69bcc2c23f8f1dfcba"

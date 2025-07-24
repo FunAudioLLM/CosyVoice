@@ -43,8 +43,9 @@ wget = "3.2"
 tqdm = "^4.67.1"
 openai-whisper = "*"
 matcha-tts = "*"
-tensorrt-cu12-bindings = {version = "~10.0.1", platform = "linux", source = "tensorrt-cu12"}
-tensorrt-cu12-libs = {version = "~10.0.1", platform = "linux", source = "tensorrt-cu12"}
+tensorrt-cu12 = {version = "*", platform = "linux", source = "tensorrt-cu12"}
+tensorrt-cu12-bindings = {version = "*", platform = "linux", source = "tensorrt-cu12"}
+tensorrt-cu12-libs = {version = "*", platform = "linux", source = "tensorrt-cu12"}
 
 [[tool.poetry.source]]
 name = "torch_cu128"

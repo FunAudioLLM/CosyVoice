@@ -166,7 +166,7 @@ class Executor:
             for k, v in info_dict['loss_dict'].items():
                 if k not in total_loss_dict:
                     total_loss_dict[k] = []
-                total_loss_dict[k].append(v.item() * num_utts)
+                total_loss_dict[k].append(v.mean().item() * num_utts)
             log_per_step(None, info_dict)
         for k, v in total_loss_dict.items():
             total_loss_dict[k] = sum(v) / total_num_utts

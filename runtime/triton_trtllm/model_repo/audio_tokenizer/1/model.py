@@ -33,6 +33,7 @@ import os
 import numpy as np
 import s3tokenizer
 
+ORIGINAL_VOCAB_SIZE = 151663
 
 class TritonPythonModel:
     """Triton Python model for audio tokenization.
@@ -81,7 +82,7 @@ class TritonPythonModel:
             
         mels, mels_lens = s3tokenizer.padding(mels)
         codes, codes_lens = self.audio_tokenizer.quantize(mels.to(self.device), mels_lens.to(self.device))
-        codes = codes.clone() + 151663
+        codes = codes.clone() + ORIGINAL_VOCAB_SIZE
         
         responses = []
         for i in range(len(requests)):

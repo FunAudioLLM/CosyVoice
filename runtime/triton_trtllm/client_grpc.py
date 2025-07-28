@@ -692,7 +692,7 @@ async def main():
                     model_name=args.model_name,
                     audio_save_dir=args.log_dir,
                     padding_duration=10,
-                    save_sample_rate=24000 if args.model_name == "f5_tts" else 16000,
+                    save_sample_rate=16000 if args.model_name == "spark_tts" else 24000,
                     chunk_overlap_duration=args.chunk_overlap_duration,
                 )
             )

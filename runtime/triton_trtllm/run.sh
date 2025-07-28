@@ -1,8 +1,4 @@
-# huggingface-cli download --local-dir cosyvoice2_llm yuekai/cosyvoice2_llm 
-# modelscope download --model iic/CosyVoice2-0.5B --local_dir ./CosyVoice2-0.5B/ 
-# git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
-# cd CosyVoice
-# git submodule update --init --recursive
+
 export CUDA_VISIBLE_DEVICES=0
 export PYTHONPATH=/home/scratch.yuekaiz_wwfo_1/tts/cosyvoice/CosyVoice:$PYTHONPATH
 export PYTHONPATH=/home/scratch.yuekaiz_wwfo_1/tts/cosyvoice/CosyVoice/third_party/Matcha-TTS:$PYTHONPATH
@@ -12,11 +8,21 @@ stop_stage=$2
 huggingface_model_local_dir=/home/scratch.yuekaiz_wwfo_1/tts/cosyvoice/cosyvoice2_llm
 model_scope_model_local_dir=/home/scratch.yuekaiz_wwfo_1/tts/cosyvoice/CosyVoice2-0.5B
 trt_dtype=bfloat16
-trt_dtype=float16
 trt_weights_dir=/home/scratch.yuekaiz_wwfo_1/tts/cosyvoice/trt_weights_${trt_dtype}
 trt_engines_dir=/home/scratch.yuekaiz_wwfo_1/tts/cosyvoice/trt_engines_${trt_dtype}
 
 model_repo=./model_repo_cosyvoice2
+
+if [ $stage -le 0 ] && [ $stop_stage -ge 0 ]; then
+    echo " "
+    huggingface-cli download --local-dir cosyvoice2_llm yuekai/cosyvoice2_llm 
+    modelscope download --model iic/CosyVoice2-0.5B --local_dir ./CosyVoice2-0.5B/ 
+    git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
+    cd CosyVoice
+    git submodule update --init --recursive
+fi
+
+
 if [ $stage -le 1 ] && [ $stop_stage -ge 1 ]; then
     echo "Converting checkpoint to TensorRT weights"
     python3 scripts/convert_checkpoint.py --model_dir $huggingface_model_local_dir \

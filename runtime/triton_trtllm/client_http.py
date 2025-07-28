@@ -162,8 +162,8 @@ if __name__ == "__main__":
     result = rsp.json()
     audio = result["outputs"][0]["data"]
     audio = np.array(audio, dtype=np.float32)
-    if args.model_name == "cosyvoice2":
-        sample_rate = 24000
-    else:
+    if args.model_name == "spark_tts":
         sample_rate = 16000
+    else:
+        sample_rate = 24000
     sf.write(args.output_audio, audio, sample_rate, "PCM_16")

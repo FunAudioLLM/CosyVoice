@@ -38,13 +38,11 @@ import triton_python_backend_utils as pb_utils
 from hyperpyyaml import load_hyperpyyaml
 from cosyvoice.utils.file_utils import convert_onnx_to_trt, export_cosyvoice2_vllm
 from cosyvoice.utils.common import TrtContextWrapper
-#import sys
-#sys.path.append("/home/scratch.yuekaiz_wwfo_1/tts/cosyvoice/CosyVoice/third_party/Matcha-TTS")
 
-# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+ORIGINAL_VOCAB_SIZE = 151663
 
 class CosyVoice2:
 
@@ -162,8 +160,9 @@ class TritonPythonModel:
             prompt_speech_feat = torch.from_numpy(prompt_speech_feat_tensor).to(self.device)
             prompt_spk_embedding = torch.from_numpy(prompt_spk_embedding_tensor).to(self.device)
 
-            prompt_speech_tokens = prompt_speech_tokens - 151663
-            target_speech_tokens = target_speech_tokens - 151663
+            # shift the speech tokens according to the original vocab size
+            prompt_speech_tokens = prompt_speech_tokens - ORIGINAL_VOCAB_SIZE
+            target_speech_tokens = target_speech_tokens - ORIGINAL_VOCAB_SIZE
             
             tts_mel, _ = self.token2wav_model.model.flow.inference(
                 token=target_speech_tokens,

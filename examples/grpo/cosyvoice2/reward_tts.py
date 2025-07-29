@@ -18,7 +18,10 @@ Reward calculation for CosyVoice2-0.5B.
 
 from __future__ import annotations
 
-import os, re, warnings, json, time, argparse
+import re
+import json
+import time
+import argparse
 from typing import List
 
 import numpy as np
@@ -30,6 +33,7 @@ REWARD_SERVER_URL = "http://localhost:8000/v2/models/token2wav_asr/infer"
 
 def _parse_ids(token_str: str) -> List[int]:
     return [int(t) for t in re.findall(r"<\|s_(\d+)\|>", token_str)]
+
 
 def _remote_reward(tokens: List[int], ground_truth: str, timeout: float = 200.0) -> float:
     """Send token IDs and ground-truth text to the Triton server and get reward."""
@@ -100,7 +104,6 @@ def compute_score(
     try:
         reward = _remote_reward(ids, ground_truth)
     except Exception as e:
-        warnings.warn(f"Remote reward server error: {e}; returning 0.0")
         reward = 0.0
 
     if debug_dump:
@@ -110,46 +113,46 @@ def compute_score(
 
     return reward
 
+
 # CLI quick test
 if __name__ == "__main__":
     import sys
-    
+
     def get_args():
         """Parse command line arguments."""
         parser = argparse.ArgumentParser(
             description="Test TTS CER scoring with data from JSONL file",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
-        
+
         parser.add_argument(
             "--input", "-i",
             type=str,
             default="data/emilia_zh-cosy-tiny-test.jsonl",
             help="Path to input JSONL file"
         )
-        
+
         parser.add_argument(
             "--max-samples", "-n",
             type=int,
             default=None,
             help="Maximum number of samples to process (default: all)"
         )
-        
+
         parser.add_argument(
             "--no-interactive",
             action="store_true",
             help="Run in non-interactive mode (process all samples without prompts)"
         )
-        
-        
+
         parser.add_argument(
             "--debug",
             action="store_true",
             help="Enable debug mode"
         )
-        
+
         return parser.parse_args()
-    
+
     def load_jsonl(file_path: str):
         """Load data from jsonl file."""
         data = []
@@ -157,37 +160,37 @@ if __name__ == "__main__":
             for line in f:
                 data.append(json.loads(line.strip()))
         return data
-    
+
     def code_to_solution_str(code_list: List[int]) -> str:
         """Convert code list to solution string format."""
         return ''.join([f"<|s_{code}|>" for code in code_list])
-    
+
     # Parse command line arguments
     args = get_args()
-    
+
     try:
         # Load data from jsonl file
         print(f"Loading data from: {args.input}")
         data_list = load_jsonl(args.input)
         print(f"Loaded {len(data_list)} samples")
-        
+
         # Limit samples if specified
         if args.max_samples is not None:
             data_list = data_list[:args.max_samples]
             print(f"Processing first {len(data_list)} samples (limited by --max-samples)")
-        
+
         # Process each sample
         begin_time = time.time()
         for i, sample in enumerate(data_list):
             print(f"\n--- Sample {i+1}/{len(data_list)} ---")
             print(f"Index: {sample.get('index', 'unknown')}")
             print(f"Text: {sample['text']}")
-            
+
             # Extract required fields
             code_list = sample['code']
             ground_truth = sample['text']
             data_source = sample.get('index', f'sample_{i}')  # Use index as data_source
-            
+
             # Convert code list to solution string
             solution_str = code_to_solution_str(code_list)
             print(f"Solution tokens: {len(code_list)} tokens")
@@ -195,7 +198,7 @@ if __name__ == "__main__":
                 print(f"Solution string: {solution_str}")
             else:
                 print(f"Solution string preview: {solution_str[:100]}..." if len(solution_str) > 100 else f"Solution string: {solution_str}")
-            
+
             # Call compute_score function
             try:
                 score = compute_score(
@@ -208,7 +211,7 @@ if __name__ == "__main__":
                 print(f"Final Score: {score:.4f}")
             except Exception as e:
                 print(f"Error computing score: {e}")
-            
+
             # Ask user if they want to continue (for interactive mode)
             if not args.no_interactive and i < len(data_list) - 1:
                 try:
@@ -218,7 +221,7 @@ if __name__ == "__main__":
                 except KeyboardInterrupt:
                     print("\nStopped by user")
                     break
-        
+
         print(f"\nProcessed {min(i+1, len(data_list))} samples")
         end_time = time.time()
         print(f"Time taken: {end_time - begin_time} seconds")

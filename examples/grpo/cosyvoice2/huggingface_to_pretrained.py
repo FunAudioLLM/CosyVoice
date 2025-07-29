@@ -21,6 +21,7 @@ import torch
 from safetensors import safe_open
 from transformers import AutoTokenizer
 
+
 def get_args():
     parser = ArgumentParser()
 
@@ -38,6 +39,7 @@ def get_args():
     )
     args = parser.parse_args()
     return args
+
 
 if __name__ == "__main__":
     args = get_args()
@@ -67,4 +69,3 @@ if __name__ == "__main__":
         hf_tensors["llm.model.lm_head.weight"] = hf_tensors["llm.model.model.embed_tokens.weight"]
 
     torch.save(hf_tensors, args.output_path)
-

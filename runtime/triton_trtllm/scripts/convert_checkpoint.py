@@ -35,8 +35,7 @@ def parse_arguments():
         type=str,
         default='auto',
         choices=['auto', 'float16', 'bfloat16', 'float32'],
-        help=
-        "The data type for the model weights and activations if not quantized. "
+        help="The data type for the model weights and activations if not quantized. "
         "If 'auto', the data type is automatically inferred from the source model; "
         "however, if the source dtype is float32, it is converted to float16.")
     parser.add_argument(
@@ -49,8 +48,7 @@ def parse_arguments():
         '--disable_weight_only_quant_plugin',
         default=False,
         action="store_true",
-        help=
-        'By default, using plugin implementation for weight quantization. Enabling disable_weight_only_quant_plugin flag will use ootb implementation instead of plugin.'
+        help='By default, using plugin implementation for weight quantization. Enabling disable_weight_only_quant_plugin flag will use ootb implementation instead of plugin.'
         'You must also use --use_weight_only for that argument to have an impact.'
     )
     parser.add_argument(
@@ -60,16 +58,14 @@ def parse_arguments():
         nargs='?',
         default='int8',
         choices=['int8', 'int4', 'int4_gptq'],
-        help=
-        'Define the precision for the weights when using weight-only quantization.'
+        help='Define the precision for the weights when using weight-only quantization.'
         'You must also use --use_weight_only for that argument to have an impact.'
     )
     parser.add_argument(
         '--calib_dataset',
         type=str,
         default='ccdv/cnn_dailymail',
-        help=
-        "The huggingface dataset name or the local directory of the dataset for calibration."
+        help="The huggingface dataset name or the local directory of the dataset for calibration."
     )
     parser.add_argument(
         "--smoothquant",
@@ -83,31 +79,27 @@ def parse_arguments():
         '--per_channel',
         action="store_true",
         default=False,
-        help=
-        'By default, we use a single static scaling factor for the GEMM\'s result. '
+        help='By default, we use a single static scaling factor for the GEMM\'s result. '
         'per_channel instead uses a different static scaling factor for each channel. '
         'The latter is usually more accurate, but a little slower.')
     parser.add_argument(
         '--per_token',
         action="store_true",
         default=False,
-        help=
-        'By default, we use a single static scaling factor to scale activations in the int8 range. '
+        help='By default, we use a single static scaling factor to scale activations in the int8 range. '
         'per_token chooses at run time, and for each token, a custom scaling factor. '
         'The latter is usually more accurate, but a little slower.')
     parser.add_argument(
         '--int8_kv_cache',
         default=False,
         action="store_true",
-        help=
-        'By default, we use dtype for KV cache. int8_kv_cache chooses int8 quantization for KV'
+        help='By default, we use dtype for KV cache. int8_kv_cache chooses int8 quantization for KV'
     )
     parser.add_argument(
         '--per_group',
         default=False,
         action="store_true",
-        help=
-        'By default, we use a single static scaling factor to scale weights in the int4 range. '
+        help='By default, we use a single static scaling factor to scale weights in the int4 range. '
         'per_group chooses at run time, and for each group, a custom scaling factor. '
         'The flag is built for GPTQ/AWQ quantization.')
 
@@ -121,16 +113,14 @@ def parse_arguments():
         '--use_parallel_embedding',
         action="store_true",
         default=False,
-        help=
-        'By default embedding parallelism is disabled. By setting this flag, embedding parallelism is enabled'
+        help='By default embedding parallelism is disabled. By setting this flag, embedding parallelism is enabled'
     )
     parser.add_argument(
         '--embedding_sharding_dim',
         type=int,
         default=0,
         choices=[0, 1],
-        help=
-        'By default the embedding lookup table is sharded along vocab dimension (embedding_sharding_dim=0). '
+        help='By default the embedding lookup table is sharded along vocab dimension (embedding_sharding_dim=0). '
         'To shard it along hidden dimension, set embedding_sharding_dim=1'
         'Note: embedding sharing is only enabled when embedding_sharding_dim = 0'
     )
@@ -147,15 +137,13 @@ def parse_arguments():
         '--moe_tp_size',
         type=int,
         default=-1,
-        help=
-        'N-way tensor parallelism size for MOE, default is tp_size, which will do tp-only for MoE'
+        help='N-way tensor parallelism size for MOE, default is tp_size, which will do tp-only for MoE'
     )
     parser.add_argument(
         '--moe_ep_size',
         type=int,
         default=-1,
-        help=
-        'N-way expert parallelism size for MOE, default is 1, which will do tp-only for MoE'
+        help='N-way expert parallelism size for MOE, default is 1, which will do tp-only for MoE'
     )
     args = parser.parse_args()
     return args
@@ -249,7 +237,7 @@ def convert_and_save_hf(args):
                                                trust_remote_code=True)
         quant_config, override_fields = update_quant_config_from_hf(
             quant_config, hf_config, override_fields)
-    except:
+    except BaseException:
         logger.warning("AutoConfig cannot load the huggingface config.")
 
     if args.smoothquant is not None or args.int8_kv_cache:

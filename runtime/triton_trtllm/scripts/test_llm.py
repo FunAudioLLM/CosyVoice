@@ -46,7 +46,6 @@ def parse_arguments(args=None):
     parser.add_argument('--top_k', type=int, default=50)
     parser.add_argument('--top_p', type=float, default=0.95)
 
-
     return parser.parse_args(args=args)
 
 
@@ -60,7 +59,7 @@ def parse_input(tokenizer,
         input_ids = tokenizer.encode(
             curr_text)
         batch_input_ids.append(input_ids)
- 
+
     batch_input_ids = [
         torch.tensor(x, dtype=torch.int32) for x in batch_input_ids
     ]

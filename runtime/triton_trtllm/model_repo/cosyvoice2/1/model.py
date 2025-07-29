@@ -42,16 +42,17 @@ import onnxruntime
 
 from matcha.utils.audio import mel_spectrogram
 
+
 class TritonPythonModel:
     """Triton Python model for Spark TTS.
-    
+
     This model orchestrates the end-to-end TTS pipeline by coordinating
     between audio tokenizer, LLM, and vocoder components.
     """
-    
+
     def initialize(self, args):
         """Initialize the model.
-        
+
         Args:
             args: Dictionary containing model configuration
         """
@@ -116,58 +117,58 @@ class TritonPythonModel:
             "input_ids": input_ids,
             "input_lengths": np.array([[input_ids.shape[1]]], dtype=np.int32),
         }
-        
+
         # Convert inputs to Triton tensors
         input_tensor_list = [
             pb_utils.Tensor(k, v) for k, v in input_dict.items()
         ]
-        
+
         # Create and execute inference request
         llm_request = pb_utils.InferenceRequest(
             model_name="tensorrt_llm",
             requested_output_names=["output_ids", "sequence_length"],
             inputs=input_tensor_list,
         )
-        
+
         llm_responses = llm_request.exec(decoupled=self.decoupled)
         if self.decoupled:
             for llm_response in llm_responses:
                 if llm_response.has_error():
                     raise pb_utils.TritonModelException(llm_response.error().message())
-                
+
                 # Extract and process output
                 output_ids = pb_utils.get_output_tensor_by_name(
                     llm_response, "output_ids").as_numpy()
                 seq_lens = pb_utils.get_output_tensor_by_name(
                     llm_response, "sequence_length").as_numpy()
-                
+
                 # Get actual output IDs up to the sequence length
                 actual_output_ids = output_ids[0][0][:seq_lens[0][0]]
-                
+
                 yield actual_output_ids
         else:
             llm_response = llm_responses
             if llm_response.has_error():
                 raise pb_utils.TritonModelException(llm_response.error().message())
-            
+
             # Extract and process output
             output_ids = pb_utils.get_output_tensor_by_name(
                 llm_response, "output_ids").as_numpy()
             seq_lens = pb_utils.get_output_tensor_by_name(
                 llm_response, "sequence_length").as_numpy()
-            
+
             # Get actual output IDs up to the sequence length
             actual_output_ids = output_ids[0][0][:seq_lens[0][0]]
-            
-            yield actual_output_ids    
-                
+
+            yield actual_output_ids
+
     def forward_audio_tokenizer(self, wav, wav_len):
         """Forward pass through the audio tokenizer component.
-        
+
         Args:
             wav: Input waveform tensor
             wav_len: Waveform length tensor
-            
+
         Returns:
             Tuple of global and semantic tokens
         """
@@ -176,26 +177,31 @@ class TritonPythonModel:
             requested_output_names=['prompt_speech_tokens'],
             inputs=[wav, wav_len]
         )
-        
+
         inference_response = inference_request.exec()
         if inference_response.has_error():
             raise pb_utils.TritonModelException(inference_response.error().message())
-        
+
         # Extract and convert output tensors
         prompt_speech_tokens = pb_utils.get_output_tensor_by_name(inference_response, 'prompt_speech_tokens')
         prompt_speech_tokens = torch.utils.dlpack.from_dlpack(prompt_speech_tokens.to_dlpack()).cpu()
 
         return prompt_speech_tokens
 
-    def forward_token2wav(self, prompt_speech_tokens: torch.Tensor, prompt_speech_feat: torch.Tensor, prompt_spk_embedding: torch.Tensor, target_speech_tokens: torch.Tensor) -> torch.Tensor:
+    def forward_token2wav(
+            self,
+            prompt_speech_tokens: torch.Tensor,
+            prompt_speech_feat: torch.Tensor,
+            prompt_spk_embedding: torch.Tensor,
+            target_speech_tokens: torch.Tensor) -> torch.Tensor:
         """Forward pass through the vocoder component.
-        
+
         Args:
             prompt_speech_tokens: Prompt speech tokens tensor
             prompt_speech_feat: Prompt speech feat tensor
             prompt_spk_embedding: Prompt spk embedding tensor
             target_speech_tokens: Target speech tokens tensor
-            
+
         Returns:
             Generated waveform tensor
         """
@@ -203,22 +209,22 @@ class TritonPythonModel:
         prompt_speech_feat_tensor = pb_utils.Tensor.from_dlpack("prompt_speech_feat", to_dlpack(prompt_speech_feat))
         prompt_spk_embedding_tensor = pb_utils.Tensor.from_dlpack("prompt_spk_embedding", to_dlpack(prompt_spk_embedding))
         target_speech_tokens_tensor = pb_utils.Tensor.from_dlpack("target_speech_tokens", to_dlpack(target_speech_tokens))
-        
+
         # Create and execute inference request
         inference_request = pb_utils.InferenceRequest(
             model_name='token2wav',
             requested_output_names=['waveform'],
             inputs=[prompt_speech_tokens_tensor, prompt_speech_feat_tensor, prompt_spk_embedding_tensor, target_speech_tokens_tensor]
         )
-        
+
         inference_response = inference_request.exec()
         if inference_response.has_error():
             raise pb_utils.TritonModelException(inference_response.error().message())
-        
+
         # Extract and convert output waveform
         waveform = pb_utils.get_output_tensor_by_name(inference_response, 'waveform')
         waveform = torch.utils.dlpack.from_dlpack(waveform.to_dlpack()).cpu()
-        
+
         return waveform
 
     def parse_input(self, text, prompt_text, prompt_speech_tokens):
@@ -231,42 +237,52 @@ class TritonPythonModel:
 
     def _extract_spk_embedding(self, speech):
         feat = kaldi.fbank(speech,
-                            num_mel_bins=80,
-                            dither=0,
-                            sample_frequency=16000)
+                           num_mel_bins=80,
+                           dither=0,
+                           sample_frequency=16000)
         feat = feat - feat.mean(dim=0, keepdim=True)
         embedding = self.campplus_session.run(None,
-                                                {self.campplus_session.get_inputs()[0].name: feat.unsqueeze(dim=0).cpu().numpy()})[0].flatten().tolist()
+                                              {self.campplus_session.get_inputs()[0].name: feat.unsqueeze(dim=0).cpu().numpy()})[0].flatten().tolist()
         embedding = torch.tensor([embedding]).to(self.device).half()
         return embedding
 
-
     def _extract_speech_feat(self, speech):
-        speech_feat = mel_spectrogram(speech, n_fft=1920, num_mels=80, sampling_rate=24000, hop_size=480, win_size=1920, fmin=0, fmax=8000).squeeze(dim=0).transpose(0, 1).to(self.device)
+        speech_feat = mel_spectrogram(
+            speech,
+            n_fft=1920,
+            num_mels=80,
+            sampling_rate=24000,
+            hop_size=480,
+            win_size=1920,
+            fmin=0,
+            fmax=8000).squeeze(
+            dim=0).transpose(
+            0,
+            1).to(
+                self.device)
         speech_feat = speech_feat.unsqueeze(dim=0)
         return speech_feat
 
     def execute(self, requests):
         """Execute inference on the batched requests.
-        
+
         Args:
             requests: List of inference requests
-            
+
         Returns:
             List of inference responses containing generated audio
         """
         responses = []
-        
+
         for request in requests:
             # Extract input tensors
             wav = pb_utils.get_input_tensor_by_name(request, "reference_wav")
             wav_len = pb_utils.get_input_tensor_by_name(request, "reference_wav_len")
-            
+
             # Process reference audio through audio tokenizer
 
             prompt_speech_tokens = self.forward_audio_tokenizer(wav, wav_len)
             prompt_speech_tokens = prompt_speech_tokens.unsqueeze(0)
-
 
             wav_tensor = wav.as_numpy()
             wav_tensor = torch.from_numpy(wav_tensor)[:, :wav_len.as_numpy()[0][0]]
@@ -275,20 +291,20 @@ class TritonPythonModel:
             token_len = min(int(speech_feat.shape[1] / 2), prompt_speech_tokens.shape[-1])
             prompt_speech_feat = speech_feat[:, :2 * token_len].contiguous().half()
             prompt_speech_tokens = prompt_speech_tokens[:, :token_len].contiguous()
-            
+
             reference_text = pb_utils.get_input_tensor_by_name(request, "reference_text").as_numpy()
             reference_text = reference_text[0][0].decode('utf-8')
-            
+
             target_text = pb_utils.get_input_tensor_by_name(request, "target_text").as_numpy()
             target_text = target_text[0][0].decode('utf-8')
-            
+
             # Prepare prompt for LLM
             input_ids = self.parse_input(
                 text=target_text,
                 prompt_text=reference_text,
                 prompt_speech_tokens=prompt_speech_tokens,
             )
-            
+
             # Generate semantic tokens with LLM
             generated_ids_iter = self.forward_llm(input_ids)
 
@@ -305,13 +321,13 @@ class TritonPythonModel:
                 generated_ids = torch.tensor(generated_ids).unsqueeze(0).to(torch.int32).to(self.device)
                 prompt_spk_embedding = self._extract_spk_embedding(wav_tensor)
                 audio = self.forward_token2wav(prompt_speech_tokens, prompt_speech_feat, prompt_spk_embedding, generated_ids)
-                
+
                 # Prepare response
                 audio_tensor = pb_utils.Tensor.from_dlpack("waveform", to_dlpack(audio))
                 inference_response = pb_utils.InferenceResponse(output_tensors=[audio_tensor])
                 response_sender.send(inference_response)
                 response_sender.send(flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
-                self.logger.log_info(f"send tritonserver_response_complete_final to end")
+                self.logger.log_info("send tritonserver_response_complete_final to end")
             else:
                 generated_ids = next(generated_ids_iter)
                 generated_ids = torch.tensor(generated_ids).unsqueeze(0).to(self.device)
@@ -320,11 +336,11 @@ class TritonPythonModel:
 
                 prompt_spk_embedding = self._extract_spk_embedding(wav_tensor)
                 audio = self.forward_token2wav(prompt_speech_tokens, prompt_speech_feat, prompt_spk_embedding, generated_ids)
-                
+
                 # Prepare response
                 audio_tensor = pb_utils.Tensor.from_dlpack("waveform", to_dlpack(audio))
                 inference_response = pb_utils.InferenceResponse(output_tensors=[audio_tensor])
                 responses.append(inference_response)
-            
+
         if not self.decoupled:
             return responses

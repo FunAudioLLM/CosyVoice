@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+# /usr/bin/env python3
 from argparse import ArgumentParser
 from string import Template
 
@@ -59,8 +59,7 @@ if __name__ == "__main__":
     parser.add_argument("file_path", help="path of the .pbtxt to modify")
     parser.add_argument(
         "substitutions",
-        help=
-        "substitutions to perform, in the format variable_name_1:value_1,variable_name_2:value_2..."
+        help="substitutions to perform, in the format variable_name_1:value_1,variable_name_2:value_2..."
     )
     parser.add_argument("--in_place",
                         "-i",

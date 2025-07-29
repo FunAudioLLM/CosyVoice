@@ -1,94 +1,89 @@
-## Nvidia Triton Inference Serving Best Practice for Spark TTS
+## Best Practices for Serving CosyVoice with NVIDIA Triton Inference Server
 
 ### Quick Start
-Directly launch the service using docker compose.
+Launch the service directly with Docker Compose:
 ```sh
 docker compose up
 ```
 
-### Build Image
-Build the docker image from scratch. 
+### Build the Docker Image
+Build the image from scratch:
 ```sh
-docker build . -f Dockerfile.server -t soar97/triton-spark-tts:25.02
+docker build . -f Dockerfile.server -t soar97/triton-cosyvoice:25.06
 ```
 
-### Create Docker Container
+### Run a Docker Container
 ```sh
 your_mount_dir=/mnt:/mnt
-docker run -it --name "spark-tts-server" --gpus all --net host -v $your_mount_dir --shm-size=2g soar97/triton-spark-tts:25.02
+docker run -it --name "cosyvoice-server" --gpus all --net host -v $your_mount_dir --shm-size=2g soar97/triton-cosyvoice:25.06
 ```
 
 ### Understanding `run.sh`
+The `run.sh` script orchestrates the entire workflow through numbered stages.
 
-The `run.sh` script automates various steps using stages. You can run specific stages using:
+Run a subset of stages with:
 ```sh
 bash run.sh <start_stage> <stop_stage> [service_type]
 ```
-- `<start_stage>`: The stage to begin execution from (0-5).
-- `<stop_stage>`: The stage to end execution at (0-5).
-- `[service_type]`: Optional, specifies the service type ('streaming' or 'offline', defaults may apply based on script logic). Required for stages 4 and 5.
+- `<start_stage>` – stage to start from (0-5).
+- `<stop_stage>`  – stage to stop after (0-5).
 
 Stages:
-- **Stage 0**: Download Spark-TTS-0.5B model from HuggingFace.
-- **Stage 1**: Convert HuggingFace checkpoint to TensorRT-LLM format and build TensorRT engines.
-- **Stage 2**: Create the Triton model repository structure and configure model files (adjusts for streaming/offline).
-- **Stage 3**: Launch the Triton Inference Server.
-- **Stage 4**: Run the gRPC benchmark client.
-- **Stage 5**: Run the single utterance client (gRPC for streaming, HTTP for offline).
+- **Stage 0** – Download the cosyvoice-2 0.5B model from HuggingFace.
+- **Stage 1** – Convert the HuggingFace checkpoint to TensorRT-LLM format and build TensorRT engines.
+- **Stage 2** – Create the Triton model repository and configure the model files (adjusts depending on whether `Decoupled=True/False` will be used later).
+- **Stage 3** – Launch the Triton Inference Server.
+- **Stage 4** – Run the single-utterance HTTP client.
+- **Stage 5** – Run the gRPC benchmark client.
 
-### Export Models to TensorRT-LLM and Launch Server
-Inside the docker container, you can prepare the models and launch the Triton server by running stages 0 through 3. This involves downloading the original model, converting it to TensorRT-LLM format, building the optimized TensorRT engines, creating the necessary model repository structure for Triton, and finally starting the server.
+### Export Models to TensorRT-LLM and Launch the Server
+Inside the Docker container, prepare the models and start the Triton server by running stages 0-3:
 ```sh
-# This runs stages 0, 1, 2, and 3
+# Runs stages 0, 1, 2, and 3
 bash run.sh 0 3
 ```
-*Note: Stage 2 prepares the model repository differently based on whether you intend to run streaming or offline inference later. You might need to re-run stage 2 if switching service types.*
+*Note: Stage 2 prepares the model repository differently depending on whether you intend to run with `Decoupled=False` or `Decoupled=True`. Rerun stage 2 if you switch the service type.*
 
-
-### Single Utterance Client
-Run a single inference request. Specify `streaming` or `offline` as the third argument.
-
-**Streaming Mode (gRPC):**
+### Single-Utterance HTTP Client
+Send a single HTTP inference request:
 ```sh
-bash run.sh 5 5 streaming
-```
-This executes the `client_grpc.py` script with predefined example text and prompt audio in streaming mode.
-
-**Offline Mode (HTTP):**
-```sh
-bash run.sh 5 5 offline
+bash run.sh 4 4
 ```
 
-### Benchmark using Dataset
-Run the benchmark client against the running Triton server. Specify `streaming` or `offline` as the third argument.
+### Benchmark with a Dataset
+Benchmark the running Triton server. Pass either `streaming` or `offline` as the third argument.
 ```sh
-# Run benchmark in streaming mode
-bash run.sh 4 4 streaming
+bash run.sh 5 5
 
-# Run benchmark in offline mode
-bash run.sh 4 4 offline
-
-# You can also customize parameters like num_task directly in client_grpc.py or via args if supported
-# Example from run.sh (streaming):
-# python3 client_grpc.py \
-#     --server-addr localhost \
-#     --model-name spark_tts \
-#     --num-tasks 2 \
-#     --mode streaming \
-#     --log-dir ./log_concurrent_tasks_2_streaming_new
-
-# Example customizing dataset (requires modifying client_grpc.py or adding args):
-# python3 client_grpc.py --num-tasks 2 --huggingface-dataset yuekai/seed_tts --split-name wenetspeech4tts --mode [streaming|offline]
+# You can also customise parameters such as num_task and dataset split directly:
+# python3 client_grpc.py --num-tasks 2 --huggingface-dataset yuekai/seed_tts_cosy2 --split-name test_zh --mode [streaming|offline]
 ```
+> [!TIP]
+> Only offline CosyVoice TTS is currently supported. Setting the client to `streaming` simply enables NVIDIA Triton’s decoupled mode so that responses are returned as soon as they are ready.
 
 ### Benchmark Results
-Decoding on a single L20 GPU, using 26 different prompt_audio/target_text [pairs](https://huggingface.co/datasets/yuekai/seed_tts), total audio duration 169 secs.
+Decoding on a single L20 GPU with 26 prompt_audio/target_text [pairs](https://huggingface.co/datasets/yuekai/seed_tts) (≈221 s of audio):
 
-| Mode | Note   | Concurrency | Avg Latency     | First Chunk Latency (P50) |  RTF | 
-|-------|-----------|-----------------------|---------|----------------|-|
-| Offline | [Code Commit](https://github.com/SparkAudio/Spark-TTS/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 1                   | 876.24 ms |-| 0.1362|
-| Offline | [Code Commit](https://github.com/SparkAudio/Spark-TTS/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 2                   | 920.97 ms |-|0.0737|
-| Offline | [Code Commit](https://github.com/SparkAudio/Spark-TTS/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 4                   | 1611.51 ms |-| 0.0704|
-| Streaming | [Code Commit](https://github.com/yuekaizhang/Spark-TTS/commit/0e978a327f99aa49f0735f86eb09372f16410d86) | 1                   | 913.28 ms |210.42 ms| 0.1501 |
-| Streaming | [Code Commit](https://github.com/yuekaizhang/Spark-TTS/commit/0e978a327f99aa49f0735f86eb09372f16410d86) | 2                   | 1009.23 ms |226.08 ms |0.0862 |
-| Streaming | [Code Commit](https://github.com/yuekaizhang/Spark-TTS/commit/0e978a327f99aa49f0735f86eb09372f16410d86) | 4                   | 1793.86 ms |1017.70 ms| 0.0824 |
+| Mode | Note | Concurrency | Avg Latency (ms) | P50 Latency (ms) | RTF |
+|------|------|-------------|------------------|------------------|-----|
+| Decoupled=False | [Commit](https://github.com/SparkAudio/cosyvoice/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 1 | 758.04 | 615.79 | 0.0891 |
+| Decoupled=False | [Commit](https://github.com/SparkAudio/cosyvoice/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 2 | 1025.93 | 901.68 | 0.0657 |
+| Decoupled=False | [Commit](https://github.com/SparkAudio/cosyvoice/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 4 | 1914.13 | 1783.58 | 0.0610 |
+| Decoupled=True  | [Commit](https://github.com/SparkAudio/cosyvoice/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 1 | 659.87 | 655.63 | 0.0891 |
+| Decoupled=True  | [Commit](https://github.com/SparkAudio/cosyvoice/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 2 | 1103.16 | 992.96 | 0.0693 |
+| Decoupled=True  | [Commit](https://github.com/SparkAudio/cosyvoice/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 4 | 1790.91 | 1668.63 | 0.0604 |
+
+### OpenAI-Compatible Server
+To launch an OpenAI-compatible service, run:
+```sh
+git clone https://github.com/yuekaizhang/Triton-OpenAI-Speech.git
+pip install -r requirements.txt
+# After the Triton service is up, start the FastAPI bridge:
+python3 tts_server.py --url http://localhost:8000 --ref_audios_dir ./ref_audios/ --port 10086 --default_sample_rate 24000
+# Test with curl
+bash test/test_cosyvoice.sh
+```
+
+### Acknowledgements
+This section originates from the NVIDIA CISI project. We also provide other multimodal resources—see [mair-hub](https://github.com/nvidia-china-sae/mair-hub) for details.
+

@@ -1,6 +1,6 @@
 services:
   tts:
-    image: soar97/triton-spark-tts:25.02
+    image: soar97/triton-cosyvoice:25.06
     shm_size: '1gb'
     ports:
       - "8000:8000"
@@ -17,4 +17,4 @@ services:
               device_ids: ['0']
               capabilities: [gpu]
     command: >
-      /bin/bash -c "rm -rf Spark-TTS && git clone https://github.com/SparkAudio/Spark-TTS.git && cd Spark-TTS/runtime/triton_trtllm && bash run.sh 0 3"
+      /bin/bash -c "pip install modelscope && cd /workspace && git clone https://github.com/FunAudioLLM/CosyVoice.git && cd CosyVoice && git submodule update --init --recursive && cd runtime/triton_trtllm && bash run.sh 0 3"

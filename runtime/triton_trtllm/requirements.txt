@@ -11,3 +11,4 @@ librosa
 pyworld
 openai-whisper
 tritonclient
+modelscope

@@ -66,12 +66,12 @@ Decoding on a single L20 GPU with 26 prompt_audio/target_text [pairs](https://hu
 
 | Mode | Note | Concurrency | Avg Latency (ms) | P50 Latency (ms) | RTF |
 |------|------|-------------|------------------|------------------|-----|
-| Decoupled=False | [Commit](https://github.com/SparkAudio/cosyvoice/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 1 | 758.04 | 615.79 | 0.0891 |
-| Decoupled=False | [Commit](https://github.com/SparkAudio/cosyvoice/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 2 | 1025.93 | 901.68 | 0.0657 |
-| Decoupled=False | [Commit](https://github.com/SparkAudio/cosyvoice/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 4 | 1914.13 | 1783.58 | 0.0610 |
-| Decoupled=True  | [Commit](https://github.com/SparkAudio/cosyvoice/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 1 | 659.87 | 655.63 | 0.0891 |
-| Decoupled=True  | [Commit](https://github.com/SparkAudio/cosyvoice/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 2 | 1103.16 | 992.96 | 0.0693 |
-| Decoupled=True  | [Commit](https://github.com/SparkAudio/cosyvoice/tree/4d769ff782a868524f29e0be851ca64f8b22ebf1/runtime/triton_trtllm) | 4 | 1790.91 | 1668.63 | 0.0604 |
+| Decoupled=False | [Commit](https://github.com/yuekaizhang/CosyVoice/commit/b44f12110224cb11c03aee4084b1597e7b9331cb) | 1 | 758.04 | 615.79 | 0.0891 |
+| Decoupled=False | [Commit](https://github.com/yuekaizhang/CosyVoice/commit/b44f12110224cb11c03aee4084b1597e7b9331cb) | 2 | 1025.93 | 901.68 | 0.0657 |
+| Decoupled=False | [Commit](https://github.com/yuekaizhang/CosyVoice/commit/b44f12110224cb11c03aee4084b1597e7b9331cb) | 4 | 1914.13 | 1783.58 | 0.0610 |
+| Decoupled=True  | [Commit](https://github.com/yuekaizhang/CosyVoice/commit/b44f12110224cb11c03aee4084b1597e7b9331cb) | 1 | 659.87 | 655.63 | 0.0891 |
+| Decoupled=True  | [Commit](https://github.com/yuekaizhang/CosyVoice/commit/b44f12110224cb11c03aee4084b1597e7b9331cb) | 2 | 1103.16 | 992.96 | 0.0693 |
+| Decoupled=True  | [Commit](https://github.com/yuekaizhang/CosyVoice/commit/b44f12110224cb11c03aee4084b1597e7b9331cb) | 4 | 1790.91 | 1668.63 | 0.0604 |
 
 ### OpenAI-Compatible Server
 To launch an OpenAI-compatible service, run:

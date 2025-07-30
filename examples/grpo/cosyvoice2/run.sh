@@ -3,7 +3,7 @@
 set -eou pipefail
 
 stage=-1
-stop_stage=5
+stop_stage=4
 
 log() {
   # This function is from espnet
@@ -15,6 +15,22 @@ export PYTHONPATH=/workspace/CosyVoice
 model_scope_model_path=./CosyVoice2-0.5B
 sft_model_path=./transformers_cosyvoice2_llm
 
+if [ $stage -le -2 ] && [ $stop_stage -ge -2 ]; then
+  log "stage -2: install dependencies locally if pre-built docker image is not available"
+  conda create -n cosyvoice2 python=3.10 -y
+  conda activate cosyvoice2
+    # install verl
+  git clone https://github.com/yuekaizhang/verl.git -b thread
+  cd verl
+  USE_MEGATRON=0 bash scripts/install_vllm_sglang_mcore.sh
+  pip install --no-deps -e .
+  cd -
+  # install requirements
+  pip install -r requirements.txt
+  pip install -U nvidia-pytriton
+  git clone https://github.com/yuekaizhang/PytritonSenseVoice.git && cd PytritonSenseVoice && pip install -e .
+fi
+
 if [ $stage -le -1 ] && [ $stop_stage -ge -1 ]; then
   log "stage -1: download official CosyVoice2-0.5B LLM model and convert to huggingface compatible checkpoint"
   modelscope download --model iic/CosyVoice2-0.5B --local_dir $model_scope_model_path 
@@ -24,13 +40,15 @@ if [ $stage -le -1 ] && [ $stop_stage -ge -1 ]; then
 
   # Or, you could use the following command to download the huggingface compatible checkpoint
   # huggingface-cli download --local-dir $sft_model_path yuekai/cosyvoice2_llm
+
+  # Note: we remove the lm_head's bias to make it compatible with the Qwen2.5-0.5B model in Transformers.
 fi
 
 data_dir=data/parquet_aishell3
 if [ $stage -le 0 ] && [ $stop_stage -ge 0 ]; then
   log "stage 0: prepare data into verl format"
   mkdir -p $data_dir
-  wget https://huggingface.co/datasets/SparkAudio/voxbox/resolve/main/metadata/aishell-3.jsonl -O data/aishell-3.jsonl
+  wget -O data/aishell-3.jsonl https://huggingface.co/datasets/SparkAudio/voxbox/resolve/main/metadata/aishell-3.jsonl
   # total 88035 samples
   head -n 80000 data/aishell-3.jsonl > data/train.jsonl
   tail -n 100 data/aishell-3.jsonl > data/test.jsonl
@@ -98,7 +116,8 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
       trainer.val_before_train=False
 fi
 
-step=400
+steps=(100 200 300 400 500)
+for step in ${steps[@]}; do
 llm_path=./checkpoints/cosyvoice2_grpo/$exp_name/global_step_${step}
 if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
   log "stage 3: merge the model"
@@ -111,7 +130,7 @@ fi
 if [ $stage -le 4 ] && [ $stop_stage -ge 4 ]; then
   log "stage 4: Test the model"
   dataset=zero_shot_zh
-  # dataset=test_zh
+  # dataset=test_zh seed_tts test_zh
   output_dir=./outputs_${exp_name}_${step}_${dataset}
 
   token2wav_path=/workspace/CosyVoice2-0.5B
@@ -127,12 +146,14 @@ if [ $stage -le 4 ] && [ $stop_stage -ge 4 ]; then
 
   bash scripts/compute_wer.sh $output_dir ${dataset}
 fi
+done
 
 if [ $stage -le 5 ] && [ $stop_stage -ge 5 ]; then
   log "stage 5: Convert the RL trained model to CosyVoice repo format"
   python3 huggingface_to_pretrained.py \
     --hf-cosyvoice2-llm-path $llm_path/merged_hf_model \
-    --pretrained-cosyvoice2-path /workspace/CosyVoice2-0.5B \
     --output-path /workspace/CosyVoice2-0.5B/llm-new.pt
   # You need to manually move the llm-new.pt to overwrite /workspace/CosyVoice2-0.5B/llm.pt
+  # However, we found that the RL trained model accuracy would slightly drop after this conversion.
+  # Please be careful or use the huggingface format inference code.
 fi

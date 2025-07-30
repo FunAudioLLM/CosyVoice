@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 
 # SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
@@ -94,7 +95,8 @@ if __name__ == "__main__":
     with torch.no_grad():
         # set the weight and bias of the new lm_head to 0
         new_lm_head.weight.data.zero_()
-        new_lm_head.bias.data.zero_()
+        # make bias value -inf
+        new_lm_head.bias.data.fill_(-float('inf'))
         new_lm_head.weight[original_tokenizer_vocab_size:original_tokenizer_vocab_size + cosyvoice2_token_size + 3] = llm_decoder.weight
         new_lm_head.bias[original_tokenizer_vocab_size:original_tokenizer_vocab_size + cosyvoice2_token_size + 3] = llm_decoder.bias
 
@@ -107,8 +109,7 @@ if __name__ == "__main__":
 
     eos_token_ids = [original_tokenizer_vocab_size + cosyvoice2_token_size,
                      original_tokenizer_vocab_size + cosyvoice2_token_size + 1,
-                     original_tokenizer_vocab_size + cosyvoice2_token_size + 2,
-                     original_tokenizer_vocab_size + cosyvoice2_token_size + 3]
+                     original_tokenizer_vocab_size + cosyvoice2_token_size + 2]
     llm.generation_config.eos_token_id = eos_token_ids
     llm.generation_config.temperature = 1.0
     llm.generation_config.top_p = 0.8
@@ -121,6 +122,14 @@ if __name__ == "__main__":
     llm.to(torch.bfloat16)
     llm.save_pretrained(args.save_path)
 
-    TEMPLATE = "{%- for message in messages %}{%- if message['role'] == 'user' %}{{- '<|sos|>' + message['content'] + '<|task_id|>' }}{%- elif message['role'] == 'assistant' %}{{- message['content']}}{%- endif %}{%- endfor %}"
+    TEMPLATE = (
+        "{%- for message in messages %}"
+        "{%- if message['role'] == 'user' %}"
+        "{{- '<|sos|>' + message['content'] + '<|task_id|>' }}"
+        "{%- elif message['role'] == 'assistant' %}"
+        "{{- message['content']}}"
+        "{%- endif %}"
+        "{%- endfor %}"
+    )
     tokenizer.chat_template = TEMPLATE
     tokenizer.save_pretrained(args.save_path)

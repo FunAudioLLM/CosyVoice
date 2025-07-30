@@ -10,6 +10,7 @@ model_path=models/sherpa-onnx-paraformer-zh-2023-09-14
 if [ ! -d $model_path ]; then
     pip install sherpa-onnx
     wget -nc https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2
+    mkdir models
     tar xvf sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2 -C models
 fi
 

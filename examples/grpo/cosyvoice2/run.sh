@@ -129,8 +129,8 @@ fi
 
 if [ $stage -le 4 ] && [ $stop_stage -ge 4 ]; then
   log "stage 4: Test the model"
-  dataset=zero_shot_zh
-  # dataset=test_zh seed_tts test_zh
+  dataset=zero_shot_zh # from CosyVoice3 test set
+  # dataset=test_zh # from seed_tts test set
   output_dir=./outputs_${exp_name}_${step}_${dataset}
 
   token2wav_path=/workspace/CosyVoice2-0.5B

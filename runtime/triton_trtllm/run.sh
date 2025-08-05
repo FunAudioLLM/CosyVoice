@@ -1,4 +1,5 @@
-
+#!/bin/bash
+# Copyright (c) 2025 NVIDIA (authors: Yuekai Zhang)
 export CUDA_VISIBLE_DEVICES=0
 cosyvoice_path=/workspace/CosyVoice
 export PYTHONPATH=${cosyvoice_path}:$PYTHONPATH
@@ -24,8 +25,8 @@ fi
 
 if [ $stage -le 0 ] && [ $stop_stage -ge 0 ]; then
     echo "Downloading CosyVoice2-0.5B"
-    huggingface-cli download --local-dir $huggingface_model_local_dir yuekai/cosyvoice2_llm 
-    modelscope download --model iic/CosyVoice2-0.5B --local_dir $model_scope_model_local_dir 
+    huggingface-cli download --local-dir $huggingface_model_local_dir yuekai/cosyvoice2_llm
+    modelscope download --model iic/CosyVoice2-0.5B --local_dir $model_scope_model_local_dir
 fi
 
 
@@ -67,7 +68,7 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
     BLS_INSTANCE_NUM=4
     TRITON_MAX_BATCH_SIZE=16
     DECOUPLED_MODE=False
-   
+
     python3 scripts/fill_template.py -i ${model_repo}/token2wav/config.pbtxt model_dir:${MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
     python3 scripts/fill_template.py -i ${model_repo}/audio_tokenizer/config.pbtxt model_dir:${MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
     python3 scripts/fill_template.py -i ${model_repo}/${cosyvoice2_dir}/config.pbtxt model_dir:${MODEL_DIR},bls_instance_num:${BLS_INSTANCE_NUM},llm_tokenizer_dir:${LLM_TOKENIZER_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},decoupled_mode:${DECOUPLED_MODE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}

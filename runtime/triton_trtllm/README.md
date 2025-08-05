@@ -1,5 +1,7 @@
 ## Best Practices for Serving CosyVoice with NVIDIA Triton Inference Server
 
+Thanks to the contribution from NVIDIA Yuekai Zhang.
+
 ### Quick Start
 Launch the service directly with Docker Compose:
 ```sh

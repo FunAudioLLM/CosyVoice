@@ -29,6 +29,10 @@
 
 ## Roadmap
 
+- [x] 2025/08
+
+    - [x] Thanks to the contribution from NVIDIA Yuekai Zhang, add triton trtllm runtime support
+
 - [x] 2025/07
 
     - [x] release cosyvoice 3.0 eval set

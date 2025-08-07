@@ -31,7 +31,7 @@
 
 - [x] 2025/08
 
-    - [x] Thanks to the contribution from NVIDIA Yuekai Zhang, add triton trtllm runtime support
+    - [x] Thanks to the contribution from NVIDIA Yuekai Zhang, add triton trtllm runtime support and cosyvoice2 grpo training support
 
 - [x] 2025/07
 

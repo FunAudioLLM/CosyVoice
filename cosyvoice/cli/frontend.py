@@ -121,7 +121,7 @@ class CosyVoiceFrontEnd:
     def text_normalize(self, text, split=True, text_frontend=True):
         if isinstance(text, Generator):
             logging.info('get tts_text generator, will skip text_normalize!')
-            return [text]
+            return text
         if text_frontend is False or text == '':
             return [text] if split is True else text
         text = text.strip()

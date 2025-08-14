@@ -1,5 +1,4 @@
 --extra-index-url https://download.pytorch.org/whl/cu121
---extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/ # https://github.com/microsoft/onnxruntime/issues/21684
 conformer==0.3.2
 deepspeed==0.15.1; sys_platform == 'linux'
 diffusers==0.29.0
@@ -19,8 +18,8 @@ modelscope==1.20.0
 networkx==3.1
 omegaconf==2.3.0
 onnx==1.16.0
-onnxruntime-gpu==1.18.0; sys_platform == 'linux'
-onnxruntime==1.18.0; sys_platform == 'darwin' or sys_platform == 'win32'
+onnxruntime-gpu==1.22.0; sys_platform == 'linux'
+onnxruntime==1.22.0; sys_platform == 'darwin' or sys_platform == 'win32'
 openai-whisper==20231117
 protobuf==4.25
 pyarrow==18.1.0

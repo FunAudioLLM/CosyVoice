@@ -1,0 +1,857 @@
+# Copyright 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#  * Neither the name of NVIDIA CORPORATION nor the names of its
+#    contributors may be used to endorse or promote products derived
+#    from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+# OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+name: "tensorrt_llm"
+backend: "${triton_backend}"
+max_batch_size: ${triton_max_batch_size}
+
+model_transaction_policy {
+  decoupled: ${decoupled_mode}
+}
+
+dynamic_batching {
+    preferred_batch_size: [ ${triton_max_batch_size} ]
+    max_queue_delay_microseconds: ${max_queue_delay_microseconds}
+    default_queue_policy: { max_queue_size: ${max_queue_size} }
+}
+
+input [
+  {
+    name: "input_ids"
+    data_type: TYPE_INT32
+    dims: [ -1 ]
+    allow_ragged_batch: true
+    optional: true
+  },
+  {
+    name: "encoder_input_features"
+    data_type: ${encoder_input_features_data_type}
+    dims: [ -1, -1 ]
+    allow_ragged_batch: true
+    optional: true
+  },
+  {
+    name: "encoder_output_lengths"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "input_lengths"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+  },
+  {
+    name: "request_output_len"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+  },
+  {
+    name: "num_return_sequences"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "draft_input_ids"
+    data_type: TYPE_INT32
+    dims: [ -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "decoder_input_ids"
+    data_type: TYPE_INT32
+    dims: [ -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "decoder_input_lengths"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    optional: true
+    reshape: { shape: [ ] }
+  },
+  {
+    name: "draft_logits"
+    data_type: ${logits_datatype}
+    dims: [ -1, -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "draft_acceptance_threshold"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "end_id"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "pad_id"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "stop_words_list"
+    data_type: TYPE_INT32
+    dims: [ 2, -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "bad_words_list"
+    data_type: TYPE_INT32
+    dims: [ 2, -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "embedding_bias"
+    data_type: TYPE_FP32
+    dims: [ -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "beam_width"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "temperature"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "runtime_top_k"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "runtime_top_p"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "runtime_top_p_min"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "runtime_top_p_decay"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "runtime_top_p_reset_ids"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "len_penalty"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "early_stopping"
+    data_type: TYPE_BOOL
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "repetition_penalty"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "min_length"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "beam_search_diversity_rate"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "presence_penalty"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "frequency_penalty"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "random_seed"
+    data_type: TYPE_UINT64
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "return_log_probs"
+    data_type: TYPE_BOOL
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "return_context_logits"
+    data_type: TYPE_BOOL
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "return_generation_logits"
+    data_type: TYPE_BOOL
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "return_perf_metrics"
+    data_type: TYPE_BOOL
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "exclude_input_in_output"
+    data_type: TYPE_BOOL
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "stop"
+    data_type: TYPE_BOOL
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "streaming"
+    data_type: TYPE_BOOL
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "prompt_embedding_table"
+    data_type: TYPE_FP16
+    dims: [ -1, -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "prompt_table_extra_ids"
+    data_type: TYPE_UINT64
+    dims: [ -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "prompt_vocab_size"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  # cross_attention_mask shape `[bs, seq_len, num_images*num_tiles]`
+  {
+    name: "cross_attention_mask"
+    data_type: TYPE_BOOL
+    dims: [ -1, -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  # Mrope param when mrope is used
+  {
+    name: "mrope_rotary_cos_sin"
+    data_type: TYPE_FP32
+    dims: [ -1 ]
+    optional: true
+  },
+  {
+    name: "mrope_position_deltas"
+    data_type: TYPE_INT64
+    dims: [ 1 ]
+    optional: true
+  },
+  # the unique task ID for the given LoRA.
+  # To perform inference with a specific LoRA for the first time `lora_task_id` `lora_weights` and `lora_config` must all be given.
+  # The LoRA will be cached, so that subsequent requests for the same task only require `lora_task_id`.
+  # If the cache is full the oldest LoRA will be evicted to make space for new ones.  An error is returned if `lora_task_id` is not cached.
+  {
+    name: "lora_task_id"
+    data_type: TYPE_UINT64
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  # weights for a lora adapter shape [ num_lora_modules_layers, D x Hi + Ho x D ]
+  # where the last dimension holds the in / out adapter weights for the associated module (e.g. attn_qkv) and model layer
+  # each of the in / out tensors are first flattened and then concatenated together in the format above.
+  # D=adapter_size (R value), Hi=hidden_size_in, Ho=hidden_size_out.
+  {
+    name: "lora_weights"
+    data_type: TYPE_FP16
+    dims: [ -1, -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  # module identifier (same size a first dimension of lora_weights)
+  # See LoraModule::ModuleType for model id mapping
+  #
+  # "attn_qkv": 0     # compbined qkv adapter
+  # "attn_q": 1       # q adapter
+  # "attn_k": 2       # k adapter
+  # "attn_v": 3       # v adapter
+  # "attn_dense": 4   # adapter for the dense layer in attention
+  # "mlp_h_to_4h": 5  # for llama2 adapter for gated mlp layer after attention / RMSNorm: up projection
+  # "mlp_4h_to_h": 6  # for llama2 adapter for gated mlp layer after attention / RMSNorm: down projection
+  # "mlp_gate": 7     # for llama2 adapter for gated mlp later after attention / RMSNorm: gate
+  #
+  # last dim holds [ module_id, layer_idx, adapter_size (D aka R value) ]
+  {
+    name: "lora_config"
+    data_type: TYPE_INT32
+    dims: [ -1, 3 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "context_phase_params"
+    data_type: TYPE_UINT8
+    dims: [ -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  # skip_cross_attn_blocks shape `[bs, 1]`, only used in mllama
+  {
+    name: "skip_cross_attn_blocks"
+    data_type: TYPE_BOOL
+    dims: [ 1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "retention_token_range_starts"
+    data_type: TYPE_INT32
+    dims: [ -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "retention_token_range_ends"
+    data_type: TYPE_INT32
+    dims: [ -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "retention_token_range_priorities"
+    data_type: TYPE_INT32
+    dims: [ -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "retention_token_range_durations_ms"
+    data_type: TYPE_INT32
+    dims: [ -1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "retention_decode_priority"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "retention_decode_duration_ms"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "guided_decoding_guide_type"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "guided_decoding_guide"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "lookahead_window_size"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "lookahead_ngram_size"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    optional: true
+    allow_ragged_batch: true
+  },
+  {
+    name: "lookahead_verification_set_size"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    optional: true
+    allow_ragged_batch: true
+  }
+]
+output [
+  {
+    name: "output_ids"
+    data_type: TYPE_INT32
+    dims: [ -1, -1 ]
+  },
+  {
+    name: "sequence_length"
+    data_type: TYPE_INT32
+    dims: [ -1 ]
+  },
+  {
+    name: "cum_log_probs"
+    data_type: TYPE_FP32
+    dims: [ -1 ]
+  },
+  {
+    name: "output_log_probs"
+    data_type: TYPE_FP32
+    dims: [ -1, -1 ]
+  },
+  {
+    name: "context_logits"
+    data_type: ${logits_datatype}
+    dims: [ -1, -1 ]
+  },
+  {
+    name: "generation_logits"
+    data_type: ${logits_datatype}
+    dims: [ -1, -1, -1 ]
+  },
+  {
+    name: "batch_index"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+  },
+  {
+    name: "sequence_index"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+  },
+  {
+    name: "context_phase_params"
+    data_type: TYPE_UINT8
+    dims: [ -1 ]
+  },
+  {
+    name: "kv_cache_alloc_new_blocks"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+  },
+  {
+    name: "kv_cache_reused_blocks"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+  },
+  {
+    name: "kv_cache_alloc_total_blocks"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+  },
+  {
+    name: "arrival_time_ns"
+    data_type: TYPE_INT64
+    dims: [ 1 ]
+  },
+  {
+    name: "first_scheduled_time_ns"
+    data_type: TYPE_INT64
+    dims: [ 1 ]
+  },
+  {
+    name: "first_token_time_ns"
+    data_type: TYPE_INT64
+    dims: [ 1 ]
+  },
+  {
+    name: "last_token_time_ns"
+    data_type: TYPE_INT64
+    dims: [ 1 ]
+  },
+  {
+    name: "acceptance_rate"
+    data_type: TYPE_FP32
+    dims: [ 1 ]
+  },
+  {
+    name: "total_accepted_draft_tokens"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+  },
+  {
+    name: "total_draft_tokens"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+  }
+]
+instance_group [
+  {
+    count: 1
+    kind : KIND_CPU
+  }
+]
+parameters: {
+  key: "max_beam_width"
+  value: {
+    string_value: "${max_beam_width}"
+  }
+}
+parameters: {
+  key: "FORCE_CPU_ONLY_INPUT_TENSORS"
+  value: {
+    string_value: "no"
+  }
+}
+parameters: {
+  key: "gpt_model_type"
+  value: {
+    string_value: "${batching_strategy}"
+  }
+}
+parameters: {
+  key: "gpt_model_path"
+  value: {
+    string_value: "${engine_dir}"
+  }
+}
+parameters: {
+  key: "encoder_model_path"
+  value: {
+    string_value: "${encoder_engine_dir}"
+  }
+}
+parameters: {
+  key: "max_tokens_in_paged_kv_cache"
+  value: {
+    string_value: "${max_tokens_in_paged_kv_cache}"
+  }
+}
+parameters: {
+  key: "max_attention_window_size"
+  value: {
+    string_value: "${max_attention_window_size}"
+  }
+}
+parameters: {
+  key: "sink_token_length"
+  value: {
+    string_value: "${sink_token_length}"
+  }
+}
+parameters: {
+  key: "batch_scheduler_policy"
+  value: {
+    string_value: "${batch_scheduler_policy}"
+  }
+}
+parameters: {
+  key: "kv_cache_free_gpu_mem_fraction"
+  value: {
+    string_value: "${kv_cache_free_gpu_mem_fraction}"
+  }
+}
+parameters: {
+  key: "cross_kv_cache_fraction"
+  value: {
+    string_value: "${cross_kv_cache_fraction}"
+  }
+}
+parameters: {
+  key: "kv_cache_host_memory_bytes"
+  value: {
+    string_value: "${kv_cache_host_memory_bytes}"
+  }
+}
+# kv_cache_onboard_blocks is for internal implementation.
+parameters: {
+  key: "kv_cache_onboard_blocks"
+  value: {
+    string_value: "${kv_cache_onboard_blocks}"
+  }
+}
+# enable_trt_overlap is deprecated and doesn't have any effect on the runtime
+# parameters: {
+#   key: "enable_trt_overlap"
+#   value: {
+#     string_value: "${enable_trt_overlap}"
+#   }
+# }
+parameters: {
+  key: "exclude_input_in_output"
+  value: {
+    string_value: "${exclude_input_in_output}"
+  }
+}
+parameters: {
+  key: "cancellation_check_period_ms"
+  value: {
+    string_value: "${cancellation_check_period_ms}"
+  }
+}
+parameters: {
+  key: "stats_check_period_ms"
+  value: {
+    string_value: "${stats_check_period_ms}"
+  }
+}
+parameters: {
+  key: "iter_stats_max_iterations"
+  value: {
+    string_value: "${iter_stats_max_iterations}"
+  }
+}
+parameters: {
+  key: "request_stats_max_iterations"
+  value: {
+    string_value: "${request_stats_max_iterations}"
+  }
+}
+parameters: {
+  key: "enable_kv_cache_reuse"
+  value: {
+    string_value: "${enable_kv_cache_reuse}"
+  }
+}
+parameters: {
+  key: "normalize_log_probs"
+  value: {
+    string_value: "${normalize_log_probs}"
+  }
+}
+parameters: {
+  key: "enable_chunked_context"
+  value: {
+    string_value: "${enable_chunked_context}"
+  }
+}
+parameters: {
+  key: "gpu_device_ids"
+  value: {
+    string_value: "${gpu_device_ids}"
+  }
+}
+parameters: {
+  key: "participant_ids"
+  value: {
+    string_value: "${participant_ids}"
+  }
+}
+parameters: {
+  key: "lora_cache_optimal_adapter_size"
+  value: {
+    string_value: "${lora_cache_optimal_adapter_size}"
+  }
+}
+parameters: {
+  key: "lora_cache_max_adapter_size"
+  value: {
+    string_value: "${lora_cache_max_adapter_size}"
+  }
+}
+parameters: {
+  key: "lora_cache_gpu_memory_fraction"
+  value: {
+    string_value: "${lora_cache_gpu_memory_fraction}"
+  }
+}
+parameters: {
+  key: "lora_cache_host_memory_bytes"
+  value: {
+    string_value: "${lora_cache_host_memory_bytes}"
+  }
+}
+parameters: {
+  key: "lora_prefetch_dir"
+  value: {
+    string_value: "${lora_prefetch_dir}"
+  }
+}
+parameters: {
+  key: "decoding_mode"
+  value: {
+    string_value: "${decoding_mode}"
+  }
+}
+parameters: {
+  key: "executor_worker_path"
+  value: {
+    string_value: "/opt/tritonserver/backends/tensorrtllm/trtllmExecutorWorker"
+  }
+}
+parameters: {
+  key: "lookahead_window_size"
+    value: {
+      string_value: "${lookahead_window_size}"
+  }
+}
+parameters: {
+  key: "lookahead_ngram_size"
+    value: {
+      string_value: "${lookahead_ngram_size}"
+  }
+}
+parameters: {
+  key: "lookahead_verification_set_size"
+    value: {
+      string_value: "${lookahead_verification_set_size}"
+  }
+}
+parameters: {
+  key: "medusa_choices"
+    value: {
+      string_value: "${medusa_choices}"
+  }
+}
+parameters: {
+  key: "eagle_choices"
+    value: {
+      string_value: "${eagle_choices}"
+  }
+}
+parameters: {
+  key: "gpu_weights_percent"
+    value: {
+      string_value: "${gpu_weights_percent}"
+  }
+}
+parameters: {
+  key: "enable_context_fmha_fp32_acc"
+  value: {
+    string_value: "${enable_context_fmha_fp32_acc}"
+  }
+}
+parameters: {
+  key: "multi_block_mode"
+  value: {
+    string_value: "${multi_block_mode}"
+  }
+}
+parameters: {
+  key: "cuda_graph_mode"
+  value: {
+    string_value: "${cuda_graph_mode}"
+  }
+}
+parameters: {
+  key: "cuda_graph_cache_size"
+  value: {
+    string_value: "${cuda_graph_cache_size}"
+  }
+}
+parameters: {
+  key: "speculative_decoding_fast_logits"
+  value: {
+    string_value: "${speculative_decoding_fast_logits}"
+  }
+}
+parameters: {
+  key: "tokenizer_dir"
+  value: {
+    string_value: "${tokenizer_dir}"
+  }
+}
+parameters: {
+  key: "guided_decoding_backend"
+  value: {
+    string_value: "${guided_decoding_backend}"
+  }
+}
+parameters: {
+  key: "xgrammar_tokenizer_info_path"
+  value: {
+    string_value: "${xgrammar_tokenizer_info_path}"
+  }
+}

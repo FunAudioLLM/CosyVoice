@@ -51,23 +51,6 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
   done
 fi
 
-# inference
-if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
-  echo "Run inference. Please make sure utt in tts_text is in prompt_data"
-  for mode in sft zero_shot; do
-    python cosyvoice/bin/inference.py --mode $mode \
-      --gpu 0 \
-      --config conf/cosyvoice.yaml \
-      --prompt_data data/test-clean/parquet/data.list \
-      --prompt_utt2data data/test-clean/parquet/utt2data.list \
-      --tts_text `pwd`/tts_text.json \
-      --llm_model $pretrained_model_dir/llm.pt \
-      --flow_model $pretrained_model_dir/flow.pt \
-      --hifigan_model $pretrained_model_dir/hift.pt \
-      --result_dir `pwd`/exp/cosyvoice/test-clean/$mode
-  done
-fi
-
 # train llm
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 num_gpus=$(echo $CUDA_VISIBLE_DEVICES | awk -F "," '{print NF}')
@@ -77,7 +60,7 @@ num_workers=2
 prefetch=100
 train_engine=torch_ddp
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
-  echo "Run train. We only support llm traning for now. If your want to train from scratch, please use conf/cosyvoice.fromscratch.yaml"
+  echo "Run train. We only support llm traning for now"
   if [ $train_engine == 'deepspeed' ]; then
     echo "Notice deepspeed has its own optimizer config. Modify conf/ds_stage2.json if necessary"
   fi

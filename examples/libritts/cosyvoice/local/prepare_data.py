@@ -49,5 +49,7 @@ if __name__ == "__main__":
                         type=str)
     parser.add_argument('--des_dir',
                         type=str)
+    parser.add_argument('--ref_model',
+                        type=str)
     args = parser.parse_args()
     main()

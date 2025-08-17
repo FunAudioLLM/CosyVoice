@@ -1,0 +1,8 @@
+FROM nvcr.io/nvidia/tritonserver:25.06-trtllm-python-py3
+LABEL maintainer="zhangyuekai@foxmail.com"
+
+RUN apt-get update && apt-get install -y cmake
+RUN git clone https://github.com/pytorch/audio.git && cd audio && git checkout c670ad8 && PATH=/usr/local/cuda/bin:$PATH python3 setup.py develop
+COPY ./requirements.txt /workspace/requirements.txt
+RUN pip install -r /workspace/requirements.txt
+WORKDIR /workspace

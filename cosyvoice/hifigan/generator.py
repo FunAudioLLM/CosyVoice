@@ -736,7 +736,7 @@ if __name__ == '__main__':
     model.to(device)
     model.eval()
     max_len, chunk_size, context_size = 300, 30, 8
-    mel = torch.rand(1, 80, max_len)
+    mel = torch.rand(1, 80, max_len).to(device)
     pred_gt, _ = model.inference(mel)
     for i in range(0, max_len, chunk_size):
         finalize = True if i + chunk_size + context_size >= max_len else False

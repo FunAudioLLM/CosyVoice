@@ -221,7 +221,7 @@ class CosyVoice3(CosyVoice):
         self.model = CosyVoice3Model(configs['llm'], configs['flow'], configs['hift'], fp16)
         self.model.load('{}/llm.pt'.format(model_dir),
                         '{}/flow.pt'.format(model_dir),
-                        '{}/bigvgan.pt'.format(model_dir))
+                        '{}/hift.pt'.format(model_dir))
         if load_vllm:
             self.model.load_vllm('{}/vllm'.format(model_dir))
         if load_jit:

@@ -115,6 +115,7 @@ class DiT(nn.Module):
         mu_dim=None,
         long_skip_connection=False,
         spk_dim=None,
+        out_channels=None,
         static_chunk_size=50,
         num_decoding_left_chunks=2
     ):
@@ -137,6 +138,7 @@ class DiT(nn.Module):
 
         self.norm_out = AdaLayerNormZero_Final(dim)  # final modulation
         self.proj_out = nn.Linear(dim, mel_dim)
+        self.out_channels = out_channels
         self.static_chunk_size = static_chunk_size
         self.num_decoding_left_chunks = num_decoding_left_chunks
 

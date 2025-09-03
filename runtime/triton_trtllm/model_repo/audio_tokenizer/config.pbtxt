@@ -20,7 +20,7 @@ dynamic_batching {
 }
 parameters [
   {
-   key: "model_dir", 
+   key: "model_dir",
    value: {string_value:"${model_dir}"}
   }
 ]

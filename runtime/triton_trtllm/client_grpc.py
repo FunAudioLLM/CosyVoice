@@ -413,7 +413,7 @@ def run_sync_streaming_inference(
                 for i in range(1, len(audios)):
                     # Cross-fade section
                     cross_faded_overlap = (audios[i][:cross_fade_samples] * fade_in +
-                                        audios[i - 1][-cross_fade_samples:] * fade_out)
+                                           audios[i - 1][-cross_fade_samples:] * fade_out)
                     # Middle section of the current chunk
                     middle_part = audios[i][cross_fade_samples:-cross_fade_samples]
                     # Concatenate

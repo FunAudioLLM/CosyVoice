@@ -41,10 +41,10 @@ from transformers import AutoTokenizer
 import torchaudio
 
 
-
 from matcha.utils.audio import mel_spectrogram
 
 torch.set_num_threads(1)
+
 
 class TritonPythonModel:
     """Triton Python model for Spark TTS.
@@ -65,7 +65,7 @@ class TritonPythonModel:
         parameters = self.model_config['parameters']
         model_params = {k: v["string_value"] for k, v in parameters.items()}
         self.logger.log_info(f"model_params:{model_params}")
-        self.dynamic_chunk_strategy = model_params.get("dynamic_chunk_strategy", "exponential") # "exponential" or "time_based"
+        self.dynamic_chunk_strategy = model_params.get("dynamic_chunk_strategy", "exponential")  # "exponential" or "time_based"
         self.logger.log_info(f"Using dynamic chunk strategy: {self.dynamic_chunk_strategy}")
 
         # Initialize tokenizer
@@ -193,7 +193,6 @@ class TritonPythonModel:
 
         return prompt_speech_tokens
 
-
     def forward_speaker_embedding(self, wav):
         """Forward pass through the speaker embedding component.
 
@@ -218,7 +217,6 @@ class TritonPythonModel:
         prompt_spk_embedding = torch.utils.dlpack.from_dlpack(prompt_spk_embedding.to_dlpack())
 
         return prompt_spk_embedding
-
 
     def forward_token2wav(
             self,
@@ -254,7 +252,6 @@ class TritonPythonModel:
             inputs_tensor.append(token_offset_tensor)
             inputs_tensor.append(finalize_tensor)
 
-
         # Create and execute inference request
         inference_request = pb_utils.InferenceRequest(
             model_name='token2wav',
@@ -281,7 +278,6 @@ class TritonPythonModel:
         input_ids = torch.cat([input_ids, prompt_speech_tokens], dim=1)
         return input_ids
 
-
     def _extract_speech_feat(self, speech):
         speech_feat = mel_spectrogram(
             speech,
@@ -298,7 +294,6 @@ class TritonPythonModel:
                 self.device)
         speech_feat = speech_feat.unsqueeze(dim=0)
         return speech_feat
-
 
     def _llm_gen_thread(self, generated_ids_iter, semantic_token_ids_arr, llm_is_done_flag):
         for generated_ids in generated_ids_iter:
@@ -338,9 +333,8 @@ class TritonPythonModel:
             prompt_speech_feat = speech_feat[:, :2 * token_len].contiguous().half()
             prompt_speech_tokens = prompt_speech_tokens[:, :token_len].contiguous()
 
-
             flow_prompt_speech_token_len = prompt_speech_tokens.shape[-1]
-            
+
             reference_text = pb_utils.get_input_tensor_by_name(request, "reference_text").as_numpy()
             reference_text = reference_text[0][0].decode('utf-8')
 
@@ -385,7 +379,9 @@ class TritonPythonModel:
                         this_tts_speech_token = semantic_token_ids_arr[:token_offset + this_token_hop_len + self.flow_pre_lookahead_len]
                         this_tts_speech_token = torch.tensor(this_tts_speech_token).unsqueeze(dim=0).to(torch.int32).to(self.device)
 
-                        sub_tts_speech = self.forward_token2wav(prompt_speech_tokens, prompt_speech_feat, prompt_spk_embedding, this_tts_speech_token, request_id, token_offset, False)
+                        sub_tts_speech = self.forward_token2wav(
+                            prompt_speech_tokens, prompt_speech_feat, prompt_spk_embedding,
+                            this_tts_speech_token, request_id, token_offset, False)
 
                         audio_tensor = pb_utils.Tensor.from_dlpack("waveform", to_dlpack(sub_tts_speech))
                         inference_response = pb_utils.InferenceResponse(output_tensors=[audio_tensor])
@@ -413,7 +409,6 @@ class TritonPythonModel:
                                     else:
                                         this_token_hop_len = self.token_hop_len
                                     this_token_hop_len = max(self.token_hop_len, this_token_hop_len)
-                        
                         chunk_index += 1
                     else:
                         time.sleep(0.02)
@@ -423,7 +418,7 @@ class TritonPythonModel:
                 audio_tensor = pb_utils.Tensor.from_dlpack("waveform", to_dlpack(sub_tts_speech))
                 inference_response = pb_utils.InferenceResponse(output_tensors=[audio_tensor])
                 response_sender.send(inference_response)
-                
+
                 llm_thread.join()
                 response_sender.send(flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
                 self.logger.log_info("send tritonserver_response_complete_final to end")

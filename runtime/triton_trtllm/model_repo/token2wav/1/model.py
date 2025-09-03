@@ -49,6 +49,7 @@ logger = logging.getLogger(__name__)
 ORIGINAL_VOCAB_SIZE = 151663
 torch.set_num_threads(1)
 
+
 class CosyVoice2:
 
     def __init__(self, model_dir, load_jit=False, load_trt=False, fp16=False, trt_concurrent=1, device='cuda'):
@@ -122,7 +123,6 @@ class CosyVoice2Model:
         max_shape = [(2, 80, 3000), (2, 1, 3000), (2, 80, 3000), (2, 80, 3000)]
         input_names = ["x", "mask", "mu", "cond"]
         return {'min_shape': min_shape, 'opt_shape': opt_shape, 'max_shape': max_shape, 'input_names': input_names}
-
 
     def token2wav(self, token, prompt_token, prompt_feat, embedding, token_offset, uuid, stream=False, finalize=False, speed=1.0):
         with torch.cuda.amp.autocast(self.fp16):

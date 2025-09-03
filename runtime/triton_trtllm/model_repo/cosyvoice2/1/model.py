@@ -35,9 +35,9 @@ import torch
 from torch.utils.dlpack import from_dlpack, to_dlpack
 import triton_python_backend_utils as pb_utils
 from transformers import AutoTokenizer
-import torchaudio.compliance.kaldi as kaldi
+
 import torchaudio
-import onnxruntime
+
 
 
 from matcha.utils.audio import mel_spectrogram
@@ -71,12 +71,6 @@ class TritonPythonModel:
 
         self.device = torch.device("cuda")
         self.decoupled = pb_utils.using_decoupled_model_transaction_policy(self.model_config)
-
-        campplus_model = f'{model_params["model_dir"]}/campplus.onnx'
-        option = onnxruntime.SessionOptions()
-        option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
-        option.intra_op_num_threads = 1
-        self.campplus_session = onnxruntime.InferenceSession(campplus_model, sess_options=option, providers=["CPUExecutionProvider"])
 
     def forward_llm(self, input_ids):
         """
@@ -190,6 +184,33 @@ class TritonPythonModel:
 
         return prompt_speech_tokens
 
+
+    def forward_speaker_embedding(self, wav):
+        """Forward pass through the speaker embedding component.
+
+        Args:
+            wav: Input waveform tensor
+
+        Returns:
+            Prompt speaker embedding tensor
+        """
+        inference_request = pb_utils.InferenceRequest(
+            model_name='speaker_embedding',
+            requested_output_names=['prompt_spk_embedding'],
+            inputs=[pb_utils.Tensor.from_dlpack("reference_wav", to_dlpack(wav))]
+        )
+
+        inference_response = inference_request.exec()
+        if inference_response.has_error():
+            raise pb_utils.TritonModelException(inference_response.error().message())
+
+        # Extract and convert output tensors
+        prompt_spk_embedding = pb_utils.get_output_tensor_by_name(inference_response, 'prompt_spk_embedding')
+        prompt_spk_embedding = torch.utils.dlpack.from_dlpack(prompt_spk_embedding.to_dlpack())
+
+        return prompt_spk_embedding
+
+
     def forward_token2wav(
             self,
             prompt_speech_tokens: torch.Tensor,
@@ -251,16 +272,6 @@ class TritonPythonModel:
         input_ids = torch.cat([input_ids, prompt_speech_tokens], dim=1)
         return input_ids
 
-    def _extract_spk_embedding(self, speech):
-        feat = kaldi.fbank(speech,
-                           num_mel_bins=80,
-                           dither=0,
-                           sample_frequency=16000)
-        feat = feat - feat.mean(dim=0, keepdim=True)
-        embedding = self.campplus_session.run(None,
-                                              {self.campplus_session.get_inputs()[0].name: feat.unsqueeze(dim=0).cpu().numpy()})[0].flatten().tolist()
-        embedding = torch.tensor([embedding]).to(self.device).half()
-        return embedding
 
     def _extract_speech_feat(self, speech):
         speech_feat = mel_spectrogram(
@@ -330,7 +341,7 @@ class TritonPythonModel:
             # Generate semantic tokens with LLM
             generated_ids_iter = self.forward_llm(input_ids)
 
-            prompt_spk_embedding = self._extract_spk_embedding(wav_tensor)
+            prompt_spk_embedding = self.forward_speaker_embedding(wav_tensor)
             print(f"here2")
             if self.decoupled:
                 response_sender = request.get_response_sender()

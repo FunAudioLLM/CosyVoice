@@ -60,6 +60,7 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
     cp -r ./model_repo/audio_tokenizer $model_repo
     cp -r ./model_repo/tensorrt_llm $model_repo
     cp -r ./model_repo/token2wav $model_repo
+    cp -r ./model_repo/speaker_embedding $model_repo
 
     ENGINE_PATH=$trt_engines_dir
     MAX_QUEUE_DELAY_MICROSECONDS=0
@@ -67,11 +68,12 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
     LLM_TOKENIZER_DIR=$huggingface_model_local_dir
     BLS_INSTANCE_NUM=4
     TRITON_MAX_BATCH_SIZE=16
-    DECOUPLED_MODE=False
+    DECOUPLED_MODE=True # True for streaming, False for offline
 
     python3 scripts/fill_template.py -i ${model_repo}/token2wav/config.pbtxt model_dir:${MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
     python3 scripts/fill_template.py -i ${model_repo}/audio_tokenizer/config.pbtxt model_dir:${MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
     python3 scripts/fill_template.py -i ${model_repo}/${cosyvoice2_dir}/config.pbtxt model_dir:${MODEL_DIR},bls_instance_num:${BLS_INSTANCE_NUM},llm_tokenizer_dir:${LLM_TOKENIZER_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},decoupled_mode:${DECOUPLED_MODE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
+    python3 scripts/fill_template.py -i ${model_repo}/speaker_embedding/config.pbtxt model_dir:${MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
     python3 scripts/fill_template.py -i ${model_repo}/tensorrt_llm/config.pbtxt triton_backend:tensorrtllm,triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},decoupled_mode:${DECOUPLED_MODE},max_beam_width:1,engine_dir:${ENGINE_PATH},max_tokens_in_paged_kv_cache:2560,max_attention_window_size:2560,kv_cache_free_gpu_mem_fraction:0.5,exclude_input_in_output:True,enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS},encoder_input_features_data_type:TYPE_FP16,logits_datatype:TYPE_FP32
 
 fi
@@ -82,7 +84,7 @@ if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
 fi
 
 if [ $stage -le 4 ] && [ $stop_stage -ge 4 ]; then
-    echo "Single request test http"
+    echo "Single request test http, only work for offline TTS mode"
     python3 client_http.py \
         --reference-audio ./assets/prompt_audio.wav \
         --reference-text "吃燕窝就选燕之屋，本节目由26年专注高品质燕窝的燕之屋冠名播出。豆奶牛奶换着喝，营养更均衡，本节目由豆本豆豆奶特约播出。" \
@@ -92,15 +94,16 @@ fi
 
 if [ $stage -le 5 ] && [ $stop_stage -ge 5 ]; then
     echo "Running benchmark client grpc"
-    num_task=4
-    # set mode=streaming, when decoupled=True
-    # set mode=offline, when decoupled=False
-    mode=offline
+    num_task=1
+
+    mode=streaming
+    BLS_INSTANCE_NUM=4
+
     python3 client_grpc.py \
         --server-addr localhost \
         --model-name cosyvoice2 \
         --num-tasks $num_task \
         --mode $mode \
         --huggingface-dataset yuekai/seed_tts_cosy2 \
-        --log-dir ./log_concurrent_tasks_${num_task}_${mode}_bls_4_${trt_dtype}
+        --log-dir ./log_concurrent_tasks_${num_task}_${mode}_bls_${BLS_INSTANCE_NUM}
 fi

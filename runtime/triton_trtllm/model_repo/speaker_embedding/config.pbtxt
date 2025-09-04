@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: "audio_tokenizer"
+name: "speaker_embedding"
 backend: "python"
 max_batch_size: ${triton_max_batch_size}
 dynamic_batching {
@@ -30,17 +30,12 @@ input [
     name: "reference_wav"
     data_type: TYPE_FP32
     dims: [-1]
-  },
-  {
-    name: "reference_wav_len"
-    data_type: TYPE_INT32
-    dims: [1]
   }
 ]
 output [
   {
-    name: "prompt_speech_tokens"
-    data_type: TYPE_INT32
+    name: "prompt_spk_embedding"
+    data_type: TYPE_FP16
     dims: [-1]
   }
 ]

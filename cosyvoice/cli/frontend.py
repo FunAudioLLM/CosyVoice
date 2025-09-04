@@ -198,8 +198,15 @@ class CosyVoiceFrontEnd:
 
     def frontend_instruct2(self, tts_text, instruct_text, prompt_speech_16k, resample_rate, zero_shot_spk_id):
         model_input = self.frontend_zero_shot(tts_text, instruct_text + '<|endofprompt|>', prompt_speech_16k, resample_rate, zero_shot_spk_id)
-        del model_input['llm_prompt_speech_token']
-        del model_input['llm_prompt_speech_token_len']
+        if bool(zero_shot_spk_id):
+            prompt_text_token, prompt_text_token_len = self._extract_text_token(instruct_text + '<|endofprompt|>')
+            model_input['prompt_text'] = prompt_text_token
+            model_input['prompt_text_len'] = prompt_text_token_len
+        if 'llm_prompt_speech_token' in model_input.keys():
+            del model_input['llm_prompt_speech_token']
+        if 'llm_prompt_speech_token_len' in model_input.keys():
+            del model_input['llm_prompt_speech_token_len']
+
         return model_input
 
     def frontend_vc(self, source_speech_16k, prompt_speech_16k, resample_rate):

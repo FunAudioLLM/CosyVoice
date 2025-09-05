@@ -9,7 +9,7 @@ ENV PYTHONUNBUFFERED=1
 SHELL ["/bin/bash", "--login", "-c"]
 
 RUN apt-get update -y --fix-missing
-RUN apt-get install -y git build-essential curl wget ffmpeg unzip git git-lfs sox libsox-dev && \
+RUN apt-get install -y build-essential curl ffmpeg git git-lfs libsox-dev sox unzip wget && \
     apt-get clean && \
     git lfs install
 
@@ -28,8 +28,6 @@ RUN wget --quiet https://github.com/conda-forge/miniforge/releases/latest/downlo
 
 ENV PATH /opt/conda/bin:$PATH
 
-RUN conda config --add channels conda-forge && \
-    conda config --set channel_priority strict
 # ------------------------------------------------------------------
 # ~conda
 # ==================================================================
@@ -44,7 +42,7 @@ ENV PYTHONPATH="${PYTHONPATH}:/workspace/CosyVoice:/workspace/CosyVoice/third_pa
 
 RUN git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
 
-RUN conda activate ${VENV} && conda install -y -c conda-forge pynini==2.1.5
+RUN conda activate ${VENV} && conda install -y pynini==2.1.5
 RUN conda activate ${VENV} && cd CosyVoice && \
     pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com --no-cache-dir
 

@@ -77,16 +77,19 @@ The following results were obtained by decoding on a single L20 GPU with 26 prom
 **Streaming TTS (First Chunk Latency)**
 | Mode | Concurrency | Avg Latency (ms) | P50 Latency (ms) | RTF |
 |---|---|---|---|---|
-| Streaming, Decoupled=True | 1 | 220.43 | 218.07 | 0.1237 |
-| Streaming, Decoupled=True | 2 | 476.97 | 369.25 | 0.1022 |
-| Streaming, Decoupled=True | 4 | 1107.34 | 1243.75| 0.0922 |
+| Streaming, use_spk2info_cache=False | 1 | 220.43 | 218.07 | 0.1237 |
+| Streaming, use_spk2info_cache=False | 2 | 476.97 | 369.25 | 0.1022 |
+| Streaming, use_spk2info_cache=False | 4 | 1107.34 | 1243.75| 0.0922 |
+| Streaming, use_spk2info_cache=True | 1 | 189.88 | 184.81 | 0.1155 |
+| Streaming, use_spk2info_cache=True | 2 | 323.04 | 316.83 | 0.0905 |
+| Streaming, use_spk2info_cache=True | 4 | 977.68 | 903.68| 0.0733 |
 
 **Offline TTS (Full Sentence Latency)**
 | Mode | Note | Concurrency | Avg Latency (ms) | P50 Latency (ms) | RTF |
 |---|---|---|---|---|---|
-| Offline, Decoupled=False | [Commit](https://github.com/yuekaizhang/CosyVoice/commit/b44f12110224cb11c03aee4084b1597e7b9331cb) | 1 | 758.04 | 615.79 | 0.0891 |
-| Offline, Decoupled=False | [Commit](https://github.com/yuekaizhang/CosyVoice/commit/b44f12110224cb11c03aee4084b1597e7b9331cb) | 2 | 1025.93 | 901.68 | 0.0657 |
-| Offline, Decoupled=False | [Commit](https://github.com/yuekaizhang/CosyVoice/commit/b44f12110224cb11c03aee4084b1597e7b9331cb) | 4 | 1914.13 | 1783.58 | 0.0610 |
+| Offline, Decoupled=False, use_spk2info_cache=False | [Commit](https://github.com/yuekaizhang/CosyVoice/commit/b44f12110224cb11c03aee4084b1597e7b9331cb) | 1 | 758.04 | 615.79 | 0.0891 |
+| Offline, Decoupled=False, use_spk2info_cache=False | [Commit](https://github.com/yuekaizhang/CosyVoice/commit/b44f12110224cb11c03aee4084b1597e7b9331cb) | 2 | 1025.93 | 901.68 | 0.0657 |
+| Offline, Decoupled=False, use_spk2info_cache=False | [Commit](https://github.com/yuekaizhang/CosyVoice/commit/b44f12110224cb11c03aee4084b1597e7b9331cb) | 4 | 1914.13 | 1783.58 | 0.0610 |
 
 ### OpenAI-Compatible Server
 

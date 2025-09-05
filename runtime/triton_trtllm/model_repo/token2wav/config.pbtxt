@@ -35,16 +35,19 @@ input [
     name: "prompt_speech_tokens"
     data_type: TYPE_INT32
     dims: [-1]
+    optional: true
   },
   {
     name: "prompt_speech_feat"
     data_type: TYPE_FP16
     dims: [-1, 80]
+    optional: true
   },
   {
     name: "prompt_spk_embedding"
     data_type: TYPE_FP16
     dims: [-1]
+    optional: true
   },
   {
     name: "token_offset"

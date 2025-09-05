@@ -187,6 +187,12 @@ class TritonPythonModel:
             model_dir, load_jit=False, load_trt=True, fp16=True, device=self.device
         )
 
+        spk_info_path = os.path.join(model_dir, "spk2info.pt")
+        if not os.path.exists(spk_info_path):
+            raise ValueError(f"spk2info.pt not found in {model_dir}")
+        spk_info = torch.load(spk_info_path, map_location="cpu", weights_only=False)
+        self.default_spk_info = spk_info["001"]
+
         logger.info("Token2Wav initialized successfully")
 
     def execute(self, requests):
@@ -202,17 +208,23 @@ class TritonPythonModel:
         # Process each request in batch
         for request in requests:
             target_speech_tokens_tensor = pb_utils.get_input_tensor_by_name(request, "target_speech_tokens").as_numpy()
-            prompt_speech_tokens_tensor = pb_utils.get_input_tensor_by_name(request, "prompt_speech_tokens").as_numpy()
-            prompt_speech_feat_tensor = pb_utils.get_input_tensor_by_name(request, "prompt_speech_feat").as_numpy()
-            prompt_spk_embedding_tensor = pb_utils.get_input_tensor_by_name(request, "prompt_spk_embedding").as_numpy()
-
             target_speech_tokens = torch.from_numpy(target_speech_tokens_tensor).to(self.device)
-            prompt_speech_tokens = torch.from_numpy(prompt_speech_tokens_tensor).to(self.device)
-            prompt_speech_feat = torch.from_numpy(prompt_speech_feat_tensor).to(self.device)
-            prompt_spk_embedding = torch.from_numpy(prompt_spk_embedding_tensor).to(self.device)
+
+            prompt_speech_tokens_tensor = pb_utils.get_input_tensor_by_name(request, "prompt_speech_tokens")
+            if prompt_speech_tokens_tensor is not None:
+                prompt_speech_tokens_tensor = prompt_speech_tokens_tensor.as_numpy()
+                prompt_speech_feat_tensor = pb_utils.get_input_tensor_by_name(request, "prompt_speech_feat").as_numpy()
+                prompt_spk_embedding_tensor = pb_utils.get_input_tensor_by_name(request, "prompt_spk_embedding").as_numpy()
+                prompt_speech_tokens = torch.from_numpy(prompt_speech_tokens_tensor).to(self.device)
+                prompt_speech_feat = torch.from_numpy(prompt_speech_feat_tensor).to(self.device)
+                prompt_spk_embedding = torch.from_numpy(prompt_spk_embedding_tensor).to(self.device)
+                prompt_speech_tokens = prompt_speech_tokens - ORIGINAL_VOCAB_SIZE
+            else:
+                prompt_speech_tokens = self.default_spk_info["speech_token"].to(self.device)
+                prompt_speech_feat = self.default_spk_info["speech_feat"].to(torch.float16).to(self.device)
+                prompt_spk_embedding = self.default_spk_info["embedding"].to(torch.float16).to(self.device)
 
             # shift the speech tokens according to the original vocab size
-            prompt_speech_tokens = prompt_speech_tokens - ORIGINAL_VOCAB_SIZE
             target_speech_tokens = target_speech_tokens - ORIGINAL_VOCAB_SIZE
 
             # We set token_offset as an optional input to support streaming/offline tts. It has to be None when offline tts.

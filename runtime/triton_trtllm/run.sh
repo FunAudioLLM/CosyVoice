@@ -15,7 +15,7 @@ trt_engines_dir=./trt_engines_${trt_dtype}
 
 model_repo=./model_repo_cosyvoice2
 
-use_spk2info_cache=True
+use_spk2info_cache=False
 
 if [ $stage -le -1 ] && [ $stop_stage -ge -1 ]; then
     echo "Cloning CosyVoice"

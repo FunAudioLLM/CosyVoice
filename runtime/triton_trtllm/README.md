@@ -84,6 +84,8 @@ The following results were obtained by decoding on a single L20 GPU with 26 prom
 | Streaming, use_spk2info_cache=True | 2 | 323.04 | 316.83 | 0.0905 |
 | Streaming, use_spk2info_cache=True | 4 | 977.68 | 903.68| 0.0733 |
 
+> If your service only needs a fixed speaker, you can set `use_spk2info_cache=True` in `run.sh`. To add more speakers, refer to the instructions [here](https://github.com/qi-hua/async_cosyvoice?tab=readme-ov-file#9-spk2info-%E8%AF%B4%E6%98%8E).
+
 **Offline TTS (Full Sentence Latency)**
 | Mode | Note | Concurrency | Avg Latency (ms) | P50 Latency (ms) | RTF |
 |---|---|---|---|---|---|

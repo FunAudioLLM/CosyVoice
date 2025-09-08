@@ -78,7 +78,7 @@ For offline inference mode benchmark, please check the below command:
 # install FlashCosyVoice for token2wav batching
 # git clone https://github.com/yuekaizhang/FlashCosyVoice.git /workspace/FlashCosyVoice -b trt
 # cd /workspace/FlashCosyVoice
-# pip install -e . 
+# pip install -e .
 # cd -
 # wget https://huggingface.co/yuekai/cosyvoice2_flow_onnx/resolve/main/flow.decoder.estimator.fp32.dynamic_batch.onnx -O $model_scope_model_local_dir/flow.decoder.estimator.fp32.dynamic_batch.onnx
 
@@ -116,7 +116,7 @@ The following results were obtained by decoding on a single L20 GPU with 26 prom
 | HF | 1 | 39.26 |  44.31 | 0.2494 |
 | HF | 2 | 30.54 | 35.62 | 0.2064 |
 | HF | 4 | 18.63 |  23.90 | 0.1421 |
-| HF | 8 | 11.22 | 16.45 | 0.0947 | 
+| HF | 8 | 11.22 | 16.45 | 0.0947 |
 | HF | 16 | 8.42 | 13.78 | 0.0821 |
 | TRTLLM | 1 | 12.46 | 17.31 | 0.0987 |
 | TRTLLM | 2 | 7.64 |12.65 | 0.0739 |

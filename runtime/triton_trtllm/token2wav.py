@@ -286,7 +286,7 @@ class CosyVoice2_Token2Wav(torch.nn.Module):
 
 def collate_fn(batch):
     ids, generated_speech_tokens_list, prompt_audios_list, prompt_audios_sample_rate = [], [], [], []
-    for i, item in enumerate(batch):
+    for _, item in enumerate(batch):
         generated_speech_tokens_list.append(item['target_audio_cosy2_tokens'])
         audio = torch.from_numpy(item['prompt_audio']['array']).float()
         prompt_audios_list.append(audio)
@@ -319,7 +319,7 @@ if __name__ == "__main__":
 
     data_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn, num_workers=0)
 
-    for epoch in range(args.warmup):
+    for _ in range(args.warmup):
         start_time = time.time()
 
         for batch in data_loader:

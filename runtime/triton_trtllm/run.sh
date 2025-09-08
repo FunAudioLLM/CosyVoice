@@ -27,6 +27,7 @@ fi
 
 if [ $stage -le 0 ] && [ $stop_stage -ge 0 ]; then
     echo "Downloading CosyVoice2-0.5B"
+    # see https://github.com/nvidia-china-sae/mair-hub/blob/main/rl-tutorial/cosyvoice_llm/pretrained_to_huggingface.py
     huggingface-cli download --local-dir $huggingface_model_local_dir yuekai/cosyvoice2_llm
     modelscope download --model iic/CosyVoice2-0.5B --local_dir $model_scope_model_local_dir
     # download spk2info.pt to directly use cached speech tokens, speech feats, and embeddings
@@ -114,4 +115,28 @@ if [ $stage -le 5 ] && [ $stop_stage -ge 5 ]; then
         --use-spk2info-cache $use_spk2info_cache \
         --huggingface-dataset yuekai/seed_tts_cosy2 \
         --log-dir ./log_concurrent_tasks_${num_task}_${mode}_bls_${BLS_INSTANCE_NUM}_spk_cache_${use_spk2info_cache}
+fi
+
+if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
+  echo "stage 6: Offline inference benchmark"
+  n_gpus=1
+  datasets=(wenetspeech4tts) # wenetspeech4tts, test_zh, zero_shot_zh
+  backend=trtllm # hf, trtllm, vllm
+
+  batch_sizes=(16 8 4 2 1)
+  token2wav_batch_size=1
+  for batch_size in ${batch_sizes[@]}; do
+    for dataset in ${datasets[@]}; do
+    output_dir=./${dataset}_${backend}_llm_batch_size_${batch_size}_token2wav_batch_size_${token2wav_batch_size}
+    CUDA_VISIBLE_DEVICES=0 \
+        python3 offline_inference.py \
+            --output-dir $output_dir \
+            --llm-model-name-or-path $huggingface_model_local_dir \
+            --token2wav-path $model_scope_model_local_dir \
+            --backend $backend \
+            --batch-size $batch_size --token2wav-batch-size $token2wav_batch_size \
+            --engine-dir $trt_engines_dir \
+            --split-name ${dataset} || exit 1
+    done
+  done
 fi

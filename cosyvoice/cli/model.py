@@ -15,6 +15,21 @@
 import os
 from typing import Generator
 import torch
+# try:
+#     import intel_extension_for_pytorch as ipex
+# except Exception:
+#     pass
+#
+# if torch.xpu.is_available():
+#     from ipex_to_cuda import ipex_init
+#     ipex_active, message = ipex_init()
+#     print(f"IPEX Active: {ipex_active} Message: {message}")
+#
+#
+# if torch.cuda.is_available():
+#     if hasattr(torch.cuda, "is_xpu_hijacked") and torch.cuda.is_xpu_hijacked:
+#         print("IPEX to CUDA is working!")
+
 import numpy as np
 import threading
 import time
@@ -33,7 +48,7 @@ class CosyVoiceModel:
                  flow: torch.nn.Module,
                  hift: torch.nn.Module,
                  fp16: bool = False):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'xpu' if torch.xpu.is_available() else 'cpu')
         self.llm = llm
         self.flow = flow
         self.hift = hift
@@ -55,7 +70,9 @@ class CosyVoiceModel:
         # rtf and decoding related
         self.stream_scale_factor = 1
         assert self.stream_scale_factor >= 1, 'stream_scale_factor should be greater than 1, change it according to your actual rtf'
-        self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device)) if torch.cuda.is_available() else nullcontext()
+        self.llm_context = torch.cuda.stream(
+            torch.cuda.Stream(self.device)) if torch.cuda.is_available() else torch.xpu.stream(
+            torch.xpu.Stream(self.device)) if torch.xpu.is_available() else nullcontext()
         self.lock = threading.Lock()
         # dict used to store session related variable
         self.tts_speech_token_dict = {}
@@ -244,7 +261,7 @@ class CosyVoice2Model(CosyVoiceModel):
                  flow: torch.nn.Module,
                  hift: torch.nn.Module,
                  fp16: bool = False):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'xpu' if torch.xpu.is_available() else 'cpu')
         self.llm = llm
         self.flow = flow
         self.hift = hift
@@ -260,7 +277,7 @@ class CosyVoice2Model(CosyVoiceModel):
         # speech fade in out
         self.speech_window = np.hamming(2 * self.source_cache_len)
         # rtf and decoding related
-        self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device)) if torch.cuda.is_available() else nullcontext()
+        self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device)) if torch.cuda.is_available() else torch.xpu.stream(torch.xpu.Stream(self.device)) if torch.xpu.is_available() else nullcontext()
         self.lock = threading.Lock()
         # dict used to store session related variable
         self.tts_speech_token_dict = {}

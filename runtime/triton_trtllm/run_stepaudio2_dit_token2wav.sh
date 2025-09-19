@@ -2,6 +2,9 @@
 # Copyright (c) 2025 NVIDIA (authors: Yuekai Zhang)
 export CUDA_VISIBLE_DEVICES=0
 cosyvoice_path=/workspace/CosyVoice
+cosyvoice_path=/workspace_yuekai/tts/CosyVoice
+stepaudio2_path=/workspace_yuekai/tts/Step-Audio2
+export PYTHONPATH=${stepaudio2_path}:$PYTHONPATH
 export PYTHONPATH=${cosyvoice_path}:$PYTHONPATH
 export PYTHONPATH=${cosyvoice_path}/third_party/Matcha-TTS:$PYTHONPATH
 stage=$1
@@ -139,4 +142,12 @@ if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
             --split-name ${dataset} || exit 1
     done
   done
+fi
+
+
+if [ $stage -le 7 ] && [ $stop_stage -ge 7 ]; then
+
+   python3 benchmark_streaming_token2wav.py --enable-trt
+
+
 fi

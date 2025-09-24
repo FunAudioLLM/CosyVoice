@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: "token2wav"
+name: "token2wav_dit"
 backend: "python"
 max_batch_size: ${triton_max_batch_size}
 dynamic_batching {
     max_queue_delay_microseconds: ${max_queue_delay_microseconds}
+    priority_levels: 10
+    default_priority_level: 10
 }
 parameters [
   {
@@ -32,29 +34,14 @@ input [
     dims: [-1]
   },
   {
-    name: "prompt_speech_tokens"
-    data_type: TYPE_INT32
+    name: "reference_wav"
+    data_type: TYPE_FP32
     dims: [-1]
-    optional: true
   },
   {
-    name: "prompt_speech_feat"
-    data_type: TYPE_FP16
-    dims: [-1, 80]
-    optional: true
-  },
-  {
-    name: "prompt_spk_embedding"
-    data_type: TYPE_FP16
-    dims: [-1]
-    optional: true
-  },
-  {
-    name: "token_offset"
+    name: "reference_wav_len"
     data_type: TYPE_INT32
-    dims: [ 1 ]
-    reshape: { shape: [ ] }
-    optional: true
+    dims: [1]
   },
   {
     name: "finalize"

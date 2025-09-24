@@ -209,7 +209,8 @@ def get_args():
         choices=[
             "f5_tts",
             "spark_tts",
-            "cosyvoice2"],
+            "cosyvoice2",
+            "cosyvoice2_dit"],
         help="triton model_repo module name to request",
     )
 
@@ -260,8 +261,8 @@ def get_args():
 
     parser.add_argument(
         "--use-spk2info-cache",
-        type=bool,
-        default=False,
+        type=str,
+        default="False",
         help="Use spk2info cache for reference audio.",
     )
 
@@ -490,6 +491,7 @@ async def send_streaming(
                     padding_duration=padding_duration,
                     use_spk2info_cache=use_spk2info_cache
                 )
+
                 request_id = str(uuid.uuid4())
                 user_data = UserData()
 
@@ -670,11 +672,15 @@ async def main():
             trust_remote_code=True,
         )
         manifest_item_list = []
+        tmp_audio_path="./asset_zero_shot_prompt.wav"
+        tmp_audio_text="希望你以后能够做的比我还好呦。"
         for i in range(len(dataset)):
             manifest_item_list.append(
                 {
                     "audio_filepath": dataset[i]["prompt_audio"],
                     "reference_text": dataset[i]["prompt_text"],
+                    # "audio_filepath": tmp_audio_path,
+                    # "reference_text": tmp_audio_text,
                     "target_audio_path": dataset[i]["id"],
                     "target_text": dataset[i]["target_text"],
                 }
@@ -686,7 +692,7 @@ async def main():
     manifest_item_list = split_data(manifest_item_list, num_tasks)
 
     os.makedirs(args.log_dir, exist_ok=True)
-
+    args.use_spk2info_cache = args.use_spk2info_cache == "True" or args.use_spk2info_cache == "true"
     tasks = []
     start_time = time.time()
     for i in range(num_tasks):

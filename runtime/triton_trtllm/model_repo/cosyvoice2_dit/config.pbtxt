@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: "cosyvoice2"
+name: "cosyvoice2_dit"
 backend: "python"
 max_batch_size: ${triton_max_batch_size}
 dynamic_batching {

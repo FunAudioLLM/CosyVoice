@@ -372,7 +372,6 @@ class CosyVoice2_Token2Wav(torch.nn.Module):
         self, generated_speech_tokens: list[int], last_chunk: bool, request_id: str, speaker_id: str, prompt_audio: torch.Tensor = None, prompt_audio_sample_rate: int = 16000
     ):  
         if speaker_id not in self.speaker_cache:
-        # if 1:
             assert prompt_audio is not None, "prompt_audio is required for new speaker"
             assert prompt_audio_sample_rate == 16000
 
@@ -384,19 +383,9 @@ class CosyVoice2_Token2Wav(torch.nn.Module):
 
             prompt_audio_dict = {'spk_emb_for_flow': spk_emb_for_flow, 'prompt_mels_for_flow': prompt_mels_for_flow}
 
-        # if speaker_id not in self.speaker_cache:
-        # if 1:
-            
             cache_dict = self.get_prompt_audio_cache_for_streaming_tts(prompt_speech_tokens_list, prompt_mels_for_flow, prompt_mels_lens_for_flow, spk_emb_for_flow)
             self.speaker_cache[speaker_id] = {'prompt_audio_dict': prompt_audio_dict, 'cache_dict': cache_dict}
             print(f"speaker_id {speaker_id} added to cache")
-
-            # get a clone of cache dict ['estimator_att_cache'] and later check if it would be change 
-        att_cache_clone = self.speaker_cache[speaker_id]['cache_dict']['estimator_att_cache'].clone()
-        cnn_cache_clone = self.speaker_cache[speaker_id]['cache_dict']['estimator_cnn_cache'].clone()
-        conformer_cnn_cache_clone = self.speaker_cache[speaker_id]['cache_dict']['conformer_cnn_cache'].clone()
-        conformer_att_cache_clone = self.speaker_cache[speaker_id]['cache_dict']['conformer_att_cache'].clone()
-    
 
         if request_id not in self.streaming_flow_cache:
             self.streaming_flow_cache[request_id] = {k: v.clone() for k, v in self.speaker_cache[speaker_id]['cache_dict'].items()}
@@ -405,6 +394,12 @@ class CosyVoice2_Token2Wav(torch.nn.Module):
             source = torch.zeros(1, 1, 0, device='cuda'),
             speech = torch.zeros(1, 0, device='cuda'),
             )
+        # else:
+        #     for k, v in self.streaming_flow_cache[request_id].items():
+        #         print(f"k: {k}, v: {v.shape}, dtype: {v.dtype}")
+        #     for k, v in self.hift_cache_dict[request_id].items():
+        #         print(f"k: {k}, v: {v.shape}, dtype: {v.dtype}")
+        #     breakpoint()
 
         current_request_cache = self.streaming_flow_cache[request_id]
 
@@ -419,33 +414,6 @@ class CosyVoice2_Token2Wav(torch.nn.Module):
             last_chunk=last_chunk,
             n_timesteps=10,
         )
-
-        # get the original att_cache
-        original_att_cache = self.speaker_cache[speaker_id]['cache_dict']['estimator_att_cache']
-        original_cnn_cache = self.speaker_cache[speaker_id]['cache_dict']['estimator_cnn_cache']
-        original_conformer_cnn_cache = self.speaker_cache[speaker_id]['cache_dict']['conformer_cnn_cache']
-        original_conformer_att_cache = self.speaker_cache[speaker_id]['cache_dict']['conformer_att_cache']
-        if not torch.allclose(original_att_cache, att_cache_clone):
-            print("att_cache changed")
-            # print the last 10 elements of original_att_cache and att_cache_clone
-            print(original_att_cache[:, :, :, -10:])
-            print(att_cache_clone[:, :, :, -10:])
-            breakpoint()
-        if not torch.allclose(original_cnn_cache, cnn_cache_clone):
-            print("cnn_cache changed")
-            print(original_cnn_cache[..., -10:])
-            print(cnn_cache_clone[..., -10:])
-            breakpoint()
-        if not torch.allclose(original_conformer_cnn_cache, conformer_cnn_cache_clone):
-            print("conformer_cnn_cache changed")
-            print(original_conformer_cnn_cache[..., -10:])
-            print(conformer_cnn_cache_clone[..., -10:])
-            breakpoint()
-        if not torch.allclose(original_conformer_att_cache, conformer_att_cache_clone):
-            print("conformer_att_cache changed")
-            print(original_conformer_att_cache[..., -10:])
-            print(conformer_att_cache_clone[..., -10:])
-            breakpoint()
 
         self.streaming_flow_cache[request_id] = new_streaming_flow_cache
 
@@ -482,7 +450,7 @@ class CosyVoice2_Token2Wav(torch.nn.Module):
             assert request_id in self.streaming_flow_cache
             self.streaming_flow_cache.pop(request_id)
             self.hift_cache_dict.pop(request_id)
-        # breakpoint()
+
         return speech
 
 def collate_fn(batch):

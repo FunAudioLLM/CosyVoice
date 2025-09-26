@@ -103,39 +103,91 @@ class TritonPythonModel:
             List of inference responses containing generated waveforms
         """
         responses = []
-        # Process each request in batch
         for request in requests:
-            target_speech_tokens_tensor = pb_utils.get_input_tensor_by_name(request, "target_speech_tokens").as_numpy()
-            target_speech_tokens = torch.from_numpy(target_speech_tokens_tensor)#.to(self.device)
-            # shift the speech tokens according to the original vocab size
-            target_speech_tokens = target_speech_tokens - ORIGINAL_VOCAB_SIZE
+            request_id = request.request_id()
+
+            # Get inputs
+            target_speech_tokens_tensor = pb_utils.get_input_tensor_by_name(request, "target_speech_tokens")
+            target_speech_tokens = torch.utils.dlpack.from_dlpack(target_speech_tokens_tensor.to_dlpack())
             target_speech_tokens = target_speech_tokens.squeeze().tolist()
 
-            # We set token_offset as an optional input to support streaming/offline tts. It has to be None when offline tts.
-           
             finalize = pb_utils.get_input_tensor_by_name(request, "finalize").as_numpy().item()
-                
-            request_id = request.request_id()
-               
-
-            wav_array = pb_utils.get_input_tensor_by_name(
-                request, "reference_wav").as_numpy()
-            wav_len = pb_utils.get_input_tensor_by_name(
-                request, "reference_wav_len").as_numpy().item()
-
-            wav_array = torch.from_numpy(wav_array)
-            # Prepare inputs
-            wav = wav_array[:, :wav_len].squeeze(0)
-
+            wav_array = pb_utils.get_input_tensor_by_name(request, "reference_wav").as_numpy()
+            wav_len = pb_utils.get_input_tensor_by_name(request, "reference_wav_len").as_numpy().item()
+            wav = torch.from_numpy(wav_array)[:, :wav_len].squeeze(0)
             spk_id = get_spk_id_from_prompt_audio(wav)
-            # wav = wav.to(self.device)
 
-            audio_hat = self.token2wav_model.forward_streaming(target_speech_tokens, finalize, request_id=request_id, speaker_id=f"{spk_id}", prompt_audio=wav, prompt_audio_sample_rate=16000)
+            # Handle cache
+            conformer_cnn_cache = pb_utils.get_input_tensor_by_name(request, "conformer_cnn_cache")
+            if conformer_cnn_cache is not None:
+                self.token2wav_model.streaming_flow_cache[request_id]['conformer_cnn_cache'] = torch.utils.dlpack.from_dlpack(conformer_cnn_cache.to_dlpack())
+                
+                conformer_att_cache_np = pb_utils.get_input_tensor_by_name(request, "conformer_att_cache")
+                self.token2wav_model.streaming_flow_cache[request_id]['conformer_att_cache'] = torch.utils.dlpack.from_dlpack(conformer_att_cache_np.to_dlpack()).transpose(0,1)
+                
+                estimator_cnn_cache_np = pb_utils.get_input_tensor_by_name(request, "estimator_cnn_cache")
+                self.token2wav_model.streaming_flow_cache[request_id]['estimator_cnn_cache'] = torch.utils.dlpack.from_dlpack(estimator_cnn_cache_np.to_dlpack()).squeeze(0)
 
-            generated_wave = audio_hat.squeeze(0).cpu().numpy()
+                estimator_att_cache_np = pb_utils.get_input_tensor_by_name(request, "estimator_att_cache")
+                self.token2wav_model.streaming_flow_cache[request_id]['estimator_att_cache'] = torch.utils.dlpack.from_dlpack(estimator_att_cache_np.to_dlpack()).squeeze(0)
 
+                mel_np = pb_utils.get_input_tensor_by_name(request, "mel")
+                self.token2wav_model.streaming_flow_cache[request_id]['mel'] = torch.utils.dlpack.from_dlpack(mel_np.to_dlpack())
+                
+                source_np = pb_utils.get_input_tensor_by_name(request, "source")
+                self.token2wav_model.hift_cache_dict[request_id]['source'] = torch.utils.dlpack.from_dlpack(source_np.to_dlpack())
+                
+                speech_np = pb_utils.get_input_tensor_by_name(request, "speech")
+                self.token2wav_model.hift_cache_dict[request_id]['speech'] = torch.utils.dlpack.from_dlpack(speech_np.to_dlpack())
+
+            # Forward pass
+            audio_hat = self.token2wav_model.forward_streaming(
+                target_speech_tokens, 
+                finalize, 
+                request_id=request_id, 
+                speaker_id=f"{spk_id}", 
+                prompt_audio=wav, 
+                prompt_audio_sample_rate=16000
+            )
+            
+            # Prepare outputs
+            outputs = []
             wav_tensor = pb_utils.Tensor.from_dlpack("waveform", to_dlpack(audio_hat))
-            inference_response = pb_utils.InferenceResponse(output_tensors=[wav_tensor])
-            responses.append(inference_response)
+            outputs.append(wav_tensor)
+            
+            if request_id in self.token2wav_model.streaming_flow_cache:
+                cache = self.token2wav_model.streaming_flow_cache[request_id]
+                hifigan_cache = self.token2wav_model.hift_cache_dict[request_id]
+                conformer_cnn_cache = cache['conformer_cnn_cache']
+                conformer_att_cache = cache['conformer_att_cache'].transpose(0,1)
+                estimator_cnn_cache = cache['estimator_cnn_cache'].unsqueeze(0)
+                estimator_att_cache = cache['estimator_att_cache'].unsqueeze(0)
+                mel = hifigan_cache['mel']
+                source = hifigan_cache['source']
+                speech = hifigan_cache['speech']
 
+                outputs.extend([
+                    pb_utils.Tensor.from_dlpack("conformer_cnn_cache", to_dlpack(conformer_cnn_cache)),
+                    pb_utils.Tensor.from_dlpack("conformer_att_cache", to_dlpack(conformer_att_cache)),
+                    pb_utils.Tensor.from_dlpack("estimator_cnn_cache", to_dlpack(estimator_cnn_cache)),
+                    pb_utils.Tensor.from_dlpack("estimator_att_cache", to_dlpack(estimator_att_cache)),
+                    pb_utils.Tensor.from_dlpack("mel", to_dlpack(mel)),
+                    pb_utils.Tensor.from_dlpack("source", to_dlpack(source)),
+                    pb_utils.Tensor.from_dlpack("speech", to_dlpack(speech)),
+                ])
+            else:
+                outputs.extend([pb_utils.Tensor("conformer_cnn_cache", np.array([], dtype=np.float16)),
+                pb_utils.Tensor("conformer_att_cache", np.array([], dtype=np.float16)),
+                pb_utils.Tensor("estimator_cnn_cache", np.array([], dtype=np.float16)),
+                pb_utils.Tensor("estimator_att_cache", np.array([], dtype=np.float16)),
+                pb_utils.Tensor("mel", np.array([], dtype=np.float32)),
+                pb_utils.Tensor("source", np.array([], dtype=np.float32)),
+                pb_utils.Tensor("speech", np.array([], dtype=np.float32)),
+                ])
+
+            inference_response = pb_utils.InferenceResponse(output_tensors=outputs)
+            responses.append(inference_response)
         return responses
+
+    def finalize(self):
+        self.logger.log_info("Finalizing Token2WavDiT model")

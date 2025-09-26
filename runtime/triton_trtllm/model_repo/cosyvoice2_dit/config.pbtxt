@@ -31,7 +31,7 @@ parameters [
    value: {string_value:"${model_dir}"}
   }
 ]
-parameters: { key: "FORCE_CPU_ONLY_INPUT_TENSORS" value: {string_value:"no"}}
+
 input [
   {
     name: "reference_wav"

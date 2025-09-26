@@ -1,6 +1,6 @@
 #!/bin/bash
 # Copyright (c) 2025 NVIDIA (authors: Yuekai Zhang)
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=0
 cosyvoice_path=/workspace/CosyVoice
 cosyvoice_path=/workspace_yuekai/tts/CosyVoice
 stepaudio2_path=/workspace_yuekai/tts/Step-Audio2
@@ -112,7 +112,7 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
     MODEL_DIR=$model_scope_model_local_dir
     LLM_TOKENIZER_DIR=$huggingface_model_local_dir
     BLS_INSTANCE_NUM=4
-    TRITON_MAX_BATCH_SIZE=32
+    TRITON_MAX_BATCH_SIZE=1
     DECOUPLED_MODE=True # True for streaming, False for offline
     STEP_AUDIO_MODEL_DIR=/workspace_yuekai/tts/CosyVoice/runtime/triton_trtllm/Step-Audio-2-mini/token2wav
 
@@ -154,7 +154,7 @@ if [ $stage -le 5 ] && [ $stop_stage -ge 5 ]; then
         --num-tasks $num_task \
         --mode $mode \
         --huggingface-dataset yuekai/seed_tts_cosy2 \
-        --log-dir ./log_concurrent_tasks_${num_task}_${mode}_bls_${BLS_INSTANCE_NUM}_no_att_cnn_cache_new
+        --log-dir ./log_debug_concurrent_tasks_${num_task}_${mode}_bls_${BLS_INSTANCE_NUM}
 fi
 
 if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
@@ -185,14 +185,14 @@ fi
 
 if [ $stage -le 7 ] && [ $stop_stage -ge 7 ]; then
 
-   python3 streaming_inference.py
+   CUDA_VISIBLE_DEVICES=2 python3 streaming_inference.py --enable-trt --strategy exponential
 
 
 fi
 
 
 if [ $stage -le 8 ] && [ $stop_stage -ge 8 ]; then
-    mpirun -np 1 --allow-run-as-root --oversubscribe trtllm-serve serve --tokenizer $huggingface_model_local_dir $trt_engines_dir --max_batch_size 16 
+    CUDA_VISIBLE_DEVICES=0 mpirun -np 1 --allow-run-as-root --oversubscribe trtllm-serve serve --tokenizer $huggingface_model_local_dir $trt_engines_dir --max_batch_size 16  --kv_cache_free_gpu_memory_fraction 0.4
     
 fi
 

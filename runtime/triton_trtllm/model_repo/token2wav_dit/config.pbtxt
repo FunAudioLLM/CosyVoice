@@ -22,7 +22,6 @@ dynamic_batching {
     default_priority_level: 10
 }
 
-parameters: { key: "FORCE_CPU_ONLY_INPUT_TENSORS" value: {string_value:"no"}}
 parameters [
   {
    key: "model_dir",
@@ -52,88 +51,11 @@ input [
     dims: [ 1 ]
     reshape: { shape: [ ] }
     optional: true
-  },
-  {
-    name: "conformer_cnn_cache"
-    data_type: TYPE_FP16
-    dims: [ 512, -1 ]
-    optional: true
-  },
-  {
-    name: "conformer_att_cache"
-    data_type: TYPE_FP16
-    dims: [ 10, 8, -1, 128 ]
-    optional: true
-  },
-  {
-    name: "estimator_cnn_cache"
-    data_type: TYPE_FP16
-    dims: [ 10, 16, -1, 1024, 2 ]
-    optional: true
-  },
-  {
-    name: "estimator_att_cache"
-    data_type: TYPE_FP16
-    dims: [ 10, 16, -1, 8, -1, 128 ]
-    optional: true
-  },
-  {
-    name: "mel"
-    data_type: TYPE_FP32
-    dims: [ 80, -1 ]
-    optional: true
-  },
-  {
-    name: "source"
-    data_type: TYPE_FP32
-    dims: [ 1, -1 ]
-    optional: true
-  },
-  {
-    name: "speech"
-    data_type: TYPE_FP32
-    dims: [ -1 ]
-    optional: true
   }
 ]
 output [
   {
     name: "waveform"
-    data_type: TYPE_FP32
-    dims: [ -1 ]
-  },
-  {
-    name: "conformer_cnn_cache"
-    data_type: TYPE_FP16
-    dims: [ 512, -1 ]
-  },
-  {
-    name: "conformer_att_cache"
-    data_type: TYPE_FP16
-    dims: [ 10, 8, -1, 128 ]
-  },
-  {
-    name: "estimator_cnn_cache"
-    data_type: TYPE_FP16
-    dims: [ 10, 16, -1, 1024, 2 ]
-  },
-  {
-    name: "estimator_att_cache"
-    data_type: TYPE_FP16
-    dims: [ 10, 16, -1, 8, -1, 128 ]
-  },
-  {
-    name: "mel"
-    data_type: TYPE_FP32
-    dims: [ 80, -1 ]
-  },
-  {
-    name: "source"
-    data_type: TYPE_FP32
-    dims: [ 1, -1 ]
-  },
-  {
-    name: "speech"
     data_type: TYPE_FP32
     dims: [ -1 ]
   }

@@ -23,11 +23,11 @@ model_transaction_policy {
 }
 parameters [
   {
-   key: "llm_tokenizer_dir", 
+   key: "llm_tokenizer_dir",
    value: {string_value:"${llm_tokenizer_dir}"}
   },
   {
-   key: "model_dir", 
+   key: "model_dir",
    value: {string_value:"${model_dir}"}
   }
 ]
@@ -37,16 +37,19 @@ input [
     name: "reference_wav"
     data_type: TYPE_FP32
     dims: [-1]
+    optional: true
   },
   {
     name: "reference_wav_len"
     data_type: TYPE_INT32
     dims: [1]
+    optional: true
   },
   {
     name: "reference_text"
     data_type: TYPE_STRING
     dims: [1]
+    optional: true
   },
   {
     name: "target_text"

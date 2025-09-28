@@ -257,7 +257,13 @@ def get_args():
         default=0.1,
         help="Chunk overlap duration for streaming reconstruction (in seconds)."
     )
-    # --- End Added arguments ---
+
+    parser.add_argument(
+        "--use-spk2info-cache",
+        type=bool,
+        default=False,
+        help="Use spk2info cache for reference audio.",
+    )
 
     return parser.parse_args()
 
@@ -283,7 +289,8 @@ def prepare_request_input_output(
     reference_text,
     target_text,
     sample_rate=16000,
-    padding_duration: int = None  # Optional padding for offline mode
+    padding_duration: int = None,  # Optional padding for offline mode
+    use_spk2info_cache: bool = False
 ):
     """Prepares inputs for Triton inference (offline or streaming)."""
     assert len(waveform.shape) == 1, "waveform should be 1D"
@@ -330,7 +337,8 @@ def prepare_request_input_output(
     inputs[3].set_data_from_numpy(input_data_numpy)
 
     outputs = [protocol_client.InferRequestedOutput("waveform")]
-
+    if use_spk2info_cache:
+        inputs = inputs[-1:]
     return inputs, outputs
 
 
@@ -395,38 +403,45 @@ def run_sync_streaming_inference(
     # Reconstruct audio using cross-fade (from client_grpc_streaming.py)
     actual_duration = 0
     if audios:
-        cross_fade_samples = int(chunk_overlap_duration * save_sample_rate)
-        fade_out = np.linspace(1, 0, cross_fade_samples)
-        fade_in = np.linspace(0, 1, cross_fade_samples)
-        reconstructed_audio = None
+        # Only spark_tts model uses cross-fade
+        if model_name == "spark_tts":
+            cross_fade_samples = int(chunk_overlap_duration * save_sample_rate)
+            fade_out = np.linspace(1, 0, cross_fade_samples)
+            fade_in = np.linspace(0, 1, cross_fade_samples)
+            reconstructed_audio = None
 
-        # Simplified reconstruction based on client_grpc_streaming.py
-        if not audios:
-            print("Warning: No audio chunks received.")
-            reconstructed_audio = np.array([], dtype=np.float32)  # Empty array
-        elif len(audios) == 1:
-            reconstructed_audio = audios[0]
+            # Simplified reconstruction based on client_grpc_streaming.py
+            if not audios:
+                print("Warning: No audio chunks received.")
+                reconstructed_audio = np.array([], dtype=np.float32)  # Empty array
+            elif len(audios) == 1:
+                reconstructed_audio = audios[0]
+            else:
+                reconstructed_audio = audios[0][:-cross_fade_samples]  # Start with first chunk minus overlap
+                for i in range(1, len(audios)):
+                    # Cross-fade section
+                    cross_faded_overlap = (audios[i][:cross_fade_samples] * fade_in +
+                                           audios[i - 1][-cross_fade_samples:] * fade_out)
+                    # Middle section of the current chunk
+                    middle_part = audios[i][cross_fade_samples:-cross_fade_samples]
+                    # Concatenate
+                    reconstructed_audio = np.concatenate([reconstructed_audio, cross_faded_overlap, middle_part])
+                # Add the last part of the final chunk
+                reconstructed_audio = np.concatenate([reconstructed_audio, audios[-1][-cross_fade_samples:]])
+
+            if reconstructed_audio is not None and reconstructed_audio.size > 0:
+                actual_duration = len(reconstructed_audio) / save_sample_rate
+                # Save reconstructed audio
+                sf.write(audio_save_path, reconstructed_audio, save_sample_rate, "PCM_16")
+            else:
+                print("Warning: No audio chunks received or reconstructed.")
+                actual_duration = 0  # Set duration to 0 if no audio
         else:
-            reconstructed_audio = audios[0][:-cross_fade_samples]  # Start with first chunk minus overlap
-            for i in range(1, len(audios)):
-                # Cross-fade section
-                cross_faded_overlap = (audios[i][:cross_fade_samples] * fade_in +
-                                       audios[i - 1][-cross_fade_samples:] * fade_out)
-                # Middle section of the current chunk
-                middle_part = audios[i][cross_fade_samples:-cross_fade_samples]
-                # Concatenate
-                reconstructed_audio = np.concatenate([reconstructed_audio, cross_faded_overlap, middle_part])
-            # Add the last part of the final chunk
-            reconstructed_audio = np.concatenate([reconstructed_audio, audios[-1][-cross_fade_samples:]])
-
-        if reconstructed_audio is not None and reconstructed_audio.size > 0:
+            reconstructed_audio = np.concatenate(audios)
+            print(f"reconstructed_audio: {reconstructed_audio.shape}")
             actual_duration = len(reconstructed_audio) / save_sample_rate
             # Save reconstructed audio
-            os.makedirs(os.path.dirname(audio_save_path), exist_ok=True)
             sf.write(audio_save_path, reconstructed_audio, save_sample_rate, "PCM_16")
-        else:
-            print("Warning: No audio chunks received or reconstructed.")
-            actual_duration = 0  # Set duration to 0 if no audio
 
     else:
         print("Warning: No audio chunks received.")
@@ -446,6 +461,7 @@ async def send_streaming(
     save_sample_rate: int = 16000,
     chunk_overlap_duration: float = 0.1,
     padding_duration: int = None,
+    use_spk2info_cache: bool = False,
 ):
     total_duration = 0.0
     latency_data = []
@@ -471,7 +487,8 @@ async def send_streaming(
                     reference_text,
                     target_text,
                     sample_rate,
-                    padding_duration=padding_duration
+                    padding_duration=padding_duration,
+                    use_spk2info_cache=use_spk2info_cache
                 )
                 request_id = str(uuid.uuid4())
                 user_data = UserData()
@@ -527,6 +544,7 @@ async def send(
     padding_duration: int = None,
     audio_save_dir: str = "./",
     save_sample_rate: int = 16000,
+    use_spk2info_cache: bool = False,
 ):
     total_duration = 0.0
     latency_data = []
@@ -545,7 +563,8 @@ async def send(
             reference_text,
             target_text,
             sample_rate,
-            padding_duration=padding_duration
+            padding_duration=padding_duration,
+            use_spk2info_cache=use_spk2info_cache
         )
         sequence_id = 100000000 + i + task_id * 10
         start = time.time()
@@ -667,6 +686,7 @@ async def main():
     manifest_item_list = split_data(manifest_item_list, num_tasks)
 
     os.makedirs(args.log_dir, exist_ok=True)
+
     tasks = []
     start_time = time.time()
     for i in range(num_tasks):
@@ -683,6 +703,7 @@ async def main():
                     audio_save_dir=args.log_dir,
                     padding_duration=1,
                     save_sample_rate=16000 if args.model_name == "spark_tts" else 24000,
+                    use_spk2info_cache=args.use_spk2info_cache,
                 )
             )
         elif args.mode == "streaming":
@@ -698,6 +719,7 @@ async def main():
                     padding_duration=10,
                     save_sample_rate=16000 if args.model_name == "spark_tts" else 24000,
                     chunk_overlap_duration=args.chunk_overlap_duration,
+                    use_spk2info_cache=args.use_spk2info_cache,
                 )
             )
         # --- End Task Creation ---

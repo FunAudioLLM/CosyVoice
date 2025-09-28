@@ -32,7 +32,7 @@ import triton_python_backend_utils as pb_utils
 import os
 import numpy as np
 import s3tokenizer
-
+torch.set_num_threads(1)
 ORIGINAL_VOCAB_SIZE = 151663
 
 

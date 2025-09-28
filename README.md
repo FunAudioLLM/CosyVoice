@@ -31,7 +31,7 @@
 
 - [x] 2025/08
 
-    - [x] Thanks to the contribution from NVIDIA Yuekai Zhang, add triton trtllm runtime support
+    - [x] Thanks to the contribution from NVIDIA Yuekai Zhang, add triton trtllm runtime support and cosyvoice2 grpo training support
 
 - [x] 2025/07
 
@@ -245,6 +245,17 @@ cd grpc && python3 client.py --port 50000 --mode <sft|zero_shot|cross_lingual|in
 docker run -d --runtime=nvidia -p 50000:50000 cosyvoice:v1.0 /bin/bash -c "cd /opt/CosyVoice/CosyVoice/runtime/python/fastapi && python3 server.py --port 50000 --model_dir iic/CosyVoice-300M && sleep infinity"
 cd fastapi && python3 client.py --port 50000 --mode <sft|zero_shot|cross_lingual|instruct>
 ```
+
+#### Using Nvidia TensorRT-LLM for deployment
+
+Using TensorRT-LLM to accelerate cosyvoice2 llm could give 4x acceleration comparing with huggingface transformers implementation.
+To quick start:
+
+``` sh
+cd runtime/triton_trtllm
+docker compose up -d
+```
+For more details, you could check [here](https://github.com/FunAudioLLM/CosyVoice/tree/main/runtime/triton_trtllm)
 
 ## Discussion & Communication
 

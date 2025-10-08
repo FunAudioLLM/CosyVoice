@@ -42,7 +42,7 @@ if [ $stage -le 0 ] && [ $stop_stage -ge 0 ]; then
 
     echo "Step-Audio2-mini"
     huggingface-cli download --local-dir $step_audio_model_dir stepfun-ai/Step-Audio-2-mini
-    cd $stepaudio2_path/token2wav
+    cd $step_audio_model_dir/token2wav
     wget https://huggingface.co/yuekai/cosyvoice2_dit_flow_matching_onnx/resolve/main/flow.decoder.estimator.fp32.dynamic_batch.onnx -O flow.decoder.estimator.fp32.dynamic_batch.onnx
     wget https://huggingface.co/yuekai/cosyvoice2_dit_flow_matching_onnx/resolve/main/flow.decoder.estimator.chunk.fp32.dynamic_batch.simplify.onnx -O flow.decoder.estimator.chunk.fp32.dynamic_batch.simplify.onnx
     cd -
@@ -100,8 +100,8 @@ fi
 
 if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
    echo "Starting Token2wav Triton server and Cosyvoice2 llm using trtllm-serve"
-   tritonserver --model-repository $model_repo --http-port 18000 &
    mpirun -np 1 --allow-run-as-root --oversubscribe trtllm-serve serve --tokenizer $huggingface_model_local_dir $trt_engines_dir --max_batch_size 16  --kv_cache_free_gpu_memory_fraction 0.4 &
+   tritonserver --model-repository $model_repo --http-port 18000 &
    wait
     # Test using curl
     # curl http://localhost:8000/v1/chat/completions \
@@ -168,7 +168,7 @@ if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
    # Note: Using pre-computed cosyvoice2 tokens
    python3 streaming_inference.py --enable-trt --strategy equal # equal, exponential
    # Offline Token2wav inference
-   # python3 token2wav_dit.py --enable-trt
+   python3 token2wav_dit.py --enable-trt
 fi
 
 

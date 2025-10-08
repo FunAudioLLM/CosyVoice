@@ -424,7 +424,7 @@ def run_sync_streaming_inference(
     audios = []
     while True:
         try:
-            result = user_data._completed_requests.get(timeout=20)
+            result = user_data._completed_requests.get(timeout=200)
             if isinstance(result, InferenceServerException):
                 print(f"Received InferenceServerException: {result}")
                 return None, None, None, None

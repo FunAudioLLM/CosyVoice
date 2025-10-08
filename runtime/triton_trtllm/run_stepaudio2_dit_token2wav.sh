@@ -1,9 +1,8 @@
 #!/bin/bash
 # Copyright (c) 2025 NVIDIA (authors: Yuekai Zhang)
 export CUDA_VISIBLE_DEVICES=0
-# cosyvoice_path=/workspace/CosyVoice
-cosyvoice_path=/workspace_yuekai/tts/CosyVoice
-stepaudio2_path=/workspace_yuekai/tts/Step-Audio2
+cosyvoice_path=/workspace/CosyVoice
+stepaudio2_path=/workspace/Step-Audio2
 
 export PYTHONPATH=${stepaudio2_path}:$PYTHONPATH
 export PYTHONPATH=${cosyvoice_path}:$PYTHONPATH
@@ -89,7 +88,7 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
     LLM_TOKENIZER_DIR=$huggingface_model_local_dir
     BLS_INSTANCE_NUM=$bls_instance_num
     TRITON_MAX_BATCH_SIZE=1
-    DECOUPLED_MODE=True
+    DECOUPLED_MODE=True # Only streaming TTS mode is supported using Nvidia Triton for now
     STEP_AUDIO_MODEL_DIR=$step_audio_model_dir/token2wav
 
     python3 scripts/fill_template.py -i ${model_repo}/${token2wav_dir}/config.pbtxt model_dir:${STEP_AUDIO_MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}

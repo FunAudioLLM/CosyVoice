@@ -35,12 +35,6 @@ def get_args():
     return parser.parse_args()
 
 
-def fake_generated_id_iter(generated_speech_tokens_list):
-    for i in range(len(generated_speech_tokens_list)):
-        yield generated_speech_tokens_list[i]
-
-
-
 if __name__ == "__main__":
     args = get_args()
     
@@ -53,7 +47,6 @@ if __name__ == "__main__":
 
     token2wav_model = CosyVoice2_Token2Wav(model_dir=args.model_dir, enable_trt=args.enable_trt, streaming=True)
     
-    flow_pre_lookahead_len = 3
     CHUNK_SIZE = 25
     token_frame_rate = 25
     OVERLAP_SIZE = 0

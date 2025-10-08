@@ -320,7 +320,6 @@ class CosyVoice2_Token2Wav(torch.nn.Module):
     def forward(
         self, generated_speech_tokens_list: list[list[int]], prompt_audios_list: list[torch.Tensor], prompt_audios_sample_rate: list[int]
     ):
-        # assert all item in prompt_audios_sample_rate is 16000
         assert all(sample_rate == 16000 for sample_rate in prompt_audios_sample_rate)
         
 
@@ -335,7 +334,6 @@ class CosyVoice2_Token2Wav(torch.nn.Module):
     def prepare_prompt_audio(
         self, prompt_audios_list: list[torch.Tensor], prompt_audios_sample_rate: list[int]
     ):
-        # assert all item in prompt_audios_sample_rate is 16000
         assert all(sample_rate == 16000 for sample_rate in prompt_audios_sample_rate)
         
 
@@ -385,7 +383,6 @@ class CosyVoice2_Token2Wav(torch.nn.Module):
 
             cache_dict = self.get_prompt_audio_cache_for_streaming_tts(prompt_speech_tokens_list, prompt_mels_for_flow, prompt_mels_lens_for_flow, spk_emb_for_flow)
             self.speaker_cache[speaker_id] = {'prompt_audio_dict': prompt_audio_dict, 'cache_dict': cache_dict}
-            print(f"speaker_id {speaker_id} added to cache")
 
         if request_id not in self.streaming_flow_cache:
             self.streaming_flow_cache[request_id] = {k: v.clone() for k, v in self.speaker_cache[speaker_id]['cache_dict'].items()}
@@ -394,12 +391,6 @@ class CosyVoice2_Token2Wav(torch.nn.Module):
             source = torch.zeros(1, 1, 0, device='cuda'),
             speech = torch.zeros(1, 0, device='cuda'),
             )
-        # else:
-        #     for k, v in self.streaming_flow_cache[request_id].items():
-        #         print(f"k: {k}, v: {v.shape}, dtype: {v.dtype}")
-        #     for k, v in self.hift_cache_dict[request_id].items():
-        #         print(f"k: {k}, v: {v.shape}, dtype: {v.dtype}")
-        #     breakpoint()
 
         current_request_cache = self.streaming_flow_cache[request_id]
 
@@ -477,7 +468,6 @@ def get_args():
 if __name__ == "__main__":
     args = get_args()
     model = CosyVoice2_Token2Wav(model_dir=args.model_dir, enable_trt=args.enable_trt)
-    # mkdir output_dir if not exists
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     dataset_name = "yuekai/seed_tts_cosy2"

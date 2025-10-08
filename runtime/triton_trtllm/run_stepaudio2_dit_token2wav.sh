@@ -9,6 +9,8 @@ export PYTHONPATH=${cosyvoice_path}:$PYTHONPATH
 export PYTHONPATH=${cosyvoice_path}/third_party/Matcha-TTS:$PYTHONPATH
 stage=$1
 stop_stage=$2
+N_GPUS=2 # set the number of GPUs to use
+
 
 huggingface_model_local_dir=./cosyvoice2_llm
 model_scope_model_local_dir=./CosyVoice2-0.5B
@@ -128,8 +130,32 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
 fi
 
 if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
-   echo "Starting Triton server"
-   tritonserver --model-repository $model_repo --http-port 18000
+   echo "Starting Triton server on $N_GPUS GPUs"
+   for i in $(seq 0 $(($N_GPUS - 1))); do
+       echo "Starting server on GPU $i"
+       http_port=$((19000 + $i))
+       grpc_port=$((18000 + $i))
+       metrics_port=$((17000 + $i))
+       CUDA_VISIBLE_DEVICES=$i tritonserver --model-repository $model_repo --http-port $http_port --grpc-port $grpc_port --metrics-port $metrics_port &
+   done
+
+   echo "Servers are running in the background. Press Ctrl+C to stop them and the script."
+   wait
+fi
+
+if [ $stage -le 30 ] && [ $stop_stage -ge 30 ]; then
+   echo "Starting Triton server on $N_GPUS GPUs"
+   N_GPUS=1
+   for i in $(seq 0 $(($N_GPUS - 1))); do
+       echo "Starting server on GPU $i"
+       http_port=$((19000 + $i))
+       grpc_port=$((18000 + $i))
+       metrics_port=$((17000 + $i))
+       CUDA_VISIBLE_DEVICES=0 tritonserver --model-repository $model_repo --http-port $http_port --grpc-port $grpc_port --metrics-port $metrics_port &
+   done
+
+   echo "Servers are running in the background. Press Ctrl+C to stop them and the script."
+   wait
 fi
 
 if [ $stage -le 4 ] && [ $stop_stage -ge 4 ]; then
@@ -142,21 +168,47 @@ if [ $stage -le 4 ] && [ $stop_stage -ge 4 ]; then
 fi
 
 if [ $stage -le 5 ] && [ $stop_stage -ge 5 ]; then
-    echo "Running benchmark client grpc"
-    num_task=4
+    echo "Running benchmark client grpc on $N_GPUS GPUs"
+    num_task=1
 
     mode=streaming
     BLS_INSTANCE_NUM=4
 
-    python3 client_grpc.py \
-        --server-addr localhost \
-        --model-name cosyvoice2_dit \
-        --num-tasks $num_task \
-        --mode $mode \
-        --huggingface-dataset yuekai/seed_tts_cosy2 \
-        --log-dir ./log_debug_concurrent_tasks_${num_task}_${mode}_bls_${BLS_INSTANCE_NUM}
+    for i in $(seq 0 $(($N_GPUS - 1))); do
+        grpc_port=$((18000 + $i))
+        echo "Running client for server on localhost:$grpc_port"
+        python3 client_grpc.py \
+            --server-addr localhost \
+            --server-port $grpc_port \
+            --model-name cosyvoice2_dit \
+            --num-tasks $num_task \
+            --mode $mode \
+            --huggingface-dataset yuekai/seed_tts_cosy2 \
+            --log-dir ./log_debug_concurrent_tasks_${num_task}_${mode}_bls_${BLS_INSTANCE_NUM}_gpu${i} &
+    done
+    wait
 fi
+if [ $stage -le 50 ] && [ $stop_stage -ge 50 ]; then
+    echo "Running benchmark client grpc on $N_GPUS GPUs"
+    num_task=4
+    N_GPUS=1
+    mode=streaming
+    BLS_INSTANCE_NUM=4
 
+    for i in $(seq 0 $(($N_GPUS - 1))); do
+        grpc_port=$((18000 + $i))
+        echo "Running client for server on localhost:$grpc_port"
+        python3 client_grpc.py \
+            --server-addr localhost \
+            --server-port $grpc_port \
+            --model-name cosyvoice2_dit \
+            --num-tasks $num_task \
+            --mode $mode \
+            --huggingface-dataset yuekai/seed_tts_cosy2 \
+            --log-dir ./log_single_card_concurrent_tasks_${num_task}_${mode}_bls_${BLS_INSTANCE_NUM} &
+    done
+    wait
+fi
 if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
   echo "stage 6: Offline inference benchmark"
   n_gpus=1

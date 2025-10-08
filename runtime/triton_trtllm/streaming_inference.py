@@ -54,7 +54,7 @@ if __name__ == "__main__":
     token2wav_model = CosyVoice2_Token2Wav(model_dir=args.model_dir, enable_trt=args.enable_trt, streaming=True)
     
     flow_pre_lookahead_len = 3
-    CHUNK_SIZE = 15
+    CHUNK_SIZE = 25
     token_frame_rate = 25
     OVERLAP_SIZE = 0
 
@@ -67,19 +67,11 @@ if __name__ == "__main__":
             ids, generated_speech_tokens_list, prompt_audios_list, prompt_audios_sample_rate, prompt_speech_tokens_list, prompt_text_list = batch
 
             id, generated_speech_tokens, prompt_audio, prompt_audio_sample_rate = ids[0], generated_speech_tokens_list[0], prompt_audios_list[0], prompt_audios_sample_rate[0]
-            # if id != "unseen3_text5":
-            #     continue
-            # else:
-            #     a = torch.load("semantic_token_ids_arr_debug_871e2b90-42a7-4829-957c-b45e6a96fdb2.pt")
-            #     generated_speech_tokens = a["semantic_token_ids_arr"]
-            #     print(generated_speech_tokens)
+
             assert prompt_audio_sample_rate == 16000
 
             prompt_text = prompt_text_list[0]
             prompt_speech_tokens = prompt_speech_tokens_list[0]
-
-
-            # generated_ids_iter = fake_generated_id_iter(generated_speech_tokens)
 
             semantic_token_ids_arr, token_offset = [], 0
             flow_prompt_speech_token_len = len(prompt_speech_tokens)
@@ -114,14 +106,16 @@ if __name__ == "__main__":
 
             audios = output_wavs            
             reconstructed_audio = np.concatenate(audios)
-            # Save reconstructed audio
             sf.write(os.path.join(args.output_dir, f"{id}.wav"), reconstructed_audio, 24000, "PCM_16")
 
-
-            print(f"Saved {id}")
         end_time = time.time()
 
         if _ == 0:
             token2wav_model.speaker_cache = {}
-        print(f"Warmup time: {end_time - start_time} seconds")
-        print(f"Total forward count: {total_forward_count}")
+            print(f"Warmup time: {end_time - start_time} seconds")
+            print("clear speaker cache")
+        elif _ == 1:
+            print(f"Cost time without speaker cache: {end_time - start_time} seconds")
+        else:
+            print(f"Cost time with speaker cache: {end_time - start_time} seconds")
+            print(f"Total flow matching forward calls: {total_forward_count}")

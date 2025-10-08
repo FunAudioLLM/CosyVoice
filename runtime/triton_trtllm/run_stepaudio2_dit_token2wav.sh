@@ -1,28 +1,33 @@
 #!/bin/bash
 # Copyright (c) 2025 NVIDIA (authors: Yuekai Zhang)
 export CUDA_VISIBLE_DEVICES=0
-cosyvoice_path=/workspace/CosyVoice
+# cosyvoice_path=/workspace/CosyVoice
 cosyvoice_path=/workspace_yuekai/tts/CosyVoice
 stepaudio2_path=/workspace_yuekai/tts/Step-Audio2
+
 export PYTHONPATH=${stepaudio2_path}:$PYTHONPATH
 export PYTHONPATH=${cosyvoice_path}:$PYTHONPATH
 export PYTHONPATH=${cosyvoice_path}/third_party/Matcha-TTS:$PYTHONPATH
+
 stage=$1
 stop_stage=$2
-N_GPUS=2 # set the number of GPUs to use
-
 
 huggingface_model_local_dir=./cosyvoice2_llm
 model_scope_model_local_dir=./CosyVoice2-0.5B
+step_audio_model_dir=./Step-Audio-2-mini
+
 trt_dtype=bfloat16
 trt_weights_dir=./trt_weights_${trt_dtype}
 trt_engines_dir=./trt_engines_${trt_dtype}
 
 model_repo=./model_repo_cosyvoice2_dit
-
-use_spk2info_cache=False
+bls_instance_num=4
 
 if [ $stage -le -1 ] && [ $stop_stage -ge -1 ]; then
+
+    echo "Cloning Step-Audio2-mini"
+    git clone https://github.com/yuekaizhang/Step-Audio2.git -b trt $stepaudio2_path
+
     echo "Cloning CosyVoice"
     git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git $cosyvoice_path
     cd $cosyvoice_path
@@ -35,8 +40,13 @@ if [ $stage -le 0 ] && [ $stop_stage -ge 0 ]; then
     # see https://github.com/nvidia-china-sae/mair-hub/blob/main/rl-tutorial/cosyvoice_llm/pretrained_to_huggingface.py
     huggingface-cli download --local-dir $huggingface_model_local_dir yuekai/cosyvoice2_llm
     modelscope download --model iic/CosyVoice2-0.5B --local_dir $model_scope_model_local_dir
-    # download spk2info.pt to directly use cached speech tokens, speech feats, and embeddings
-    wget https://raw.githubusercontent.com/qi-hua/async_cosyvoice/main/CosyVoice2-0.5B/spk2info.pt -O $model_scope_model_local_dir/spk2info.pt
+
+    echo "Step-Audio2-mini"
+    huggingface-cli download --local-dir $step_audio_model_dir stepfun-ai/Step-Audio-2-mini
+    cd $stepaudio2_path/token2wav
+    wget https://huggingface.co/yuekai/cosyvoice2_dit_flow_matching_onnx/resolve/main/flow.decoder.estimator.fp32.dynamic_batch.onnx -O flow.decoder.estimator.fp32.dynamic_batch.onnx
+    wget https://huggingface.co/yuekai/cosyvoice2_dit_flow_matching_onnx/resolve/main/flow.decoder.estimator.chunk.fp32.dynamic_batch.simplify.onnx -O flow.decoder.estimator.chunk.fp32.dynamic_batch.simplify.onnx
+    cd -
 fi
 
 
@@ -60,40 +70,6 @@ if [ $stage -le 1 ] && [ $stop_stage -ge 1 ]; then
                     --engine_dir=$trt_engines_dir  || exit 1
 fi
 
-
-# if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
-#     echo "Creating model repository"
-#     rm -rf $model_repo
-#     mkdir -p $model_repo
-#     cosyvoice2_dir="cosyvoice2_dit"
-#     token2wav_dir="token2wav_dit"
-
-#     cp -r ./model_repo/${cosyvoice2_dir} $model_repo
-#     cp -r ./model_repo/tensorrt_llm $model_repo
-#     cp -r ./model_repo/${token2wav_dir} $model_repo
-#     #if [ $use_spk2info_cache == "False" ]; then
-#         cp -r ./model_repo/audio_tokenizer $model_repo
-#         cp -r ./model_repo/speaker_embedding $model_repo
-#     #fi
-
-#     ENGINE_PATH=$trt_engines_dir
-#     MAX_QUEUE_DELAY_MICROSECONDS=0
-#     MODEL_DIR=$model_scope_model_local_dir
-#     LLM_TOKENIZER_DIR=$huggingface_model_local_dir
-#     BLS_INSTANCE_NUM=1
-#     TRITON_MAX_BATCH_SIZE=16
-#     DECOUPLED_MODE=True # True for streaming, False for offline
-#     STEP_AUDIO_MODEL_DIR=/workspace_yuekai/tts/CosyVoice/runtime/triton_trtllm/Step-Audio-2-mini/token2wav
-
-#     python3 scripts/fill_template.py -i ${model_repo}/${token2wav_dir}/config.pbtxt model_dir:${STEP_AUDIO_MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
-#     python3 scripts/fill_template.py -i ${model_repo}/${cosyvoice2_dir}/config.pbtxt model_dir:${MODEL_DIR},bls_instance_num:${BLS_INSTANCE_NUM},llm_tokenizer_dir:${LLM_TOKENIZER_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},decoupled_mode:${DECOUPLED_MODE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
-#     python3 scripts/fill_template.py -i ${model_repo}/tensorrt_llm/config.pbtxt triton_backend:tensorrtllm,triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},decoupled_mode:${DECOUPLED_MODE},max_beam_width:1,engine_dir:${ENGINE_PATH},max_tokens_in_paged_kv_cache:2560,max_attention_window_size:2560,kv_cache_free_gpu_mem_fraction:0.5,exclude_input_in_output:True,enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS},encoder_input_features_data_type:TYPE_FP16,logits_datatype:TYPE_FP32
-#     #if [ $use_spk2info_cache == "False" ]; then
-#         python3 scripts/fill_template.py -i ${model_repo}/audio_tokenizer/config.pbtxt model_dir:${MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
-#         python3 scripts/fill_template.py -i ${model_repo}/speaker_embedding/config.pbtxt model_dir:${MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
-#     #fi
-# fi
-
 if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
     echo "Creating model repository async mode"
     rm -rf $model_repo
@@ -102,122 +78,75 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
     token2wav_dir="token2wav_dit"
 
     cp -r ./model_repo/${cosyvoice2_dir} $model_repo
-    cp -r ./model_repo/tensorrt_llm $model_repo
     cp -r ./model_repo/${token2wav_dir} $model_repo
-    #if [ $use_spk2info_cache == "False" ]; then
-        cp -r ./model_repo/audio_tokenizer $model_repo
-        cp -r ./model_repo/speaker_embedding $model_repo
-    #fi
+    cp -r ./model_repo/audio_tokenizer $model_repo
+    cp -r ./model_repo/speaker_embedding $model_repo
+
 
     ENGINE_PATH=$trt_engines_dir
     MAX_QUEUE_DELAY_MICROSECONDS=0
     MODEL_DIR=$model_scope_model_local_dir
     LLM_TOKENIZER_DIR=$huggingface_model_local_dir
-    BLS_INSTANCE_NUM=4
+    BLS_INSTANCE_NUM=$bls_instance_num
     TRITON_MAX_BATCH_SIZE=1
-    DECOUPLED_MODE=True # True for streaming, False for offline
-    STEP_AUDIO_MODEL_DIR=/workspace_yuekai/tts/CosyVoice/runtime/triton_trtllm/Step-Audio-2-mini/token2wav
+    DECOUPLED_MODE=True
+    STEP_AUDIO_MODEL_DIR=$step_audio_model_dir/token2wav
 
     python3 scripts/fill_template.py -i ${model_repo}/${token2wav_dir}/config.pbtxt model_dir:${STEP_AUDIO_MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
     python3 scripts/fill_template.py -i ${model_repo}/${cosyvoice2_dir}/config.pbtxt model_dir:${MODEL_DIR},bls_instance_num:${BLS_INSTANCE_NUM},llm_tokenizer_dir:${LLM_TOKENIZER_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},decoupled_mode:${DECOUPLED_MODE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
-    python3 scripts/fill_template.py -i ${model_repo}/tensorrt_llm/config.pbtxt triton_backend:tensorrtllm,triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},decoupled_mode:${DECOUPLED_MODE},max_beam_width:1,engine_dir:${ENGINE_PATH},max_tokens_in_paged_kv_cache:2560,max_attention_window_size:2560,kv_cache_free_gpu_mem_fraction:0.5,exclude_input_in_output:True,enable_kv_cache_reuse:False,batching_strategy:inflight_fused_batching,max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS},encoder_input_features_data_type:TYPE_FP16,logits_datatype:TYPE_FP32
-    #if [ $use_spk2info_cache == "False" ]; then
-        python3 scripts/fill_template.py -i ${model_repo}/audio_tokenizer/config.pbtxt model_dir:${MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
-        python3 scripts/fill_template.py -i ${model_repo}/speaker_embedding/config.pbtxt model_dir:${MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
-    #fi
-    rm -rf $model_repo/tensorrt_llm
-    # mv $model_repo/cosyvoice2_dit/1 $model_repo/cosyvoice2_dit/4
+    python3 scripts/fill_template.py -i ${model_repo}/audio_tokenizer/config.pbtxt model_dir:${MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
+    python3 scripts/fill_template.py -i ${model_repo}/speaker_embedding/config.pbtxt model_dir:${MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
+
 fi
 
 if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
-   echo "Starting Triton server on $N_GPUS GPUs"
-   for i in $(seq 0 $(($N_GPUS - 1))); do
-       echo "Starting server on GPU $i"
-       http_port=$((19000 + $i))
-       grpc_port=$((18000 + $i))
-       metrics_port=$((17000 + $i))
-       CUDA_VISIBLE_DEVICES=$i tritonserver --model-repository $model_repo --http-port $http_port --grpc-port $grpc_port --metrics-port $metrics_port &
-   done
-
-   echo "Servers are running in the background. Press Ctrl+C to stop them and the script."
+   echo "Starting Token2wav Triton server and Cosyvoice2 llm using trtllm-serve"
+   tritonserver --model-repository $model_repo --http-port 18000 &
+   mpirun -np 1 --allow-run-as-root --oversubscribe trtllm-serve serve --tokenizer $huggingface_model_local_dir $trt_engines_dir --max_batch_size 16  --kv_cache_free_gpu_memory_fraction 0.4 &
    wait
-fi
-
-if [ $stage -le 30 ] && [ $stop_stage -ge 30 ]; then
-   echo "Starting Triton server on $N_GPUS GPUs"
-   N_GPUS=1
-   for i in $(seq 0 $(($N_GPUS - 1))); do
-       echo "Starting server on GPU $i"
-       http_port=$((19000 + $i))
-       grpc_port=$((18000 + $i))
-       metrics_port=$((17000 + $i))
-       CUDA_VISIBLE_DEVICES=0 tritonserver --model-repository $model_repo --http-port $http_port --grpc-port $grpc_port --metrics-port $metrics_port &
-   done
-
-   echo "Servers are running in the background. Press Ctrl+C to stop them and the script."
-   wait
+    # Test using curl
+    # curl http://localhost:8000/v1/chat/completions \
+    #     -H "Content-Type: application/json" \
+    #     -d '{
+    #         "model": "trt_engines_bfloat16",
+    #         "messages":[{"role": "user", "content": "Where is New York?"},
+    #                     {"role": "assistant", "content": "<|s_1708|><|s_2050|><|s_2159|>"}],
+    #         "max_tokens": 512,
+    #         "temperature": 0.8,
+    #         "top_p": 0.95,
+    #         "top_k": 50,
+    #         "stop": ["<|eos1|>"],
+    #         "repetition_penalty": 1.2,
+    #         "stream": false
+    #     }'
 fi
 
 if [ $stage -le 4 ] && [ $stop_stage -ge 4 ]; then
-    echo "Single request test http, only work for offline TTS mode"
-    python3 client_http.py \
-        --reference-audio ./assets/prompt_audio.wav \
-        --reference-text "吃燕窝就选燕之屋，本节目由26年专注高品质燕窝的燕之屋冠名播出。豆奶牛奶换着喝，营养更均衡，本节目由豆本豆豆奶特约播出。" \
-        --target-text "身临其境，换新体验。塑造开源语音合成新范式，让智能语音更自然。" \
-        --model-name cosyvoice2
+    echo "Running benchmark client"
+    num_task=4
+    mode=streaming
+    BLS_INSTANCE_NUM=$bls_instance_num
+
+    python3 client_grpc.py \
+        --server-addr localhost \
+        --server-port 8001 \
+        --model-name cosyvoice2_dit \
+        --num-tasks $num_task \
+        --mode $mode \
+        --huggingface-dataset yuekai/seed_tts_cosy2 \
+        --log-dir ./log_single_gpu_concurrent_tasks_${num_task}_${mode}_bls_${BLS_INSTANCE_NUM}
+
 fi
 
 if [ $stage -le 5 ] && [ $stop_stage -ge 5 ]; then
-    echo "Running benchmark client grpc on $N_GPUS GPUs"
-    num_task=1
+  echo "stage 5: Offline TTS (Cosyvoice2 LLM + Step-Audio2-mini DiT Token2Wav) inference using a single python script"
 
-    mode=streaming
-    BLS_INSTANCE_NUM=4
-
-    for i in $(seq 0 $(($N_GPUS - 1))); do
-        grpc_port=$((18000 + $i))
-        echo "Running client for server on localhost:$grpc_port"
-        python3 client_grpc.py \
-            --server-addr localhost \
-            --server-port $grpc_port \
-            --model-name cosyvoice2_dit \
-            --num-tasks $num_task \
-            --mode $mode \
-            --huggingface-dataset yuekai/seed_tts_cosy2 \
-            --log-dir ./log_debug_concurrent_tasks_${num_task}_${mode}_bls_${BLS_INSTANCE_NUM}_gpu${i} &
-    done
-    wait
-fi
-if [ $stage -le 50 ] && [ $stop_stage -ge 50 ]; then
-    echo "Running benchmark client grpc on $N_GPUS GPUs"
-    num_task=4
-    N_GPUS=1
-    mode=streaming
-    BLS_INSTANCE_NUM=4
-
-    for i in $(seq 0 $(($N_GPUS - 1))); do
-        grpc_port=$((18000 + $i))
-        echo "Running client for server on localhost:$grpc_port"
-        python3 client_grpc.py \
-            --server-addr localhost \
-            --server-port $grpc_port \
-            --model-name cosyvoice2_dit \
-            --num-tasks $num_task \
-            --mode $mode \
-            --huggingface-dataset yuekai/seed_tts_cosy2 \
-            --log-dir ./log_single_card_concurrent_tasks_${num_task}_${mode}_bls_${BLS_INSTANCE_NUM} &
-    done
-    wait
-fi
-if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
-  echo "stage 6: Offline inference benchmark"
-  n_gpus=1
   datasets=(wenetspeech4tts) # wenetspeech4tts, test_zh, zero_shot_zh
-  backend=trtllm-serve # hf, trtllm, vllm
+  backend=trtllm # hf, trtllm, vllm, trtllm-serve
 
-  batch_sizes=(16 8 4 2 1)
-  batch_sizes=(16 8 4 2)
+  batch_sizes=(16)
   token2wav_batch_size=1
+
   for batch_size in ${batch_sizes[@]}; do
     for dataset in ${datasets[@]}; do
     output_dir=./${dataset}_${backend}_llm_batch_size_${batch_size}_token2wav_batch_size_${token2wav_batch_size}
@@ -225,7 +154,7 @@ if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
         python3 offline_inference.py \
             --output-dir $output_dir \
             --llm-model-name-or-path $huggingface_model_local_dir \
-            --token2wav-path $model_scope_model_local_dir \
+            --token2wav-path $step_audio_model_dir/token2wav \
             --backend $backend \
             --batch-size $batch_size --token2wav-batch-size $token2wav_batch_size \
             --engine-dir $trt_engines_dir \
@@ -234,34 +163,13 @@ if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
   done
 fi
 
-
-if [ $stage -le 7 ] && [ $stop_stage -ge 7 ]; then
-
-   CUDA_VISIBLE_DEVICES=2 python3 streaming_inference.py --enable-trt --strategy exponential
-
-
+if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
+   echo "Running Step-Audio2-mini DiT Token2Wav inference using a single python script"
+   export CUDA_VISIBLE_DEVICES=1
+   # Note: Using pre-computed cosyvoice2 tokens
+   python3 streaming_inference.py --enable-trt --strategy equal # equal, exponential
+   # Offline Token2wav inference
+   # python3 token2wav_dit.py --enable-trt
 fi
 
 
-if [ $stage -le 8 ] && [ $stop_stage -ge 8 ]; then
-    CUDA_VISIBLE_DEVICES=0 mpirun -np 1 --allow-run-as-root --oversubscribe trtllm-serve serve --tokenizer $huggingface_model_local_dir $trt_engines_dir --max_batch_size 16  --kv_cache_free_gpu_memory_fraction 0.4
-    
-fi
-
-if [ $stage -le 9 ] && [ $stop_stage -ge 9 ]; then
-    #! /usr/bin/env bash
-    curl http://localhost:8000/v1/chat/completions \
-        -H "Content-Type: application/json" \
-        -d '{
-            "model": "trt_engines_bfloat16",
-            "messages":[{"role": "user", "content": "Where is New York?"},
-                        {"role": "assistant", "content": "<|s_1708|><|s_2050|><|s_2159|>"}],
-            "max_tokens": 512,
-            "temperature": 0.8,
-            "top_p": 0.95,
-            "top_k": 50,
-            "stop": ["<|eos1|>"],
-            "repetition_penalty": 1.2,
-            "stream": false
-        }'
-fi

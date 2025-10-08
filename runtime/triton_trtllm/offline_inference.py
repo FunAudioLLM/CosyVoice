@@ -47,8 +47,6 @@ import requests
 import asyncio
 import httpx
 
-from token2wav import CosyVoice2_Token2Wav
-
 sys.path.append("/workspace/CosyVoice/third_party/Matcha-TTS")
 try:
     torch.multiprocessing.set_start_method("spawn")
@@ -367,7 +365,12 @@ def main(args):
         runner = None
     else:
         raise ValueError(f"Unsupported backend: {args.backend}")
-
+    
+    if 'Step-Audio-2-mini' in args.token2wav_path:
+        from token2wav_dit import CosyVoice2_Token2Wav
+    else:
+        assert 'CosyVoice2-0.5B' in args.token2wav_path
+        from token2wav import CosyVoice2_Token2Wav
     token2wav_model = CosyVoice2_Token2Wav(
         model_dir=args.token2wav_path, enable_trt=True, device_id=local_rank
     )
@@ -589,7 +592,6 @@ def main(args):
                         t2w_prompt_audios_list,
                         t2w_prompt_audios_sample_rate,
                     )
-                    torch.cuda.synchronize()
                     token2wav_end_time = time.time()
                     total_token2wav_time += (token2wav_end_time - token2wav_start_time)
 

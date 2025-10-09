@@ -33,7 +33,7 @@ fi
 
 if [ $stage -le -1 ] && [ $stop_stage -ge -1 ]; then
   log "stage -1: download official CosyVoice2-0.5B LLM model and convert to huggingface compatible checkpoint"
-  modelscope download --model iic/CosyVoice2-0.5B --local_dir $model_scope_model_path 
+  modelscope download --model iic/CosyVoice2-0.5B --local_dir $model_scope_model_path
   python3 pretrained_to_huggingface.py \
     --pretrained-cosyvoice2-path $model_scope_model_path \
     --save-path $sft_model_path
@@ -61,7 +61,7 @@ fi
 if [ $stage -le 1 ] && [ $stop_stage -ge 1 ]; then
   log "stage 1: start token2wav asr server for reward function"
   python3 token2wav_asr_server.py --number-of-devices 8
-fi 
+fi
 
 exp_name=official_llm_aishell3_grpo
 if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
@@ -125,7 +125,7 @@ if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
       --backend fsdp \
       --local_dir $llm_path/actor \
       --target_dir $llm_path/merged_hf_model || exit 1
-fi 
+fi
 
 if [ $stage -le 4 ] && [ $stop_stage -ge 4 ]; then
   log "stage 4: Test the model"

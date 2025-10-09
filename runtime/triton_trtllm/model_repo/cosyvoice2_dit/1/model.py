@@ -254,7 +254,7 @@ class TritonPythonModel:
         target_speech_tokens_tensor = pb_utils.Tensor.from_dlpack("target_speech_tokens", to_dlpack(target_speech_tokens))
         finalize_tensor = pb_utils.Tensor("finalize", np.array([[finalize]], dtype=np.bool_))
         inputs_tensor = [target_speech_tokens_tensor, reference_wav, reference_wav_len, finalize_tensor]
-        
+
         # Create and execute inference request
         inference_request = pb_utils.InferenceRequest(
             model_name='token2wav_dit',
@@ -362,7 +362,7 @@ class TritonPythonModel:
                         chunk_index += 1
                     else:
                         break
-            
+
             this_tts_speech_token = torch.tensor(semantic_token_ids_arr[token_offset:]).unsqueeze(dim=0).to(torch.int32).to(self.device)
             sub_tts_speech = await self.forward_token2wav(chunk_index, this_tts_speech_token, request_id, wav, wav_len, True)
             audio_tensor = pb_utils.Tensor.from_dlpack("waveform", to_dlpack(sub_tts_speech))

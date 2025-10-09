@@ -62,7 +62,7 @@ def get_spk_id_from_prompt_audio(tensor: torch.Tensor) -> str:
     # Create a SHA-256 hash of the byte string
     hasher = hashlib.sha256()
     hasher.update(tensor_bytes)
-    
+
     return hasher.hexdigest()
 
 class TritonPythonModel:
@@ -111,9 +111,9 @@ class TritonPythonModel:
             target_speech_tokens = target_speech_tokens.squeeze().tolist()
 
             finalize = pb_utils.get_input_tensor_by_name(request, "finalize").as_numpy().item()
-                
+
             request_id = request.request_id()
-               
+
 
             wav_array = pb_utils.get_input_tensor_by_name(
                 request, "reference_wav").as_numpy()

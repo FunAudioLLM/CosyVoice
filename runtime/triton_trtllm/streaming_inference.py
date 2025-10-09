@@ -14,7 +14,7 @@ def collate_fn(batch):
     prompt_speech_tokens_list, prompt_text_list = [], []
     for i, item in enumerate(batch):
         generated_speech_tokens_list.append(item['target_audio_cosy2_tokens'])
-        audio = torch.from_numpy(item['prompt_audio']['array']).float() 
+        audio = torch.from_numpy(item['prompt_audio']['array']).float()
         prompt_audios_list.append(audio)
         prompt_audios_sample_rate.append(item['prompt_audio']['sampling_rate'])
         ids.append(item['id'])
@@ -37,7 +37,7 @@ def get_args():
 
 if __name__ == "__main__":
     args = get_args()
-    
+
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     data_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn, num_workers=0)
 
     token2wav_model = CosyVoice2_Token2Wav(model_dir=args.model_dir, enable_trt=args.enable_trt, streaming=True)
-    
+
     CHUNK_SIZE = 25
     token_frame_rate = 25
     OVERLAP_SIZE = 0
@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
             semantic_token_ids_arr, token_offset = [], 0
             flow_prompt_speech_token_len = len(prompt_speech_tokens)
-    
+
             buffer = generated_speech_tokens
             output_wavs = []
             chunk_index = 0
@@ -97,7 +97,7 @@ if __name__ == "__main__":
                 output_wavs[i] = wav.cpu().numpy().squeeze()
 
 
-            audios = output_wavs            
+            audios = output_wavs
             reconstructed_audio = np.concatenate(audios)
             sf.write(os.path.join(args.output_dir, f"{id}.wav"), reconstructed_audio, 24000, "PCM_16")
 

@@ -365,7 +365,6 @@ def main(args):
         runner = None
     else:
         raise ValueError(f"Unsupported backend: {args.backend}")
-    
     if 'Step-Audio-2-mini' in args.token2wav_path:
         from token2wav_dit import CosyVoice2_Token2Wav
     else:

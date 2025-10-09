@@ -512,7 +512,7 @@ def main(args):
                         ))
                     else:
                         outputs = []
-                        for i, chat in enumerate(batch["chat_list"]):
+                        for chat in batch["chat_list"]:
                             payload = {
                                 "model": args.openai_model_name,
                                 "messages": chat,

@@ -13,7 +13,7 @@ import soundfile as sf
 def collate_fn(batch):
     ids, generated_speech_tokens_list, prompt_audios_list, prompt_audios_sample_rate = [], [], [], []
     prompt_speech_tokens_list, prompt_text_list = [], []
-    for i, item in enumerate(batch):
+    for item in batch:
         generated_speech_tokens_list.append(item['target_audio_cosy2_tokens'])
         audio = torch.from_numpy(item['prompt_audio']['array']).float()
         prompt_audios_list.append(audio)

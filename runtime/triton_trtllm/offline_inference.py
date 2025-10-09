@@ -28,7 +28,6 @@ import argparse
 import json
 import os
 import sys
-from pathlib import Path
 
 import torch
 import torch.distributed as dist

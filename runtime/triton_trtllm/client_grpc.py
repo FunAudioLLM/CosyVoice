@@ -122,7 +122,10 @@ def write_triton_stats(stats, summary_file):
             total_input_time_s = int(model_inference_stats["compute_input"]["ns"]) / 1e9
             total_output_time_s = int(model_inference_stats["compute_output"]["ns"]) / 1e9
             summary_f.write(
-                f"queue time {total_queue_time_s:<5.2f} s, compute infer time {total_infer_time_s:<5.2f} s, compute input time {total_input_time_s:<5.2f} s, compute output time {total_output_time_s:<5.2f} s \n"
+                f"queue time {total_queue_time_s:<5.2f} s, "
+                f"compute infer time {total_infer_time_s:<5.2f} s, "
+                f"compute input time {total_input_time_s:<5.2f} s, "
+                f"compute output time {total_output_time_s:<5.2f} s \n"
             )
             model_batch_stats = model_state["batch_stats"]
             for batch in model_batch_stats:
@@ -136,7 +139,12 @@ def write_triton_stats(stats, summary_file):
                 compute_input_time_ms = int(compute_input["ns"]) / 1e6
                 compute_output_time_ms = int(compute_output["ns"]) / 1e6
                 summary_f.write(
-                    f"execuate inference with batch_size {batch_size:<2} total {batch_count:<5} times, total_infer_time {compute_infer_time_ms:<9.2f} ms, avg_infer_time {compute_infer_time_ms:<9.2f}/{batch_count:<5}={compute_infer_time_ms / batch_count:.2f} ms, avg_infer_time_per_sample {compute_infer_time_ms:<9.2f}/{batch_count:<5}/{batch_size}={compute_infer_time_ms / batch_count / batch_size:.2f} ms \n"
+                    f"execuate inference with batch_size {batch_size:<2} total {batch_count:<5} times, "
+                    f"total_infer_time {compute_infer_time_ms:<9.2f} ms, "
+                    f"avg_infer_time {compute_infer_time_ms:<9.2f}/{batch_count:<5}="
+                    f"{compute_infer_time_ms / batch_count:.2f} ms, "
+                    f"avg_infer_time_per_sample {compute_infer_time_ms:<9.2f}/{batch_count:<5}/{batch_size}="
+                    f"{compute_infer_time_ms / batch_count / batch_size:.2f} ms \n"
                 )
                 summary_f.write(
                     f"input {compute_input_time_ms:<9.2f} ms, avg {compute_input_time_ms / batch_count:.2f} ms, "

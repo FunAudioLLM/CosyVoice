@@ -178,7 +178,6 @@ class TritonPythonModel:
             yield final_id
             buffer = buffer[match.end():]
 
-
     def forward_audio_tokenizer(self, wav, wav_len):
         """Forward pass through the audio tokenizer component.
 
@@ -263,7 +262,7 @@ class TritonPythonModel:
             ],
             inputs=inputs_tensor,
             request_id=request_id,
-            parameters={"priority": index+1},
+            parameters={"priority": index + 1},
         )
 
         inference_response = await inference_request.async_exec()

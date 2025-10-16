@@ -36,7 +36,7 @@ Stage `0` converts raw JSONL files into the parquet format expected by veRL:
 ```bash
 bash run.sh 0 0
 ```
-Create two JSONL files—`train.jsonl` and `test.jsonl`.  
+Create two JSONL files—`train.jsonl` and `test.jsonl`.
 The script will then generate two Parquet files:
 
 ```
@@ -111,7 +111,7 @@ bash run.sh 5 5
 
 The script converts the Hugging Face checkpoint back into the format expected by the CosyVoice repository.
 > [!TIP]
->  However, we observed a slight accuracy drop when using the RL-trained model after conversion, compared with the Hugging Face format. 
+>  However, we observed a slight accuracy drop when using the RL-trained model after conversion, compared with the Hugging Face format.
 
 ## Results
 

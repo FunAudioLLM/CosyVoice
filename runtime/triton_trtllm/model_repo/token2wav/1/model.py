@@ -28,7 +28,6 @@ import json
 import os
 
 import logging
-from typing import List, Dict
 
 import torch
 from torch.utils.dlpack import to_dlpack

@@ -295,7 +295,7 @@ def main():
         metrics_port=8002,
     )
 
-    device_ids = [i for i in range(args.number_of_devices)]
+    device_ids = list(range(args.number_of_devices))
     device_ids = device_ids * args.number_of_instances_per_device
 
     with Triton(config=triton_config) as triton:

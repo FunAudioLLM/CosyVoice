@@ -134,6 +134,8 @@ def write_triton_stats(stats, summary_file):
                 compute_output = batch["compute_output"]
                 compute_infer = batch["compute_infer"]
                 batch_count = int(compute_infer["count"])
+                if batch_count == 0:
+                    continue
                 assert compute_infer["count"] == compute_output["count"] == compute_input["count"]
                 compute_infer_time_ms = int(compute_infer["ns"]) / 1e6
                 compute_input_time_ms = int(compute_input["ns"]) / 1e6

@@ -20,7 +20,7 @@ trt_weights_dir=./trt_weights_${trt_dtype}
 trt_engines_dir=./trt_engines_${trt_dtype}
 
 model_repo=./model_repo_cosyvoice2_dit
-bls_instance_num=4
+bls_instance_num=10
 
 if [ $stage -le -1 ] && [ $stop_stage -ge -1 ]; then
 
@@ -58,7 +58,7 @@ if [ $stage -le 1 ] && [ $stop_stage -ge 1 ]; then
     echo "Building TensorRT engines"
     trtllm-build --checkpoint_dir $trt_weights_dir \
                 --output_dir $trt_engines_dir \
-                --max_batch_size 16 \
+                --max_batch_size 64 \
                 --max_num_tokens 32768 \
                 --gemm_plugin $trt_dtype || exit 1
 
@@ -100,14 +100,14 @@ fi
 
 if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
    echo "Starting Token2wav Triton server and Cosyvoice2 llm using trtllm-serve"
-   mpirun -np 1 --allow-run-as-root --oversubscribe trtllm-serve serve --tokenizer $huggingface_model_local_dir $trt_engines_dir --max_batch_size 16  --kv_cache_free_gpu_memory_fraction 0.4 &
+   mpirun -np 1 --allow-run-as-root --oversubscribe trtllm-serve serve --tokenizer $huggingface_model_local_dir $trt_engines_dir --max_batch_size 64  --kv_cache_free_gpu_memory_fraction 0.4 &
    tritonserver --model-repository $model_repo --http-port 18000 &
    wait
     # Test using curl
     # curl http://localhost:8000/v1/chat/completions \
     #     -H "Content-Type: application/json" \
     #     -d '{
-    #         "model": "trt_engines_bfloat16",
+    #         "model": "",
     #         "messages":[{"role": "user", "content": "Where is New York?"},
     #                     {"role": "assistant", "content": "<|s_1708|><|s_2050|><|s_2159|>"}],
     #         "max_tokens": 512,
@@ -172,3 +172,54 @@ if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
 fi
 
 
+if [ $stage -le 7 ] && [ $stop_stage -ge 7 ]; then
+   echo "Disaggregated Server: LLM and Token2wav on different GPUs"
+   echo "Starting LLM server on GPU 0"
+   export CUDA_VISIBLE_DEVICES=0
+   mpirun -np 1 --allow-run-as-root --oversubscribe trtllm-serve serve --tokenizer $huggingface_model_local_dir $trt_engines_dir --max_batch_size 64  --kv_cache_free_gpu_memory_fraction 0.4 &
+   echo "Starting Token2wav server on GPUs 1-3"
+   Token2wav_num_gpus=3
+   http_port=17000
+   grpc_port=18000
+   metrics_port=16000
+   for i in $(seq 0 $(($Token2wav_num_gpus - 1))); do
+       echo "Starting server on GPU $i"
+       http_port=$((http_port + 1))
+       grpc_port=$((grpc_port + 1))
+       metrics_port=$((metrics_port + 1))
+       # Two instances of Token2wav server on the same GPU
+       CUDA_VISIBLE_DEVICES=$(($i + 1)) tritonserver --model-repository $model_repo --http-port $http_port --grpc-port $grpc_port --metrics-port $metrics_port &
+       http_port=$((http_port + 1))
+       grpc_port=$((grpc_port + 1))
+       metrics_port=$((metrics_port + 1))
+       CUDA_VISIBLE_DEVICES=$(($i + 1)) tritonserver --model-repository $model_repo --http-port $http_port --grpc-port $grpc_port --metrics-port $metrics_port &
+   done
+   wait
+fi
+
+if [ $stage -le 8 ] && [ $stop_stage -ge 8 ]; then
+    echo "Running benchmark client for Disaggregated Server"
+    per_gpu_instances=2
+    mode=streaming
+    BLS_INSTANCE_NUM=$bls_instance_num
+    Token2wav_num_gpus=(1 2 3)
+    concurrent_tasks=(1 2 3 4 5 6)
+    for n_gpu in ${Token2wav_num_gpus[@]}; do
+        echo "Test 1 GPU for LLM server and $n_gpu GPUs for Token2wav servers"
+        for concurrent_task in ${concurrent_tasks[@]}; do
+            num_instances=$((per_gpu_instances * n_gpu))
+            for i in $(seq 1 $num_instances); do
+                port=$(($i + 18000))
+                python3 client_grpc.py \
+                    --server-addr localhost \
+                    --server-port $port \
+                    --model-name cosyvoice2_dit \
+                    --num-tasks $concurrent_task \
+                    --mode $mode \
+                    --huggingface-dataset yuekai/seed_tts_cosy2 \
+                    --log-dir ./log_disagg_concurrent_tasks_${concurrent_task}_per_instance_total_token2wav_instances_${num_instances}_port_${port} &
+            done
+            wait
+        done
+    done
+fi

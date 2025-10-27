@@ -28,6 +28,7 @@ import json
 import os
 
 import logging
+from uuid import uuid4
 
 import torch
 from torch.utils.dlpack import to_dlpack
@@ -235,17 +236,17 @@ class TritonPythonModel:
                     stream = True
                 else:
                     stream = False
-                request_id = request.request_id()
+                uuid = uuid4().hex
                 audio_hat = self.token2wav_model.model.token2wav(token=target_speech_tokens,
                                                                  prompt_token=prompt_speech_tokens,
                                                                  prompt_feat=prompt_speech_feat,
                                                                  embedding=prompt_spk_embedding,
                                                                  token_offset=token_offset,
-                                                                 uuid=request_id,
+                                                                 uuid=uuid,
                                                                  stream=stream,
                                                                  finalize=finalize)
                 if finalize:
-                    self.token2wav_model.model.hift_cache_dict.pop(request_id)
+                    self.token2wav_model.model.hift_cache_dict.pop(uuid)
 
             else:
                 tts_mel, _ = self.token2wav_model.model.flow.inference(

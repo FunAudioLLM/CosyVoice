@@ -12,13 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: "audio_tokenizer"
+name: "cosyvoice2_dit"
 backend: "python"
 max_batch_size: ${triton_max_batch_size}
 dynamic_batching {
     max_queue_delay_microseconds: ${max_queue_delay_microseconds}
 }
+model_transaction_policy {
+  decoupled: ${decoupled_mode}
+}
 parameters [
+  {
+   key: "llm_tokenizer_dir",
+   value: {string_value:"${llm_tokenizer_dir}"}
+  },
   {
    key: "model_dir",
    value: {string_value:"${model_dir}"}
@@ -30,24 +37,37 @@ input [
     name: "reference_wav"
     data_type: TYPE_FP32
     dims: [-1]
+    optional: true
   },
   {
     name: "reference_wav_len"
     data_type: TYPE_INT32
     dims: [1]
+    optional: true
+  },
+  {
+    name: "reference_text"
+    data_type: TYPE_STRING
+    dims: [1]
+    optional: true
+  },
+  {
+    name: "target_text"
+    data_type: TYPE_STRING
+    dims: [1]
   }
 ]
 output [
   {
-    name: "prompt_speech_tokens"
-    data_type: TYPE_INT32
-    dims: [-1]
+    name: "waveform"
+    data_type: TYPE_FP32
+    dims: [ -1 ]
   }
 ]
 
 instance_group [
   {
-    count: 1
+    count: ${bls_instance_num}
     kind: KIND_CPU
   }
 ]

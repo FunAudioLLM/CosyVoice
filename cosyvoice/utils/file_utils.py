@@ -88,6 +88,7 @@ def convert_onnx_to_trt(trt_model, trt_kwargs, onnx_model, fp16):
     logging.info("Succesfully convert onnx to trt...")
 
 
+# NOTE do not support bistream inference as only speech token embedding/head is kept
 def export_cosyvoice2_vllm(model, model_path, device):
     if os.path.exists(model_path):
         return
@@ -98,12 +99,14 @@ def export_cosyvoice2_vllm(model, model_path, device):
 
     dtype = torch.bfloat16
     # lm_head
-    new_lm_head = torch.nn.Linear(in_features=feature_size, out_features=pad_vocab_size, bias=True)
+    use_bias = True if model.llm_decoder.bias is not None else False
+    new_lm_head = torch.nn.Linear(in_features=feature_size, out_features=pad_vocab_size, bias=use_bias)
     with torch.no_grad():
         new_lm_head.weight[:vocab_size] = model.llm_decoder.weight
-        new_lm_head.bias[:vocab_size] = model.llm_decoder.bias
         new_lm_head.weight[vocab_size:] = 0
-        new_lm_head.bias[vocab_size:] = 0
+        if use_bias is True:
+            new_lm_head.bias[:vocab_size] = model.llm_decoder.bias
+            new_lm_head.bias[vocab_size:] = 0
     model.llm.model.lm_head = new_lm_head
     new_codec_embed = torch.nn.Linear(in_features=feature_size, out_features=pad_vocab_size)
     # embed_tokens
@@ -121,9 +124,12 @@ def export_cosyvoice2_vllm(model, model_path, device):
     del model.llm.model.config.eos_token_id
     model.llm.model.config.vocab_size = pad_vocab_size
     model.llm.model.config.tie_word_embeddings = False
-    model.llm.model.config.use_bias = True
+    model.llm.model.config.use_bias = use_bias
     model.llm.model.save_pretrained(model_path)
-    os.system('sed -i s@Qwen2ForCausalLM@CosyVoice2ForCausalLM@g {}/config.json'.format(os.path.abspath(model_path)))
+    if use_bias is True:
+        os.system('sed -i s@Qwen2ForCausalLM@CosyVoice2ForCausalLM@g {}/config.json'.format(os.path.abspath(model_path)))
+    else:
+        os.system('sed -i s@Qwen2ForCausalLM@Qwen2ForCausalLM@g {}/config.json'.format(os.path.abspath(model_path)))
     model.llm.model.config.vocab_size = tmp_vocab_size
     model.llm.model.config.tie_word_embeddings = tmp_tie_embedding
     model.llm.model.set_input_embeddings(embed_tokens)

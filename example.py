@@ -88,7 +88,7 @@ def cosyvoice3_example():
         torchaudio.save('hotfix_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
 
 def main():
-    # cosyvoice_example()
+    cosyvoice_example()
     cosyvoice2_example()
     cosyvoice3_example()
 

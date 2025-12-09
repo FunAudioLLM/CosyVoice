@@ -101,7 +101,7 @@ We strongly recommend that you download our pretrained `CosyVoice2-0.5B` `CosyVo
 ``` python
 # SDK模型下载
 from modelscope import snapshot_download
-snapshot_download('iic/CosyVoice3-0.5B', local_dir='pretrained_models/CosyVoice3-0.5B')
+snapshot_download('FunAudioLLM/Fun-CosyVoice3-0.5B', local_dir='pretrained_models/Fun-CosyVoice3-0.5B')
 snapshot_download('iic/CosyVoice2-0.5B', local_dir='pretrained_models/CosyVoice2-0.5B')
 snapshot_download('iic/CosyVoice-300M', local_dir='pretrained_models/CosyVoice-300M')
 snapshot_download('iic/CosyVoice-300M-SFT', local_dir='pretrained_models/CosyVoice-300M-SFT')

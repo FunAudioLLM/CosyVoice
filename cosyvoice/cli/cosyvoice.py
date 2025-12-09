@@ -196,7 +196,7 @@ class CosyVoice2(CosyVoice):
 
 class CosyVoice3(CosyVoice2):
 
-    def __init__(self, model_dir, load_jit=False, load_trt=False, load_vllm=False, fp16=False, trt_concurrent=1):
+    def __init__(self, model_dir, load_trt=False, load_vllm=False, fp16=False, trt_concurrent=1):
         self.instruct = True if '-Instruct' in model_dir else False
         self.model_dir = model_dir
         self.fp16 = fp16
@@ -215,9 +215,9 @@ class CosyVoice3(CosyVoice2):
                                           '{}/spk2info.pt'.format(model_dir),
                                           configs['allowed_special'])
         self.sample_rate = configs['sample_rate']
-        if torch.cuda.is_available() is False and (load_jit is True or load_trt is True or fp16 is True):
-            load_jit, load_trt, fp16 = False, False, False
-            logging.warning('no cuda device, set load_jit/load_trt/fp16 to False')
+        if torch.cuda.is_available() is False and (load_trt is True or fp16 is True):
+            load_trt, fp16 = False, False
+            logging.warning('no cuda device, set load_trt/fp16 to False')
         self.model = CosyVoice3Model(configs['llm'], configs['flow'], configs['hift'], fp16)
         self.model.load('{}/llm.pt'.format(model_dir),
                         '{}/flow.pt'.format(model_dir),
@@ -225,8 +225,23 @@ class CosyVoice3(CosyVoice2):
         if load_vllm:
             self.model.load_vllm('{}/vllm'.format(model_dir))
         if load_trt:
+            if self.fp16 is True:
+                logging.warning('DiT tensorRT fp16 engine have some performance issue, use at caution!')
             self.model.load_trt('{}/flow.decoder.estimator.{}.mygpu.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
                                 '{}/flow.decoder.estimator.fp32.onnx'.format(model_dir),
                                 trt_concurrent,
                                 self.fp16)
         del configs
+
+
+def AutoModel(**kwargs):
+    if not os.path.exists(kwargs['model_dir']):
+        kwargs['model_dir'] = snapshot_download(kwargs['model_dir'])
+    if os.path.exists('{}/cosyvoice.yaml'.format(kwargs['model_dir'])):
+        return CosyVoice(**kwargs)
+    elif os.path.exists('{}/cosyvoice2.yaml'.format(kwargs['model_dir'])):
+        return CosyVoice2(**kwargs)
+    elif os.path.exists('{}/cosyvoice3.yaml'.format(kwargs['model_dir'])):
+        return CosyVoice3(**kwargs)
+    else:
+        raise TypeError('No valid model type found!')

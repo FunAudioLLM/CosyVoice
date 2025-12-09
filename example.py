@@ -1,6 +1,6 @@
 import sys
 sys.path.append('third_party/Matcha-TTS')
-from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2, CosyVoice3
+from cosyvoice.cli.cosyvoice import AutoModel
 from cosyvoice.utils.file_utils import load_wav
 import torchaudio
 
@@ -8,14 +8,14 @@ import torchaudio
 def cosyvoice_example():
     """ CosyVoice Usage, check https://fun-audio-llm.github.io/ for more details
     """
-    cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-SFT', load_jit=False, load_trt=False, fp16=False)
+    cosyvoice = AutoModel(model_dir='pretrained_models/CosyVoice-300M-SFT')
     # sft usage
     print(cosyvoice.list_available_spks())
     # change stream=True for chunk stream inference
     for i, j in enumerate(cosyvoice.inference_sft('你好，我是通义生成式语音大模型，请问有什么可以帮您的吗？', '中文女', stream=False)):
         torchaudio.save('sft_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
 
-    cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M')
+    cosyvoice = AutoModel(model_dir='pretrained_models/CosyVoice-300M')
     # zero_shot usage, <|zh|><|en|><|jp|><|yue|><|ko|> for Chinese/English/Japanese/Cantonese/Korean
     for i, j in enumerate(cosyvoice.inference_zero_shot('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。', '希望你以后能够做的比我还好呦。', './asset/zero_shot_prompt.wav', stream=False)):
         torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
@@ -26,7 +26,7 @@ def cosyvoice_example():
     for i, j in enumerate(cosyvoice.inference_vc('./asset/zero_shot_prompt.wav', './asset/cross_lingual_prompt.wav', stream=False)):
         torchaudio.save('vc_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
 
-    cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-Instruct')
+    cosyvoice = AutoModel(model_dir='pretrained_models/CosyVoice-300M-Instruct')
     # instruct usage, support <laughter></laughter><strong></strong>[laughter][breath]
     for i, j in enumerate(cosyvoice.inference_instruct('在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。', '中文男', 'Theo \'Crimson\', is a fiery, passionate rebel leader. Fights with fervor for justice, but struggles with impulsiveness.<|endofprompt|>', stream=False)):
         torchaudio.save('instruct_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
@@ -34,7 +34,7 @@ def cosyvoice_example():
 def cosyvoice2_example():
     """ CosyVoice2 Usage, check https://funaudiollm.github.io/cosyvoice2/ for more details
     """
-    cosyvoice = CosyVoice2('pretrained_models/CosyVoice2-0.5B', load_jit=False, load_trt=False, load_vllm=False, fp16=False)
+    cosyvoice = AutoModel(model_dir='pretrained_models/CosyVoice2-0.5B')
 
     # NOTE if you want to reproduce the results on https://funaudiollm.github.io/cosyvoice2, please add text_frontend=False during inference
     # zero_shot usage
@@ -68,7 +68,7 @@ def cosyvoice2_example():
 def cosyvoice3_example():
     """ CosyVoice3 Usage, check https://funaudiollm.github.io/cosyvoice3/ for more details
     """
-    cosyvoice = CosyVoice3('pretrained_models/CosyVoice3-0.5B', load_jit=False, load_trt=False, fp16=False)
+    cosyvoice = AutoModel(model_dir='pretrained_models/CosyVoice3-0.5B')
     # zero_shot usage
     for i, j in enumerate(cosyvoice.inference_zero_shot('八百标兵奔北坡，北坡炮兵并排跑，炮兵怕把标兵碰，标兵怕碰炮兵炮。', 'You are a helpful assistant.<|endofprompt|>希望你以后能够做的比我还好呦。', './asset/zero_shot_prompt.wav', stream=False)):
         torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)

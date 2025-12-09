@@ -7,7 +7,7 @@ stop_stage=3
 
 data_url=www.openslr.org/resources/60
 data_dir=/mnt/lyuxiang.lx/data/tts/openslr/libritts
-pretrained_model_dir=../../../pretrained_models/CosyVoice2-0.5B
+pretrained_model_dir=../../../pretrained_models/CosyVoice3-0.5B
 
 if [ ${stage} -le -1 ] && [ ${stop_stage} -ge -1 ]; then
   echo "Data Download"
@@ -36,7 +36,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   echo "Extract discrete speech token, you will get utt2speech_token.pt in data/$x dir"
   for x in train-clean-100 train-clean-360 train-other-500 dev-clean dev-other test-clean test-other; do
     tools/extract_speech_token.py --dir data/$x \
-      --onnx_path $pretrained_model_dir/speech_tokenizer_v2.onnx
+      --onnx_path $pretrained_model_dir/speech_tokenizer_v3.onnx
   done
 fi
 
@@ -72,14 +72,14 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
         --rdzv_id=$job_id --rdzv_backend="c10d" --rdzv_endpoint="localhost:1234" \
       cosyvoice/bin/train.py \
       --train_engine $train_engine \
-      --config conf/cosyvoice2.yaml \
+      --config conf/cosyvoice3.yaml \
       --train_data data/train.data.list \
       --cv_data data/dev.data.list \
       --qwen_pretrain_path $pretrained_model_dir/CosyVoice-BlankEN \
       --model $model \
       --checkpoint $pretrained_model_dir/$model.pt \
-      --model_dir `pwd`/exp/cosyvoice2/$model/$train_engine \
-      --tensorboard_dir `pwd`/tensorboard/cosyvoice2/$model/$train_engine \
+      --model_dir `pwd`/exp/cosyvoice3/$model/$train_engine \
+      --tensorboard_dir `pwd`/tensorboard/cosyvoice3/$model/$train_engine \
       --ddp.dist_backend $dist_backend \
       --num_workers ${num_workers} \
       --prefetch ${prefetch} \

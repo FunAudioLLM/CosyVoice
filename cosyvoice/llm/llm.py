@@ -155,7 +155,7 @@ class TransformerLM(torch.nn.Module):
         num_trials, max_trials = 0, 100
         while True:
             top_ids = self.sampling(weighted_scores, decoded_tokens, sampling)
-            if (not ignore_eos) or (self.speech_token_size not in top_ids):
+            if (not ignore_eos) or (top_ids < self.speech_token_size):
                 break
             num_trials += 1
             if num_trials > max_trials:
@@ -506,7 +506,7 @@ class Qwen2LM(TransformerLM):
                                                           masks=torch.tril(torch.ones((1, lm_input.shape[1], lm_input.shape[1]), device=lm_input.device)).to(torch.bool),
                                                           cache=cache)
                 logp = self.llm_decoder(y_pred[:, -1]).log_softmax(dim=-1)
-                top_ids = self.sampling_ids(logp.squeeze(dim=0), out_tokens, sampling, ignore_eos=True if i < min_len else False).item()
+                top_ids = self.sampling_ids(logp.squeeze(dim=0), out_tokens, sampling, ignore_eos=True if i < min_len else False)
                 if top_ids in self.stop_token_ids:
                     break
                 # in stream mode, yield token one by one
@@ -654,7 +654,7 @@ class CosyVoice3LM(Qwen2LM):
         self.mix_ratio = mix_ratio
 
         # 5. vllm related
-        self.stop_token_ids = [speech_token_size + i for i in range(4)]
+        self.stop_token_ids = [speech_token_size + i for i in range(200)]
         self.vllm_output_queue = {}
 
     def forward(

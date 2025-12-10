@@ -52,6 +52,7 @@ instruct_list = ["You are a helpful assistant. 请用广东话表达。<endofpro
                  "You are a helpful assistant. 我想体验一下小猪佩奇风格，可以吗？<endofprompt>",
                  "You are a helpful assistant. 你可以尝试用机器人的方式解答吗？<endofprompt>"]
 
+
 def pad_list(xs: List[torch.Tensor], pad_value: int):
     """Perform padding for the list of tensors.
 

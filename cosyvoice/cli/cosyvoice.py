@@ -156,9 +156,9 @@ class CosyVoice2(CosyVoice):
                                           '{}/spk2info.pt'.format(model_dir),
                                           configs['allowed_special'])
         self.sample_rate = configs['sample_rate']
-        if torch.cuda.is_available() is False and (load_jit is True or load_trt is True or fp16 is True):
-            load_jit, load_trt, fp16 = False, False, False
-            logging.warning('no cuda device, set load_jit/load_trt/fp16 to False')
+        if torch.cuda.is_available() is False and (load_jit is True or load_trt is True or load_vllm is True or fp16 is True):
+            load_jit, load_trt, load_vllm, fp16 = False, False, False, False
+            logging.warning('no cuda device, set load_jit/load_trt/load_vllm/fp16 to False')
         self.model = CosyVoice2Model(configs['llm'], configs['flow'], configs['hift'], fp16)
         self.model.load('{}/llm.pt'.format(model_dir),
                         '{}/flow.pt'.format(model_dir),
@@ -174,11 +174,7 @@ class CosyVoice2(CosyVoice):
                                 self.fp16)
         del configs
 
-    def inference_instruct(self, *args, **kwargs):
-        raise NotImplementedError('inference_instruct is not implemented for CosyVoice2!')
-
     def inference_instruct2(self, tts_text, instruct_text, prompt_wav, zero_shot_spk_id='', stream=False, speed=1.0, text_frontend=True):
-        assert isinstance(self.model, CosyVoice2Model) or isinstance(self.model, CosyVoice3Model), 'inference_instruct2 is only implemented for CosyVoice2 and CosyVoice3!'
         for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
             model_input = self.frontend.frontend_instruct2(i, instruct_text, prompt_wav, self.sample_rate, zero_shot_spk_id)
             start_time = time.time()

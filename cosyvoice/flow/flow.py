@@ -402,11 +402,12 @@ class CausalMaskedDiffWithDiT(torch.nn.Module):
         assert feat.shape[2] == mel_len2
         return feat.float(), None
 
+
 if __name__ == '__main__':
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     from hyperpyyaml import load_hyperpyyaml
-    with open('./pretrained_models/CosyVoice3-0.5B/cosyvoice3.yaml', 'r') as f:
+    with open('./pretrained_models/Fun-CosyVoice3-0.5B/cosyvoice3.yaml', 'r') as f:
         configs = load_hyperpyyaml(f, overrides={'llm': None, 'hift': None})
     model = configs['flow']
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -425,6 +426,7 @@ if __name__ == '__main__':
     pred_gt, _ = model.inference(token, token_len, prompt_token, prompt_token_len, prompt_feat, prompt_feat_len, prompt_embedding, streaming=True, finalize=True)
     for i in range(0, max_len, chunk_size):
         finalize = True if i + chunk_size + context_size >= max_len else False
-        pred_chunk, _ = model.inference(token[:, :i + chunk_size + context_size], torch.tensor([token[:, :i + chunk_size + context_size].shape[1]]).to(device), prompt_token, prompt_token_len, prompt_feat, prompt_feat_len, prompt_embedding, streaming=True, finalize=finalize)
+        pred_chunk, _ = model.inference(token[:, :i + chunk_size + context_size], torch.tensor([token[:, :i + chunk_size + context_size].shape[1]]).to(device),
+                                        prompt_token, prompt_token_len, prompt_feat, prompt_feat_len, prompt_embedding, streaming=True, finalize=finalize)
         pred_chunk = pred_chunk[:, :, i * model.token_mel_ratio:]
         print((pred_gt[:, :, i * model.token_mel_ratio: i * model.token_mel_ratio + pred_chunk.shape[2]] - pred_chunk).abs().max().item())

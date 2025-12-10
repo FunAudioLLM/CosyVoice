@@ -342,11 +342,9 @@ class SourceModuleHnNSF(torch.nn.Module):
 
         # to produce sine waveforms
         if sinegen_type == '1':
-            self.l_sin_gen = SineGen(sampling_rate, harmonic_num,
-                                    sine_amp, add_noise_std, voiced_threshod)
+            self.l_sin_gen = SineGen(sampling_rate, harmonic_num, sine_amp, add_noise_std, voiced_threshod)
         else:
-            self.l_sin_gen = SineGen2(sampling_rate, upsample_scale, harmonic_num,
-                                    sine_amp, add_noise_std, voiced_threshod, causal=causal)
+            self.l_sin_gen = SineGen2(sampling_rate, upsample_scale, harmonic_num, sine_amp, add_noise_std, voiced_threshod, causal=causal)
 
         # to merge source harmonics into a single excitation
         self.l_linear = torch.nn.Linear(harmonic_num + 1, 1)
@@ -675,7 +673,8 @@ class CausalHiFTGenerator(HiFTGenerator):
             x = self.conv_pre(x)
         else:
             x = self.conv_pre(x[:, :, :-self.conv_pre_look_right], x[:, :, -self.conv_pre_look_right:])
-            s_stft_real, s_stft_imag = s_stft_real[:, :, :-int(np.prod(self.upsample_rates) * self.conv_pre_look_right)], s_stft_imag[:, :, :-int(np.prod(self.upsample_rates) * self.conv_pre_look_right)]
+            s_stft_real = s_stft_real[:, :, :-int(np.prod(self.upsample_rates) * self.conv_pre_look_right)]
+            s_stft_imag = s_stft_imag[:, :, :-int(np.prod(self.upsample_rates) * self.conv_pre_look_right)]
         s_stft = torch.cat([s_stft_real, s_stft_imag], dim=1)
 
         for i in range(self.num_upsamples):
@@ -711,7 +710,7 @@ class CausalHiFTGenerator(HiFTGenerator):
 
     @torch.inference_mode()
     def inference(self, speech_feat: torch.Tensor, finalize: bool = True) -> torch.Tensor:
-        # mel->f0
+        # mel->f0 NOTE f0_predictor precision is crucial for causal inference, move self.f0_predictor to cpu if necessary
         self.f0_predictor.to('cpu')
         f0 = self.f0_predictor(speech_feat.cpu(), finalize=finalize).to(speech_feat)
         # f0->source
@@ -729,7 +728,7 @@ if __name__ == '__main__':
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     from hyperpyyaml import load_hyperpyyaml
-    with open('./pretrained_models/CosyVoice3-0.5B/cosyvoice3.yaml', 'r') as f:
+    with open('./pretrained_models/Fun-CosyVoice3-0.5B/cosyvoice3.yaml', 'r') as f:
         configs = load_hyperpyyaml(f, overrides={'llm': None, 'flow': None})
     model = configs['hift']
     device = 'cuda' if torch.cuda.is_available() else 'cpu'

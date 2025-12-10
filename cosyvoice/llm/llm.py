@@ -369,7 +369,8 @@ class Qwen2LM(TransformerLM):
         speech_token_emb = self.speech_embedding(speech_token)
 
         # 3. prepare llm_input/target
-        lm_target, lm_input, lm_input_len = self.prepare_lm_input_target(sos_emb, text_token, text_token_emb, text_token_len, task_id_emb, speech_token, speech_token_emb, speech_token_len)
+        lm_target, lm_input, lm_input_len = self.prepare_lm_input_target(sos_emb, text_token, text_token_emb, text_token_len, task_id_emb,
+                                                                         speech_token, speech_token_emb, speech_token_len)
         lm_target = lm_target.to(device)
 
         # 4. run lm forward
@@ -685,7 +686,8 @@ class CosyVoice3LM(Qwen2LM):
         speech_token_emb = self.speech_embedding(speech_token)
 
         # 3. prepare llm_input/target
-        lm_target, lm_input, lm_input_len = self.prepare_lm_input_target(sos_emb, text_token, text_token_emb, text_token_len, task_id_emb, speech_token, speech_token_emb, speech_token_len)
+        lm_target, lm_input, lm_input_len = self.prepare_lm_input_target(sos_emb, text_token, text_token_emb, text_token_len, task_id_emb,
+                                                                         speech_token, speech_token_emb, speech_token_len)
         lm_target = lm_target.to(device)
 
         # 4. run lm forward

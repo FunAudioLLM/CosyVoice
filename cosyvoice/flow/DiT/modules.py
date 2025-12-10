@@ -476,7 +476,7 @@ class JointAttnProcessor:
         # Split the attention outputs.
         x, c = (
             x[:, : residual.shape[1]],
-            x[:, residual.shape[1] :],
+            x[:, residual.shape[1]:],
         )
 
         # linear proj

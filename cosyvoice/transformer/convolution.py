@@ -202,11 +202,11 @@ class CausalConv1dDownSample(torch.nn.Conv1d):
         dtype=None
     ) -> None:
         super(CausalConv1dDownSample, self).__init__(in_channels, out_channels,
-                                           kernel_size, stride,
-                                           padding=0, dilation=dilation,
-                                           groups=groups, bias=bias,
-                                           padding_mode=padding_mode,
-                                           device=device, dtype=dtype)
+                                                     kernel_size, stride,
+                                                     padding=0, dilation=dilation,
+                                                     groups=groups, bias=bias,
+                                                     padding_mode=padding_mode,
+                                                     device=device, dtype=dtype)
         assert stride != 1 and dilation == 1
         assert kernel_size % stride == 0
         self.causal_padding = stride - 1
@@ -236,11 +236,11 @@ class CausalConv1dUpsample(torch.nn.Conv1d):
         dtype=None
     ) -> None:
         super(CausalConv1dUpsample, self).__init__(in_channels, out_channels,
-                                           kernel_size, 1,
-                                           padding=0, dilation=dilation,
-                                           groups=groups, bias=bias,
-                                           padding_mode=padding_mode,
-                                           device=device, dtype=dtype)
+                                                   kernel_size, 1,
+                                                   padding=0, dilation=dilation,
+                                                   groups=groups, bias=bias,
+                                                   padding_mode=padding_mode,
+                                                   device=device, dtype=dtype)
         assert dilation == 1
         self.causal_padding = kernel_size - 1
         self.upsample = torch.nn.Upsample(scale_factor=stride, mode='nearest')

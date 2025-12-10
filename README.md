@@ -2,7 +2,7 @@
 
 ## 👉🏻 CosyVoice 👈🏻
 
-**CosyVoice 3.0**: [Demos](https://funaudiollm.github.io/cosyvoice3/); [Paper](https://arxiv.org/abs/2505.17589); [Modelscope](https://www.modelscope.cn/studios/iic/CosyVoice3-0.5B); [CV3-Eval](https://github.com/FunAudioLLM/CV3-Eval)
+**CosyVoice 3.0**: [Demos](https://funaudiollm.github.io/cosyvoice3/); [Paper](https://arxiv.org/abs/2505.17589); [Modelscope](https://www.modelscope.cn/studios/FunAudioLLM/Fun-CosyVoice3-0.5B); [CV3-Eval](https://github.com/FunAudioLLM/CV3-Eval)
 
 **CosyVoice 2.0**: [Demos](https://funaudiollm.github.io/cosyvoice2/); [Paper](https://arxiv.org/abs/2412.10117); [Modelscope](https://www.modelscope.cn/studios/iic/CosyVoice2-0.5B); [HuggingFace](https://huggingface.co/spaces/FunAudioLLM/CosyVoice2-0.5B)
 
@@ -31,8 +31,8 @@
 
 - [x] 2025/12
 
-    - [x] release cosyvoice3-0.5B base model and its training/inference script
-    - [x] release cosyvoice3-0.5B modelscope gradio space
+    - [x] release CosyVoice3-0.5B base model and its training/inference script
+    - [x] release CosyVoice3-0.5B modelscope gradio space
 
 - [x] 2025/08
 
@@ -40,20 +40,20 @@
 
 - [x] 2025/07
 
-    - [x] release cosyvoice 3.0 eval set
+    - [x] release CosyVoice 3.0 eval set
 
 - [x] 2025/05
 
-    - [x] add cosyvoice 2.0 vllm support
+    - [x] add CosyVoice2-0.5B vllm support
 
 - [x] 2024/12
 
-    - [x] 25hz cosyvoice 2.0 released
+    - [x] 25hz CosyVoice2-0.5B released
 
 - [x] 2024/09
 
-    - [x] 25hz cosyvoice base model
-    - [x] 25hz cosyvoice voice conversion model
+    - [x] 25hz CosyVoice-300M base model
+    - [x] 25hz CosyVoice-300M voice conversion function
 
 - [x] 2024/08
 
@@ -122,7 +122,7 @@ pip install ttsfrd-0.4.2-cp310-cp310-linux_x86_64.whl
 
 ### Basic Usage
 
-We strongly recommend using `CosyVoice2-0.5B` for better performance.
+We strongly recommend using `CosyVoice3-0.5B` for better performance.
 Follow the code in `example.py` for detailed usage of each model.
 ```sh
 python example.py

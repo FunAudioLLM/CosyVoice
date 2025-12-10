@@ -42,8 +42,10 @@ def generate_seed():
         "value": seed
     }
 
+
 def change_instruction(mode_checkbox_group):
     return instruct_dict[mode_checkbox_group]
+
 
 def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, prompt_wav_upload, prompt_wav_record, instruct_text,
                    seed, stream, speed):
@@ -168,7 +170,7 @@ if __name__ == '__main__':
                         default='pretrained_models/CosyVoice3-0.5B',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
-    model = AutoModel(model_dir=args.model_dir)
+    cosyvoice = AutoModel(model_dir=args.model_dir)
 
     sft_spk = cosyvoice.list_available_spks()
     if len(sft_spk) == 0:

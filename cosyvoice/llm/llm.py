@@ -604,7 +604,7 @@ class Qwen2LM(TransformerLM):
                                                       masks=torch.tril(torch.ones((1, seq_len, seq_len), device=lm_input.device)).to(torch.bool),
                                                       cache=cache)
             logp = self.llm_decoder(y_pred[:, -1]).log_softmax(dim=-1)
-            top_ids = self.sampling_ids(logp.squeeze(dim=0), out_tokens, sampling, ignore_eos=False).item()
+            top_ids = self.sampling_ids(logp.squeeze(dim=0), out_tokens, sampling, ignore_eos=False)
             out_tokens.append(top_ids)
             if top_ids >= self.speech_token_size:
                 if top_ids == self.eos_token:

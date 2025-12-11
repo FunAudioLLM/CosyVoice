@@ -40,6 +40,11 @@ def main():
     with open('{}/spk2utt'.format(args.des_dir), 'w') as f:
         for k, v in spk2utt.items():
             f.write('{} {}\n'.format(k, ' '.join(v)))
+    if args.instruct is True:
+        with open('{}/instruct'.format(args.des_dir), 'w') as f:
+            for k, v in utt2text.items():
+                # NOTE in CosyVoice3, we add instruct in sequence
+                f.write('{} You are a helpful assistant.<|endofprompt|>\n'.format(k, v))
     return
 
 
@@ -49,7 +54,9 @@ if __name__ == "__main__":
                         type=str)
     parser.add_argument('--des_dir',
                         type=str)
-    parser.add_argument('--ref_model',
-                        type=str)
+    parser.add_argument('--instruct',
+                        action='store_true',
+                        default=False,
+                        help='create instruct file or not')
     args = parser.parse_args()
     main()

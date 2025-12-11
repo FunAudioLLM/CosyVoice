@@ -242,6 +242,10 @@ def tokenize(data, get_tokenizer, allowed_special, mode='train'):
     for sample in data:
         assert 'text' in sample
         sample['text_token'] = tokenizer.encode(sample['text'], allowed_special=allowed_special)
+        if 'instruct' in sample:
+            sample['instruct_token'] = tokenizer.encode(sample['instruct'], allowed_special=allowed_special)
+        else:
+            sample['instruct_token'] = tokenizer.encode('', allowed_special=allowed_special)
         yield sample
 
 
@@ -390,6 +394,9 @@ def padding(data, use_spk_embedding, mode='train', gan=False, dpo=False):
         text_token = [torch.tensor(sample[i]['text_token']) for i in order]
         text_token_len = torch.tensor([i.size(0) for i in text_token], dtype=torch.int32)
         text_token = pad_sequence(text_token, batch_first=True, padding_value=0)
+        instruct_token = [torch.tensor(sample[i]['instruct_token']) for i in order]
+        instruct_token_len = torch.tensor([i.size(0) for i in instruct_token], dtype=torch.int32)
+        instruct_token = pad_sequence(instruct_token, batch_first=True, padding_value=0)
         utt_embedding = torch.stack([sample[i]['utt_embedding'] for i in order], dim=0)
         spk_embedding = torch.stack([sample[i]['spk_embedding'] for i in order], dim=0)
         batch = {
@@ -403,6 +410,8 @@ def padding(data, use_spk_embedding, mode='train', gan=False, dpo=False):
             "text": text,
             "text_token": text_token,
             "text_token_len": text_token_len,
+            "instruct_token": instruct_token,
+            "instruct_token_len": instruct_token_len,
             "utt_embedding": utt_embedding,
             "spk_embedding": spk_embedding,
         }

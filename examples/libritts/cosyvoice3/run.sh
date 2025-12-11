@@ -20,7 +20,7 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
   echo "Data preparation, prepare wav.scp/text/utt2spk/spk2utt"
   for x in train-clean-100 train-clean-360 train-other-500 dev-clean dev-other test-clean test-other; do
     mkdir -p data/$x
-    python local/prepare_data.py --src_dir $data_dir/LibriTTS/$x --des_dir data/$x
+    python local/prepare_data.py --src_dir $data_dir/LibriTTS/$x --des_dir data/$x --instruct
   done
 fi
 
@@ -46,6 +46,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     mkdir -p data/$x/parquet
     tools/make_parquet_list.py --num_utts_per_parquet 1000 \
       --num_processes 10 \
+      --instruct \
       --src_dir data/$x \
       --des_dir data/$x/parquet
   done

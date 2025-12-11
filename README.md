@@ -10,22 +10,27 @@
 
 ## Highlight🔥
 
-**CosyVoice 2.0** has been released! Compared to version 1.0, the new version offers more accurate, more stable, faster, and better speech generation capabilities.
-### Multilingual
-- **Supported Language**: Chinese, English, Japanese, Korean, Chinese dialects (Cantonese, Sichuanese, Shanghainese, Tianjinese, Wuhanese, etc.)
-- **Crosslingual & Mixlingual**：Support zero-shot voice cloning for cross-lingual and code-switching scenarios.
-### Ultra-Low Latency
-- **Bidirectional Streaming Support**: CosyVoice 2.0 integrates offline and streaming modeling technologies.
-- **Rapid First Packet Synthesis**: Achieves latency as low as 150ms while maintaining high-quality audio output.
-### High Accuracy
-- **Improved Pronunciation**: Reduces pronunciation errors by 30% to 50% compared to CosyVoice 1.0.
-- **Benchmark Achievements**: Attains the lowest character error rate on the hard test set of the Seed-TTS evaluation set.
-### Strong Stability
-- **Consistency in Timbre**: Ensures reliable voice consistency for zero-shot and cross-language speech synthesis.
-- **Cross-language Synthesis**: Marked improvements compared to version 1.0.
-### Natural Experience
-- **Enhanced Prosody and Sound Quality**: Improved alignment of synthesized audio, raising MOS evaluation scores from 5.4 to 5.53.
-- **Emotional and Dialectal Flexibility**: Now supports more granular emotional controls and accent adjustments.
+**CosyVoice 3.0** is here! Building on the strengths of version 2.0, it achieves a leap in "in-the-wild speech generation" with larger scale, more powerful technology, and broader coverage—delivering more natural, accurate, and versatile speech synthesis capabilities.
+### Multilingual & Wide Coverage
+- **Expanded Language** Support: Covers 9 universal languages (Chinese, English, Japanese, Korean, German, Spanish, French, Italian, Russian) and 18+ Chinese dialects/accents, supporting zero-shot multilingual/cross-lingual voice cloning.
+- **Massive Data Upgrade**: Training data scaled from ten thousand hours to 1 million hours，enhancing cross-lingual generalization and synthesis stability.
+- **Polyglot Transformation**: Enables monolingual speakers to generate speech in multiple languages, with WER/CER below 4% for most languages.
+### High Precision & Robustness
+- **Superior Content Consistency**: Compared to 2.0, Chinese test set CER relative improves 44%, English test set 51%, and complex scenario (test-hard) CER drops from 6.83% to 5.09%.
+- **Pronunciation Perfection**: Features pronunciation inpainting technology with high correction rate for polyphonic characters and rare words, solving long-standing pronunciation challenges.
+- **Strong Scene Adaptability**: Excels in noisy backgrounds, tongue twisters, and domain-specific terms; self-training text normalization supports raw text direct synthesis, compatible with special symbols.
+### Natural & Expressive Experience
+- **Rich Style Control**: Supports 100+ speaking styles (emotions, speeds, roles, accents) and fine-grained instructions ([laughter], [breath], <strong>emphasis</strong>).
+- **Advanced Emotion CloningControl**:: Optimized with DiffRO-EMO, leading in emotion accuracy for both text-related and text-unrelated scenarios.
+### Innovative Core Technology
+- **DiffRO Optimization**: Innovative reinforcement learning method, directly optimizing speech tokens, improving WER by 20%-50% in low-resource/cross-lingual scenarios, applicable to other LLM-based TTS models.
+- **Supervised Multi-task Tokenizer**: Trained on ASR, SER, LID, etc., better capturing paralinguistic information like emotion and pronunciation style.
+- **Pronunciation & Text Normalization**: Supports word-phoneme mixed sequence modeling; LLM-based self-training TN eliminates manual rules.
+### Real-time & Flexible Deployment
+- **Multi-mode Support**: Single model compatible with offline mode, one-way streaming, and bidirectional streaming, meeting diverse deployment needs.
+- **Ultra-low Latency**: Achieves latency as low as 150ms while maintaining high-quality audio output.
+- **Hot Fix Capability**: Supports SSML hot fix and built-in TN capability, enhancing usability and adaptability to complex text formats.
+
 
 ## Roadmap
 

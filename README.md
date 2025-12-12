@@ -10,26 +10,14 @@
 
 ## Highlight🔥
 
-**CosyVoice 3.0** is here! Building on the strengths of version 2.0, it achieves a leap in "in-the-wild speech generation" with larger scale, more powerful technology, and broader coverage—delivering more natural, accurate, and versatile speech synthesis capabilities.
-### Multilingual & Wide Coverage
-- **Expanded Language** Support: Covers 9 universal languages (Chinese, English, Japanese, Korean, German, Spanish, French, Italian, Russian) and 18+ Chinese dialects/accents, supporting zero-shot multilingual/cross-lingual voice cloning.
-- **Massive Data Upgrade**: Training data scaled from ten thousand hours to 1 million hours，enhancing cross-lingual generalization and synthesis stability.
-- **Polyglot Transformation**: Enables monolingual speakers to generate speech in multiple languages, with WER/CER below 4% for most languages.
-### High Precision & Robustness
-- **Superior Content Consistency**: Compared to 2.0, Chinese test set CER relative improves 44%, English test set 51%, and complex scenario (test-hard) CER drops from 6.83% to 5.09%.
-- **Pronunciation Perfection**: Features pronunciation inpainting technology with high correction rate for polyphonic characters and rare words, solving long-standing pronunciation challenges.
-- **Strong Scene Adaptability**: Excels in noisy backgrounds, tongue twisters, and domain-specific terms; self-training text normalization supports raw text direct synthesis, compatible with special symbols.
-### Natural & Expressive Experience
-- **Rich Style Control**: Supports 100+ speaking styles (emotions, speeds, roles, accents) and fine-grained instructions ([laughter], [breath], <strong>emphasis</strong>).
-- **Advanced Emotion CloningControl**:: Optimized with DiffRO-EMO, leading in emotion accuracy for both text-related and text-unrelated scenarios.
-### Innovative Core Technology
-- **DiffRO Optimization**: Innovative reinforcement learning method, directly optimizing speech tokens, improving WER by 20%-50% in low-resource/cross-lingual scenarios, applicable to other LLM-based TTS models.
-- **Supervised Multi-task Tokenizer**: Trained on ASR, SER, LID, etc., better capturing paralinguistic information like emotion and pronunciation style.
-- **Pronunciation & Text Normalization**: Supports word-phoneme mixed sequence modeling; LLM-based self-training TN eliminates manual rules.
-### Real-time & Flexible Deployment
-- **Multi-mode Support**: Single model compatible with offline mode, one-way streaming, and bidirectional streaming, meeting diverse deployment needs.
-- **Ultra-low Latency**: Achieves latency as low as 150ms while maintaining high-quality audio output.
-- **Hot Fix Capability**: Supports SSML hot fix and built-in TN capability, enhancing usability and adaptability to complex text formats.
+**CosyVoice 3.0** is an advanced text-to-speech (TTS) system based on large language models (LLM), surpassing its predecessor (CosyVoice 2.0) in content consistency, speaker similarity, and prosody naturalness. It is designed for zero-shot multilingual speech synthesis in the wild.
+### Key Features
+- **Language Coverage**: Covers 9 common languages (Chinese, English, Japanese, Korean, German, Spanish, French, Italian, Russian), 18+ Chinese dialects/accents and meanwhile supports both multi-lingual/cross-lingual zero-shot voice cloning.
+- **Content Consistency & Naturalness**: Achieves state-of-the-art performance in content consistency, speaker similarity, and prosody naturalness.
+- **Pronunciation Inpainting**: Supports pronunciation inpainting of Chinese Pinyin and English CMU phonemes, providing more controllability and thus suitable for production use.
+- **Text Normalization**: Supports reading of numbers, special symbols and various text formats without a traditional frontend module.
+- **Bi-Streaming**: Support both text-in streaming and audio-out streaming, and achieves latency as low as 150ms while maintaining high-quality audio output.
+- **Instruct Support**: Supports various instructions such as languages, dialects, emotions, speed, volume, etc.
 
 
 ## Roadmap
@@ -70,6 +58,25 @@
     - [x] Flow matching training support
     - [x] WeTextProcessing support when ttsfrd is not available
     - [x] Fastapi server and client
+
+## Evaluation
+| Model | CER (%) ↓ (test-zh) | WER (%) ↓ (test-en) | CER (%) ↓ (test-hard) |
+|-----|------------------|------------------|------------------|
+| Human | 1.26 | 2.14 | - |
+| F5-TTS | 1.53 | 2.00 | 8.67 |
+| SparkTTS | 1.20 | 1.98 | - |
+| Seed-TTS | 1.12 | 2.25 | 7.59 |
+| CosyVoice2 | 1.45 | 2.57 | 6.83 |
+| FireRedTTS-2 | 1.14 | 1.95 | - |
+| IndexTTS2 | 1.01 | 1.52 | 7.12 |
+| VibeVoice | 1.16 | 3.04 | - |
+| HiggsAudio | 1.79 | 2.44 | - |
+| MiniMax-Speech | 0.83 | 1.65 | - |
+| VoxPCM | 0.93 | 1.85 | 8.87 |
+| GLM-TTS | 1.03 | - | - |
+| GLM-TTS_RL | 0.89 | - | - |
+| CosyVoice3 | 1.21 |  2.24 | 6.71 |
+| CosyVoice3_RL | 0.81 | 1.68 | 5.44 |
 
 
 ## Install

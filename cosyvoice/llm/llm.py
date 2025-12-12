@@ -674,6 +674,9 @@ class CosyVoice3LM(Qwen2LM):
         text_token_len = batch['text_token_len'].to(device)
         speech_token = batch['speech_token'].to(device)
         speech_token_len = batch['speech_token_len'].to(device)
+        # NOTE should append instruct_token to sequence, not implemented yet
+        instruct_token = batch['instruct_token'].to(device)
+        instruct_token_len = batch['instruct_token_len'].to(device)
 
         # 1. encode text_token
         text_token_emb = self.llm.model.model.embed_tokens(text_token)

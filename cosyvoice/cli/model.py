@@ -38,9 +38,6 @@ class CosyVoiceModel:
         self.flow = flow
         self.hift = hift
         self.fp16 = fp16
-        if self.fp16 is True:
-            self.llm.half()
-            self.flow.half()
         self.token_min_hop_len = 2 * self.flow.input_frame_rate
         self.token_max_hop_len = 4 * self.flow.input_frame_rate
         self.token_overlap_len = 20
@@ -249,9 +246,6 @@ class CosyVoice2Model(CosyVoiceModel):
         self.flow = flow
         self.hift = hift
         self.fp16 = fp16
-        if self.fp16 is True:
-            self.llm.half()
-            self.flow.half()
         # NOTE must matching training static_chunk_size
         self.token_hop_len = 25
         # hift cache
@@ -398,9 +392,6 @@ class CosyVoice3Model(CosyVoice2Model):
         self.flow = flow
         self.hift = hift
         self.fp16 = fp16
-        if self.fp16 is True:
-            self.llm.half()
-            self.flow.half()
         # NOTE must matching training static_chunk_size
         self.token_hop_len = 25
         # rtf and decoding related

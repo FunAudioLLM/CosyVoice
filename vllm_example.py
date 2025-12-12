@@ -31,7 +31,7 @@ def cosyvoice3_example():
 
 
 def main():
-    cosyvoice2_example()
+    # cosyvoice2_example()
     cosyvoice3_example()
 
 

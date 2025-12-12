@@ -155,11 +155,13 @@ class SineGen(torch.nn.Module):
 
     @torch.no_grad()
     def forward(self, f0):
+        """ sine_tensor, uv = forward(f0)
+        input F0: tensor(batchsize=1, dim=1, length)
+                  f0 for unvoiced steps should be 0
+        output sine_tensor: tensor(batchsize=1, length, dim)
+        output uv: tensor(batchsize=1, length, 1)
         """
-        :param f0: [B, 1, sample_len], Hz
-        :return: [B, 1, sample_len]
-        """
-
+        f0 = f0.transpose(1, 2)
         F_mat = torch.zeros((f0.size(0), self.harmonic_num + 1, f0.size(-1))).to(f0.device)
         for i in range(self.harmonic_num + 1):
             F_mat[:, i: i + 1, :] = f0 * (i + 1) / self.sampling_rate
@@ -184,7 +186,7 @@ class SineGen(torch.nn.Module):
         # first: set the unvoiced part to 0 by uv
         # then: additive noise
         sine_waves = sine_waves * uv + noise
-        return sine_waves, uv, noise
+        return sine_waves.transpose(1, 2), uv.transpose(1, 2), noise
 
 
 class SineGen2(torch.nn.Module):
@@ -221,7 +223,7 @@ class SineGen2(torch.nn.Module):
         if causal is True:
             self.rand_ini = torch.rand(1, 9)
             self.rand_ini[:, 0] = 0
-            self.sine_waves = torch.rand(1, 60 * 16000, 9)
+            self.sine_waves = torch.rand(1, 300 * 24000, 9)
 
     def _f02uv(self, f0):
         # generate uv signal
@@ -351,7 +353,7 @@ class SourceModuleHnNSF(torch.nn.Module):
         self.l_tanh = torch.nn.Tanh()
         self.causal = causal
         if causal is True:
-            self.uv = torch.rand(1, 60 * 24000, 1)
+            self.uv = torch.rand(1, 300 * 24000, 1)
 
     def forward(self, x):
         """

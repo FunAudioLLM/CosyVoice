@@ -122,12 +122,12 @@ class CosyVoiceFrontEnd:
         return speech_feat, speech_feat_len
 
     def text_normalize(self, text, split=True, text_frontend=True):
-        # NOTE skip text_frontend when ssml symbol in text
-        if '<|' in text and '|>' in text:
-            text_frontend = False
         if isinstance(text, Generator):
             logging.info('get tts_text generator, will skip text_normalize!')
             return [text]
+        # NOTE skip text_frontend when ssml symbol in text
+        if '<|' in text and '|>' in text:
+            text_frontend = False
         if text_frontend is False or text == '':
             return [text] if split is True else text
         text = text.strip()

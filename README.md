@@ -2,7 +2,7 @@
 
 ## 👉🏻 CosyVoice 👈🏻
 
-**CosyVoice 3.0**: [Demos](https://funaudiollm.github.io/cosyvoice3/); [Paper](https://arxiv.org/abs/2505.17589); [Modelscope](https://www.modelscope.cn/studios/FunAudioLLM/Fun-CosyVoice3-0.5B); [CV3-Eval](https://github.com/FunAudioLLM/CV3-Eval)
+**Fun-CosyVoice 3.0**: [Demos](https://funaudiollm.github.io/cosyvoice3/); [Paper](https://arxiv.org/abs/2505.17589); [Modelscope](https://www.modelscope.cn/studios/FunAudioLLM/Fun-CosyVoice3-0.5B); [CV3-Eval](https://github.com/FunAudioLLM/CV3-Eval)
 
 **CosyVoice 2.0**: [Demos](https://funaudiollm.github.io/cosyvoice2/); [Paper](https://arxiv.org/abs/2412.10117); [Modelscope](https://www.modelscope.cn/studios/iic/CosyVoice2-0.5B); [HuggingFace](https://huggingface.co/spaces/FunAudioLLM/CosyVoice2-0.5B)
 
@@ -10,9 +10,9 @@
 
 ## Highlight🔥
 
-**CosyVoice 3.0** is an advanced text-to-speech (TTS) system based on large language models (LLM), surpassing its predecessor (CosyVoice 2.0) in content consistency, speaker similarity, and prosody naturalness. It is designed for zero-shot multilingual speech synthesis in the wild.
+**Fun-CosyVoice 3.0** is an advanced text-to-speech (TTS) system based on large language models (LLM), surpassing its predecessor (CosyVoice 2.0) in content consistency, speaker similarity, and prosody naturalness. It is designed for zero-shot multilingual speech synthesis in the wild.
 ### Key Features
-- **Language Coverage**: Covers 9 common languages (Chinese, English, Japanese, Korean, German, Spanish, French, Italian, Russian), 18+ Chinese dialects/accents and meanwhile supports both multi-lingual/cross-lingual zero-shot voice cloning.
+- **Language Coverage**: Covers 9 common languages (Chinese, English, Japanese, Korean, German, Spanish, French, Italian, Russian), 18+ Chinese dialects/accents (Guangdong, Minnan, Sichuan, Dongbei, Shan3xi, Shan1xi, Shanghai, Tianjin, Shan1dong, Ningxia, Gansu, etc.) and meanwhile supports both multi-lingual/cross-lingual zero-shot voice cloning.
 - **Content Consistency & Naturalness**: Achieves state-of-the-art performance in content consistency, speaker similarity, and prosody naturalness.
 - **Pronunciation Inpainting**: Supports pronunciation inpainting of Chinese Pinyin and English CMU phonemes, providing more controllability and thus suitable for production use.
 - **Text Normalization**: Supports reading of numbers, special symbols and various text formats without a traditional frontend module.
@@ -24,8 +24,8 @@
 
 - [x] 2025/12
 
-    - [x] release CosyVoice3-0.5B base model and its training/inference script
-    - [x] release CosyVoice3-0.5B modelscope gradio space
+    - [x] release Fun-CosyVoice3-0.5B-2512 base model, rl model and its training/inference script
+    - [x] release Fun-CosyVoice3-0.5B modelscope gradio space
 
 - [x] 2025/08
 
@@ -33,7 +33,7 @@
 
 - [x] 2025/07
 
-    - [x] release CosyVoice 3.0 eval set
+    - [x] release Fun-CosyVoice 3.0 eval set
 
 - [x] 2025/05
 
@@ -108,12 +108,12 @@
 
 ### Model download
 
-We strongly recommend that you download our pretrained `CosyVoice2-0.5B` `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `CosyVoice-ttsfrd` resource.
+We strongly recommend that you download our pretrained `Fun-CosyVoice3-0.5B` `CosyVoice2-0.5B` `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `CosyVoice-ttsfrd` resource.
 
 ``` python
 # SDK模型下载
 from modelscope import snapshot_download
-snapshot_download('FunAudioLLM/Fun-CosyVoice3-0.5B', local_dir='pretrained_models/Fun-CosyVoice3-0.5B')
+snapshot_download('FunAudioLLM/Fun-CosyVoice3-0.5B-2512', local_dir='pretrained_models/Fun-CosyVoice3-0.5B')
 snapshot_download('iic/CosyVoice2-0.5B', local_dir='pretrained_models/CosyVoice2-0.5B')
 snapshot_download('iic/CosyVoice-300M', local_dir='pretrained_models/CosyVoice-300M')
 snapshot_download('iic/CosyVoice-300M-SFT', local_dir='pretrained_models/CosyVoice-300M-SFT')
@@ -134,7 +134,7 @@ pip install ttsfrd-0.4.2-cp310-cp310-linux_x86_64.whl
 
 ### Basic Usage
 
-We strongly recommend using `CosyVoice3-0.5B` for better performance.
+We strongly recommend using `Fun-CosyVoice3-0.5B` for better performance.
 Follow the code in `example.py` for detailed usage of each model.
 ```sh
 python example.py

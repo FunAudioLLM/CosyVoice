@@ -73,8 +73,8 @@
 | VibeVoice | 1.5B | 1.16 | 3.04 | - |
 | HiggsAudio-v2 | 3B | 1.50 | 2.44 | - |
 | VoxPCM | 0.5B | 0.93 | 1.85 | 8.87 |
-| GLM-TTS | - | 1.03 | - | - |
-| GLM-TTS_RL | - | 0.89 | - | - |
+| GLM-TTS | 1.5B | 1.03 | - | - |
+| GLM-TTS_RL | 1.5B | 0.89 | - | - |
 | Fun-CosyVoice3-0.5B-2512 | 0.5B | 1.21 |  2.24 | 6.71 |
 | Fun-CosyVoice3-0.5B-2512_RL | 0.5B | 0.81 | 1.68 | 5.44 |
 

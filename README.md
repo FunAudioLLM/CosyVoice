@@ -12,7 +12,7 @@
 
 **Fun-CosyVoice 3.0** is an advanced text-to-speech (TTS) system based on large language models (LLM), surpassing its predecessor (CosyVoice 2.0) in content consistency, speaker similarity, and prosody naturalness. It is designed for zero-shot multilingual speech synthesis in the wild.
 ### Key Features
-- **Language Coverage**: Covers 9 common languages (Chinese, English, Japanese, Korean, German, Spanish, French, Italian, Russian), 18+ Chinese dialects/accents (Guangdong, Minnan, Sichuan, Dongbei, Shan3xi, Shan1xi, Shanghai, Tianjin, Shan1dong, Ningxia, Gansu, etc.) and meanwhile supports both multi-lingual/cross-lingual zero-shot voice cloning.
+- **Language Coverage**: Covers 9 common languages (Chinese, English, Japanese, Korean, German, Spanish, French, Italian, Russian), 18+ Chinese dialects/accents (Guangdong, Minnan, Sichuan, Dongbei, Shan3xi, Shan1xi, Shanghai, Tianjin, Shandong, Ningxia, Gansu, etc.) and meanwhile supports both multi-lingual/cross-lingual zero-shot voice cloning.
 - **Content Consistency & Naturalness**: Achieves state-of-the-art performance in content consistency, speaker similarity, and prosody naturalness.
 - **Pronunciation Inpainting**: Supports pronunciation inpainting of Chinese Pinyin and English CMU phonemes, providing more controllability and thus suitable for production use.
 - **Text Normalization**: Supports reading of numbers, special symbols and various text formats without a traditional frontend module.
@@ -60,23 +60,23 @@
     - [x] Fastapi server and client
 
 ## Evaluation
-| Model | CER (%) ↓ (test-zh) | WER (%) ↓ (test-en) | CER (%) ↓ (test-hard) |
-|-----|------------------|------------------|------------------|
-| Human | 1.26 | 2.14 | - |
-| F5-TTS | 1.53 | 2.00 | 8.67 |
-| SparkTTS | 1.20 | 1.98 | - |
-| Seed-TTS | 1.12 | 2.25 | 7.59 |
-| CosyVoice2 | 1.45 | 2.57 | 6.83 |
-| FireRedTTS-2 | 1.14 | 1.95 | - |
-| IndexTTS2 | 1.01 | 1.52 | 7.12 |
-| VibeVoice | 1.16 | 3.04 | - |
-| HiggsAudio | 1.79 | 2.44 | - |
-| MiniMax-Speech | 0.83 | 1.65 | - |
-| VoxPCM | 0.93 | 1.85 | 8.87 |
-| GLM-TTS | 1.03 | - | - |
-| GLM-TTS_RL | 0.89 | - | - |
-| Fun-CosyVoice3-0.5B-2512 | 1.21 |  2.24 | 6.71 |
-| Fun-CosyVoice3-0.5B-2512_RL | 0.81 | 1.68 | 5.44 |
+| Model | Model Size | CER (%) ↓ (test-zh) | WER (%) ↓ (test-en) | CER (%) ↓ (test-hard) |
+|-------|------------|---------------------|---------------------|-----------------------|
+| Human | - | 1.26 | 2.14 | - |
+| Seed-TTS | - | 1.12 | 2.25 | 7.59 |
+| MiniMax-Speech | - | 0.83 | 1.65 | - |
+| F5-TTS | 0.3B | 1.52 | 2.00 | 8.67 |
+| SparkTTS | 0.5B | 1.20 | 1.98 | - |
+| CosyVoice2 | 0.5B | 1.45 | 2.57 | 6.83 |
+| FireRedTTS-2 | - | 1.14 | 1.95 | - |
+| IndexTTS2 | 1.5B | 1.01 | 1.52 | 7.12 |
+| VibeVoice | 1.5B | 1.16 | 3.04 | - |
+| HiggsAudio-v2 | 3B | 1.50 | 2.44 | - |
+| VoxPCM | 0.5B | 0.93 | 1.85 | 8.87 |
+| GLM-TTS | - | 1.03 | - | - |
+| GLM-TTS_RL | - | 0.89 | - | - |
+| Fun-CosyVoice3-0.5B-2512 | 0.5B | 1.21 |  2.24 | 6.71 |
+| Fun-CosyVoice3-0.5B-2512_RL | 0.5B | 0.81 | 1.68 | 5.44 |
 
 
 ## Install

@@ -75,8 +75,8 @@
 | VoxPCM | 0.93 | 1.85 | 8.87 |
 | GLM-TTS | 1.03 | - | - |
 | GLM-TTS_RL | 0.89 | - | - |
-| CosyVoice3 | 1.21 |  2.24 | 6.71 |
-| CosyVoice3_RL | 0.81 | 1.68 | 5.44 |
+| Fun-CosyVoice3-0.5B-2512 | 1.21 |  2.24 | 6.71 |
+| Fun-CosyVoice3-0.5B-2512_RL | 0.81 | 1.68 | 5.44 |
 
 
 ## Install

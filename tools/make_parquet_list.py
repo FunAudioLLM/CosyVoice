@@ -86,7 +86,7 @@ if __name__ == "__main__":
                         help='Use Direct Preference Optimization')
     args = parser.parse_args()
 
-    utt2wav, utt2text, utt2spk = {}, {}, {}
+    utt2wav, utt2text, utt2spk, utt2instruct = {}, {}, {}, {}
     with open('{}/wav.scp'.format(args.src_dir)) as f:
         for l in f:
             l = l.replace('\n', '').split()

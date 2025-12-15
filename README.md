@@ -61,7 +61,7 @@
 
 ## Evaluation
 
-| Model | Open-Source | Model Size | test-zh<br>CER (%) ↓ | test-zh<br>Speaker Similarity (%) ↑ | test-en<br>WER (%) ↓ | test-en<br>Speaker Similarity (%) ↑ | test-hard<br>CER (%) ↓ | test-hard<br>Speaker Similarity (%) |
+| Model | Open-Source | Model Size | test-zh<br>CER (%) ↓ | test-zh<br>Speaker Similarity (%) ↑ | test-en<br>WER (%) ↓ | test-en<br>Speaker Similarity (%) ↑ | test-hard<br>CER (%) ↓ | test-hard<br>Speaker Similarity (%) ↑ |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | Human | - | - | 1.26 | 75.5 | 2.14 | 73.4 | - | - |
 | Seed-TTS | ❌ | - | 1.12 | 79.6 | 2.25 | 76.2 | 7.59 | 77.6 |
@@ -69,7 +69,7 @@
 | F5-TTS | ✅ | 0.3B | 1.52 | 74.1 | 2.00 | 64.7 | 8.67 | 71.3 |
 | Spark TTS | ✅ | 0.5B | 1.2 | 66.0 | 1.98 | 57.3 | - | - |
 | CosyVoice2 | ✅ | 0.5B | 1.45 | 75.7 | 2.57 | 65.9 | 6.83 | 72.4 |
-| FireRedTTS 2 | ✅ | 1.5B | 1.14 | 73.2 | 1.95 | 66.5 | - | - |
+| FireRedTTS2 | ✅ | 1.5B | 1.14 | 73.2 | 1.95 | 66.5 | - | - |
 | Index-TTS2 | ✅ | 1.5B | 1.03 | 76.5 | 2.23 | 70.6 | 7.12 | 75.5 |
 | VibeVoice-1.5B | ✅ | 1.5B | 1.16 | 74.4 | 3.04 | 68.9 | - | - |
 | VibeVoice-Realtime | ✅ | 0.5B | - | - | 2.05 | 63.3 | - | - |

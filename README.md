@@ -60,23 +60,25 @@
     - [x] Fastapi server and client
 
 ## Evaluation
-| Model | Model Size | CER (%) ↓ (test-zh) | WER (%) ↓ (test-en) | CER (%) ↓ (test-hard) |
-|-------|------------|---------------------|---------------------|-----------------------|
-| Human | - | 1.26 | 2.14 | - |
-| Seed-TTS | - | 1.12 | 2.25 | 7.59 |
-| MiniMax-Speech | - | 0.83 | 1.65 | - |
-| F5-TTS | 0.3B | 1.52 | 2.00 | 8.67 |
-| SparkTTS | 0.5B | 1.20 | 1.98 | - |
-| CosyVoice2 | 0.5B | 1.45 | 2.57 | 6.83 |
-| FireRedTTS-2 | 1.5B | 1.14 | 1.95 | - |
-| IndexTTS2 | 1.5B | 1.01 | 1.52 | 7.12 |
-| VibeVoice | 1.5B | 1.16 | 3.04 | - |
-| HiggsAudio-v2 | 3B | 1.50 | 2.44 | - |
-| VoxPCM | 0.5B | 0.93 | 1.85 | 8.87 |
-| GLM-TTS | 1.5B | 1.03 | - | - |
-| GLM-TTS_RL | 1.5B | 0.89 | - | - |
-| Fun-CosyVoice3-0.5B-2512 | 0.5B | 1.21 |  2.24 | 6.71 |
-| Fun-CosyVoice3-0.5B-2512_RL | 0.5B | 0.81 | 1.68 | 5.44 |
+
+| Model | Open-Source | Model Size | test-zh<br>CER (%) ↓ | test-zh<br>Speaker Similarity (%) ↑ | test-en<br>WER (%) ↓ | test-en<br>Speaker Similarity (%) ↑ | test-hard<br>CER (%) ↓ | test-hard<br>Speaker Similarity (%) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Human | - | - | 1.26 | 75.5 | 2.14 | 73.4 | - | - |
+| Seed-TTS | ❌ | - | 1.12 | 79.6 | 2.25 | 76.2 | 7.59 | 77.6 |
+| MiniMax-Speech | ❌ | - | 0.83 | 78.3 | 1.65 | 69.2 | - | - |
+| F5-TTS | ✅ | 0.3B | 1.52 | 74.1 | 2.00 | 64.7 | 8.67 | 71.3 |
+| Spark TTS | ✅ | 0.5B | 1.2 | 66.0 | 1.98 | 57.3 | - | - |
+| CosyVoice2 | ✅ | 0.5B | 1.45 | 75.7 | 2.57 | 65.9 | 6.83 | 72.4 |
+| FireRedTTS 2 | ✅ | 1.5B | 1.14 | 73.2 | 1.95 | 66.5 | - | - |
+| Index-TTS2 | ✅ | 1.5B | 1.03 | 76.5 | 2.23 | 70.6 | 7.12 | 75.5 |
+| VibeVoice-1.5B | ✅ | 1.5B | 1.16 | 74.4 | 3.04 | 68.9 | - | - |
+| VibeVoice-Realtime | ✅ | 0.5B | - | - | 2.05 | 63.3 | - | - |
+| HiggsAudio-v2 | ✅ | 3B | 1.50 | 74.0 | 2.44 | 67.7 | - | - |
+| VoxCPM | ✅ | 0.5B | 0.93 | 77.2 | 1.85 | 72.9 | 8.87 | 73.0 |
+| GLM-TTS | ✅ | 1.5B | 1.03 | 76.1 | - | - | - | - |
+| GLM-TTS RL | ✅ | 1.5B | 0.89 | 76.4 | - | - | - | - |
+| Fun-CosyVoice3-0.5B | ✅ | 0.5B | 1.21 | 78.0 | 2.24 | 71.8 | 6.71 | 75.8 |
+| Fun-CosyVoice3-0.5B-2512 | ✅ | 0.5B | 0.81 | 77.4 | 1.68 | 69.5 | 5.44 | 75.0 |
 
 
 ## Install

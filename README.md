@@ -68,7 +68,7 @@
 | F5-TTS | 0.3B | 1.52 | 2.00 | 8.67 |
 | SparkTTS | 0.5B | 1.20 | 1.98 | - |
 | CosyVoice2 | 0.5B | 1.45 | 2.57 | 6.83 |
-| FireRedTTS-2 | - | 1.14 | 1.95 | - |
+| FireRedTTS-2 | 1.5B | 1.14 | 1.95 | - |
 | IndexTTS2 | 1.5B | 1.01 | 1.52 | 7.12 |
 | VibeVoice | 1.5B | 1.16 | 3.04 | - |
 | HiggsAudio-v2 | 3B | 1.50 | 2.44 | - |

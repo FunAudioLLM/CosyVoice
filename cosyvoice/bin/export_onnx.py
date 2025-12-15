@@ -27,7 +27,7 @@ from tqdm import tqdm
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append('{}/../..'.format(ROOT_DIR))
 sys.path.append('{}/../../third_party/Matcha-TTS'.format(ROOT_DIR))
-from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
+from cosyvoice.cli.cosyvoice import AutoModel
 from cosyvoice.utils.file_utils import logging
 
 
@@ -58,13 +58,7 @@ def main():
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(message)s')
 
-    try:
-        model = CosyVoice(args.model_dir)
-    except Exception:
-        try:
-            model = CosyVoice2(args.model_dir)
-        except Exception:
-            raise TypeError('no valid model_type!')
+    model = AutoModel(model_dir=args.model_dir)
 
     # 1. export flow decoder estimator
     estimator = model.model.flow.decoder.estimator

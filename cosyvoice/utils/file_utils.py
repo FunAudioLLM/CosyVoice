@@ -41,11 +41,11 @@ def read_json_lists(list_file):
     return results
 
 
-def load_wav(wav, target_sr):
+def load_wav(wav, target_sr, min_sr=16000):
     speech, sample_rate = torchaudio.load(wav, backend='soundfile')
     speech = speech.mean(dim=0, keepdim=True)
     if sample_rate != target_sr:
-        assert sample_rate > target_sr, 'wav sample rate {} must be greater than {}'.format(sample_rate, target_sr)
+        assert sample_rate >= min_sr, 'wav sample rate {} must be greater than {}'.format(sample_rate, target_sr)
         speech = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=target_sr)(speech)
     return speech
 
@@ -88,30 +88,18 @@ def convert_onnx_to_trt(trt_model, trt_kwargs, onnx_model, fp16):
     logging.info("Succesfully convert onnx to trt...")
 
 
+# NOTE do not support bistream inference as only speech token embedding/head is kept
 def export_cosyvoice2_vllm(model, model_path, device):
     if os.path.exists(model_path):
         return
-    pad_to = DEFAULT_VOCAB_PADDING_SIZE = 64
-    vocab_size = model.speech_embedding.num_embeddings
-    feature_size = model.speech_embedding.embedding_dim
-    pad_vocab_size = ((vocab_size + pad_to - 1) // pad_to) * pad_to
 
     dtype = torch.bfloat16
     # lm_head
-    new_lm_head = torch.nn.Linear(in_features=feature_size, out_features=pad_vocab_size, bias=True)
-    with torch.no_grad():
-        new_lm_head.weight[:vocab_size] = model.llm_decoder.weight
-        new_lm_head.bias[:vocab_size] = model.llm_decoder.bias
-        new_lm_head.weight[vocab_size:] = 0
-        new_lm_head.bias[vocab_size:] = 0
-    model.llm.model.lm_head = new_lm_head
-    new_codec_embed = torch.nn.Linear(in_features=feature_size, out_features=pad_vocab_size)
+    use_bias = True if model.llm_decoder.bias is not None else False
+    model.llm.model.lm_head = model.llm_decoder
     # embed_tokens
     embed_tokens = model.llm.model.model.embed_tokens
-    with torch.no_grad():
-        new_codec_embed.weight[:vocab_size] = model.speech_embedding.weight
-        new_codec_embed.weight[vocab_size:] = 0
-    model.llm.model.set_input_embeddings(new_codec_embed)
+    model.llm.model.set_input_embeddings(model.speech_embedding)
     model.llm.model.to(device)
     model.llm.model.to(dtype)
     tmp_vocab_size = model.llm.model.config.vocab_size
@@ -119,11 +107,12 @@ def export_cosyvoice2_vllm(model, model_path, device):
     del model.llm.model.generation_config.eos_token_id
     del model.llm.model.config.bos_token_id
     del model.llm.model.config.eos_token_id
-    model.llm.model.config.vocab_size = pad_vocab_size
+    model.llm.model.config.vocab_size = model.speech_embedding.num_embeddings
     model.llm.model.config.tie_word_embeddings = False
-    model.llm.model.config.use_bias = True
+    model.llm.model.config.use_bias = use_bias
     model.llm.model.save_pretrained(model_path)
-    os.system('sed -i s@Qwen2ForCausalLM@CosyVoice2ForCausalLM@g {}/config.json'.format(os.path.abspath(model_path)))
+    if use_bias is True:
+        os.system('sed -i s@Qwen2ForCausalLM@CosyVoice2ForCausalLM@g {}/config.json'.format(os.path.abspath(model_path)))
     model.llm.model.config.vocab_size = tmp_vocab_size
     model.llm.model.config.tie_word_embeddings = tmp_tie_embedding
     model.llm.model.set_input_embeddings(embed_tokens)

@@ -679,6 +679,19 @@ class CosyVoice3LM(Qwen2LM):
         instruct_token = batch['instruct_token'].to(device)
         instruct_token_len = batch['instruct_token_len'].to(device)
 
+        # combine instruct_token and text_token
+        B = instruct_token.size(0)
+        combined_len = instruct_token_len + text_token_len
+        max_len = combined_len.max()
+        combined_tokens = torch.full((B, max_len), 0, dtype=torch.int32, device=device)
+        for i in range(B):
+            li = instruct_token_len[i]
+            lt = text_token_len[i]
+            combined_tokens[i, :li] = instruct_token[i, :li]
+            combined_tokens[i, li:li + lt] = text_token[i, :lt]
+        text_token = combined_tokens
+        text_token_len = combined_len
+
         # 1. encode text_token
         text_token_emb = self.llm.model.model.embed_tokens(text_token)
 
@@ -698,7 +711,7 @@ class CosyVoice3LM(Qwen2LM):
         lm_output, lm_output_mask = self.llm(lm_input, lm_input_len.to(device))
         logits = self.llm_decoder(lm_output)
         loss = self.criterion_ce(logits, lm_target.to(device))
-        acc = th_accuracy(logits.view(-1, self.speech_token_size + 3), lm_target, ignore_label=IGNORE_ID)
+        acc = th_accuracy(logits.view(-1, self.speech_token_size + 200), lm_target, ignore_label=IGNORE_ID)
         return {'loss': loss, 'acc': acc}
 
     @torch.inference_mode()

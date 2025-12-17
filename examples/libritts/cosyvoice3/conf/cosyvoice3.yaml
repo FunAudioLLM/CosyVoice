@@ -20,7 +20,7 @@ num_decoding_left_chunks: -1 # streaming inference flow decoder left chunk size,
 # model params
 # for all class/function included in this repo, we use !<name> or !<new> for intialization, so that user may find all corresponding class/function according to one single yaml.
 # for system/third_party class/function, we do not require this.
-llm: !new:cosyvoice.llm.llm.Qwen2LM
+llm: !new:cosyvoice.llm.llm.CosyVoice3LM
     llm_input_size: !ref <llm_input_size>
     llm_output_size: !ref <llm_output_size>
     speech_token_size: 6561
@@ -35,8 +35,8 @@ llm: !new:cosyvoice.llm.llm.Qwen2LM
         win_size: 10
         tau_r: 0.1
 
-flow: !new:cosyvoice.flow.flow.CausalMaskedDiffWithXvec
-    input_size: 512
+flow: !new:cosyvoice.flow.flow.CausalMaskedDiffWithDiT
+    input_size: 80
     output_size: 80
     spk_embed_dim: !ref <spk_embed_dim>
     output_type: 'mel'
@@ -45,22 +45,10 @@ flow: !new:cosyvoice.flow.flow.CausalMaskedDiffWithXvec
     only_mask_loss: True
     token_mel_ratio: !ref <token_mel_ratio>
     pre_lookahead_len: 3
-    encoder: !new:cosyvoice.transformer.upsample_encoder.UpsampleConformerEncoder
-        output_size: 512
-        attention_heads: 8
-        linear_units: 2048
-        num_blocks: 6
-        dropout_rate: 0.1
-        positional_dropout_rate: 0.1
-        attention_dropout_rate: 0.1
-        normalize_before: True
-        input_layer: 'linear'
-        pos_enc_layer_type: 'rel_pos_espnet'
-        selfattention_layer_type: 'rel_selfattn'
-        input_size: 512
-        use_cnn_module: False
-        macaron_style: False
-        static_chunk_size: !ref <chunk_size>
+    pre_lookahead_layer: !new:cosyvoice.transformer.upsample_encoder.PreLookaheadLayer
+        in_channels: 80
+        channels: 1024
+        pre_lookahead_len: 3
     decoder: !new:cosyvoice.flow.flow_matching.CausalConditionalCFM
         in_channels: 240
         n_spks: 1
@@ -73,20 +61,20 @@ flow: !new:cosyvoice.flow.flow.CausalMaskedDiffWithXvec
                 training_cfg_rate: 0.2
                 inference_cfg_rate: 0.7
                 reg_loss_type: 'l1'
-        estimator: !new:cosyvoice.flow.decoder.CausalConditionalDecoder
-            in_channels: 320
+        estimator: !new:cosyvoice.flow.DiT.dit.DiT
+            dim: 1024
+            depth: 22
+            heads: 16
+            dim_head: 64
+            ff_mult: 2
+            mel_dim: 80
+            mu_dim: 80
+            spk_dim: 80
             out_channels: 80
-            channels: [256]
-            dropout: 0.0
-            attention_head_dim: 64
-            n_blocks: 4
-            num_mid_blocks: 12
-            num_heads: 8
-            act_fn: 'gelu'
             static_chunk_size: !ref <chunk_size> * <token_mel_ratio>
             num_decoding_left_chunks: !ref <num_decoding_left_chunks>
 
-hift: !new:cosyvoice.hifigan.generator.HiFTGenerator
+hift: !new:cosyvoice.hifigan.generator.CausalHiFTGenerator
     in_channels: 80
     base_channels: 512
     nb_harmonics: 8
@@ -105,7 +93,8 @@ hift: !new:cosyvoice.hifigan.generator.HiFTGenerator
     source_resblock_dilation_sizes: [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
     lrelu_slope: 0.1
     audio_limit: 0.99
-    f0_predictor: !new:cosyvoice.hifigan.f0_predictor.ConvRNNF0Predictor
+    conv_pre_look_right: 4
+    f0_predictor: !new:cosyvoice.hifigan.f0_predictor.CausalConvRNNF0Predictor
         num_class: 1
         in_channels: 80
         cond_channels: 512

@@ -20,7 +20,7 @@ num_decoding_left_chunks: -1 # streaming inference flow decoder left chunk size,
 # model params
 # for all class/function included in this repo, we use !<name> or !<new> for intialization, so that user may find all corresponding class/function according to one single yaml.
 # for system/third_party class/function, we do not require this.
-llm: !new:cosyvoice.llm.llm.Qwen2LM
+llm: !new:cosyvoice.llm.llm.CosyVoice3LM
     llm_input_size: !ref <llm_input_size>
     llm_output_size: !ref <llm_output_size>
     speech_token_size: 6561

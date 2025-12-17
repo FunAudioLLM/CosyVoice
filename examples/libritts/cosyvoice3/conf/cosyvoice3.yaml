@@ -144,7 +144,7 @@ feat_extractor: !name:matcha.utils.audio.mel_spectrogram
     hop_size: 480
     win_size: 1920
     fmin: 0
-    fmax: 8000
+    fmax: null
     center: False
 compute_fbank: !name:cosyvoice.dataset.processor.compute_fbank
     feat_extractor: !ref <feat_extractor>

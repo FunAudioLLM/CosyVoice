@@ -4,7 +4,7 @@ ARG VENV_NAME="cosyvoice"
 ENV VENV=$VENV_NAME
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
-ENV DEBIAN_FRONTEN=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 SHELL ["/bin/bash", "--login", "-c"]
 

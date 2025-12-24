@@ -675,9 +675,14 @@ class CosyVoice3LM(Qwen2LM):
         text_token_len = batch['text_token_len'].to(device)
         speech_token = batch['speech_token'].to(device)
         speech_token_len = batch['speech_token_len'].to(device)
-        # NOTE should append instruct_token to sequence, not implemented yet
         instruct_token = batch['instruct_token'].to(device)
         instruct_token_len = batch['instruct_token_len'].to(device)
+
+        # concat instruct_token to text_token, similar to inference
+        # if instruct_token exists (len > 0), prepend it to text_token
+        if instruct_token_len.sum() > 0:
+            text_token = torch.concat([instruct_token, text_token], dim=1)
+            text_token_len = text_token_len + instruct_token_len
 
         # 1. encode text_token
         text_token_emb = self.llm.model.model.embed_tokens(text_token)

@@ -107,6 +107,8 @@ def generate_audio(tts_text, mode_checkbox_group, sft_dropdown, prompt_text, pro
     elif mode_checkbox_group == '3s极速复刻':
         logging.info('get zero_shot inference request')
         set_all_random_seed(seed)
+        if not prompt_text.startswith("You are a helpful assistant.<|endofprompt|>"):
+            prompt_text = "You are a helpful assistant.<|endofprompt|>" + prompt_text
         for i in cosyvoice.inference_zero_shot(tts_text, prompt_text, prompt_wav, stream=stream, speed=speed):
             yield (cosyvoice.sample_rate, i['tts_speech'].numpy().flatten())
     elif mode_checkbox_group == '跨语种复刻':
@@ -167,7 +169,7 @@ if __name__ == '__main__':
                         default=8000)
     parser.add_argument('--model_dir',
                         type=str,
-                        default='pretrained_models/CosyVoice3-0.5B',
+                        default='pretrained_models/Fun-CosyVoice3-0.5B',
                         help='local path or modelscope repo id')
     args = parser.parse_args()
     cosyvoice = AutoModel(model_dir=args.model_dir)

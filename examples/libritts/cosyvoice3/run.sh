@@ -7,7 +7,7 @@ stop_stage=3
 
 data_url=www.openslr.org/resources/60
 data_dir=/mnt/lyuxiang.lx/data/tts/openslr/libritts
-pretrained_model_dir=../../../pretrained_models/CosyVoice3-0.5B
+pretrained_model_dir=../../../pretrained_models/Fun-CosyVoice3-0.5B
 
 if [ ${stage} -le -1 ] && [ ${stop_stage} -ge -1 ]; then
   echo "Data Download"
@@ -20,7 +20,8 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
   echo "Data preparation, prepare wav.scp/text/utt2spk/spk2utt"
   for x in train-clean-100 train-clean-360 train-other-500 dev-clean dev-other test-clean test-other; do
     mkdir -p data/$x
-    python local/prepare_data.py --src_dir $data_dir/LibriTTS/$x --des_dir data/$x --instruct
+    # NOTE in CosyVoice3, we add instruct in sequence
+    python local/prepare_data.py --src_dir $data_dir/LibriTTS/$x --des_dir data/$x --instruct "You are a helpful assistant.<|endofprompt|>"
   done
 fi
 

@@ -32,6 +32,19 @@ logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 import numpy as np
 import uvicorn
+
+try:
+    import uvloop
+
+    uvloop.install()
+except ImportError:
+    pass
+
+try:
+    from fastapi.responses import ORJSONResponse
+except ImportError:
+    from fastapi.responses import JSONResponse as ORJSONResponse
+
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -56,6 +69,7 @@ app = FastAPI(
     title="CosyVoice TTS API",
     description="GPU-accelerated text-to-speech with automatic optimization",
     version="2.0.0",
+    default_response_class=ORJSONResponse,
 )
 
 # CORS middleware

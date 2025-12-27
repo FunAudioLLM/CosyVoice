@@ -40,3 +40,5 @@ x-transformers==2.11.24
 uvicorn==0.30.0
 wetext==0.0.4
 wget==3.2
+uvloop>=0.19.0; sys_platform != 'win32'
+orjson>=3.10.0

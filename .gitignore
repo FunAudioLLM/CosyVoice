@@ -41,8 +41,11 @@ tensorboard
 .cache
 compile_commands.json
 
+# Rust files
+rust/target
+
 # train/inference files
-*.wav
+# *.wav
 *.m4a
 *.aac
 *.pt

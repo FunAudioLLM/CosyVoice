@@ -1,0 +1,9 @@
+{
+  "session_id": "20251225-174930-2db78e7",
+  "session_label": "agent:session:20251225-174930-2db78e7",
+  "created_at": "2025-12-25T17:49:30-05:00",
+  "default_branch": "main",
+  "parent_issue": null,
+  "sub_issues": [],
+  "reference_voice": "/home/grant/github/CosyVoice/asset/interstellar-tars-01-resemble-denoised.wav"
+}

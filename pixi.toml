@@ -1,0 +1,61 @@
+[project]
+name = "cosyvoice"
+version = "3.0.0"
+description = "CosyVoice TTS with GPU acceleration"
+channels = ["pytorch", "nvidia", "conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = "3.10.*"
+pip = ">=24.0"
+
+[pypi-dependencies]
+# PyTorch with CUDA 12.1
+torch = { version = ">=2.3.1", extras = ["cuda121"] }
+torchaudio = ">=2.3.1"
+
+# Core dependencies
+conformer = ">=0.3.2"
+diffusers = ">=0.29.0"
+fastapi = ">=0.115.6"
+fastapi-cli = ">=0.0.4"
+gradio = ">=5.4.0"
+grpcio = ">=1.57.0"
+grpcio-tools = ">=1.57.0"
+hydra-core = ">=1.3.2"
+HyperPyYAML = ">=1.2.2"
+inflect = ">=7.3.1"
+librosa = ">=0.10.2"
+lightning = ">=2.2.4"
+matplotlib = ">=3.7.5"
+modelscope = ">=1.20.0"
+networkx = ">=3.1"
+numpy = ">=1.26.4,<2.0"
+omegaconf = ">=2.3.0"
+onnx = ">=1.16.0"
+openai-whisper = ">=20231117"
+protobuf = ">=4.25"
+pyarrow = ">=18.1.0"
+pydantic = ">=2.7.0"
+pyworld = ">=0.3.4"
+rich = ">=13.7.1"
+soundfile = ">=0.12.1"
+tensorboard = ">=2.14.0"
+transformers = ">=4.51.3"
+x-transformers = ">=2.11.24"
+uvicorn = ">=0.30.0"
+wetext = ">=0.0.4"
+wget = ">=3.2"
+
+# Additional for GPU/TensorRT
+pynvml = ">=12.0.0"
+
+[tasks]
+serve = "python runtime/python/fastapi/server.py --port 50000"
+serve-grpc = "python runtime/python/grpc/server.py --port 50000"
+example = "python example.py"
+webui = "python webui.py --port 8080"
+gpu-check = "python -c \"import torch; print(f'CUDA: {torch.cuda.is_available()}, Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else None}')\""
+
+[activation]
+scripts = ["setup_path.sh"]

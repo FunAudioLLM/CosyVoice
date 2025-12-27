@@ -1,0 +1,13 @@
+[package]
+name = "cosyvoice-proto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "CosyVoice gRPC protocol definitions"
+
+[dependencies]
+tonic.workspace = true
+prost.workspace = true
+
+[lib]
+path = "src/lib.rs"

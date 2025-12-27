@@ -1,0 +1,29 @@
+[package]
+name = "cosyvoice-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "CosyVoice gRPC server bridging to Python TTS backend"
+
+[[bin]]
+name = "cosyvoice-server"
+path = "src/main.rs"
+
+[dependencies]
+cosyvoice-proto = { path = "../proto" }
+tonic.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
+prost.workspace = true
+reqwest.workspace = true
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+futures.workspace = true
+async-stream.workspace = true
+urlencoding = "2.1"
+bytes.workspace = true

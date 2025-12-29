@@ -99,9 +99,26 @@
     ``` sh
     conda create -n cosyvoice -y python=3.10
     conda activate cosyvoice
-    pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+    ```
 
-    # If you encounter sox compatibility issues
+#### Install with NVIDIA CUDA
+
+    ``` sh
+    pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+    ```
+
+#### Install with AMD ROCm
+
+Install PyTorch with ROCm
+
+    ``` sh
+    pip3 install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.4
+    pip install -r requirements-rocm.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+    ```
+
+If you encounter sox compatibility issues
+
+    ``` sh
     # ubuntu
     sudo apt-get install sox libsox-dev
     # centos

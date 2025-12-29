@@ -183,7 +183,7 @@ class CosyVoiceFrontEnd:
                            'prompt_speech_feat': speech_feat, 'prompt_speech_feat_len': speech_feat_len,
                            'llm_embedding': embedding, 'flow_embedding': embedding}
         else:
-            model_input = self.spk2info[zero_shot_spk_id]
+            model_input = {**self.spk2info[zero_shot_spk_id]}
         model_input['text'] = tts_text_token
         model_input['text_len'] = tts_text_token_len
         return model_input

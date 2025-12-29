@@ -26,7 +26,7 @@ import pyworld as pw
 AUDIO_FORMAT_SETS = {'flac', 'mp3', 'm4a', 'ogg', 'opus', 'wav', 'wma'}
 
 
-def parquet_opener(data, mode='train', tts_data={}):
+def parquet_opener(data, mode='train'):
     """ Give url or local file, return file descriptor
         Inplace operation.
 
@@ -44,12 +44,8 @@ def parquet_opener(data, mode='train', tts_data={}):
                 df = df.to_pandas()
                 for i in range(len(df)):
                     sample.update(dict(df.loc[i]))
-                    if mode == 'train':
-                        # NOTE do not return sample directly, must initialize a new dict
-                        yield {**sample}
-                    else:
-                        for index, text in enumerate(tts_data[df.loc[i, 'utt']]):
-                            yield {**sample, 'tts_index': index, 'tts_text': text}
+                    # NOTE do not return sample directly, must initialize a new dict
+                    yield {**sample}
         except Exception as ex:
             logging.warning('Failed to open {}, ex info {}'.format(url, ex))
 

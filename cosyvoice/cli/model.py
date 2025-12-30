@@ -411,7 +411,7 @@ class CosyVoice3Model(CosyVoice2Model):
         self.llm_end_dict = {}
         self.hift_cache_dict = {}
         # FSQ silent token
-        self.silent_tokens = [28, 29]
+        self.silent_tokens = [2, 28, 29]
 
     def token2wav(self, token, prompt_token, prompt_feat, embedding, token_offset, uuid, stream=False, finalize=False, speed=1.0):
         with torch.cuda.amp.autocast(self.fp16):

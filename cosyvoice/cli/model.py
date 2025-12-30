@@ -410,8 +410,8 @@ class CosyVoice3Model(CosyVoice2Model):
         self.tts_speech_token_dict = {}
         self.llm_end_dict = {}
         self.hift_cache_dict = {}
-        # FSQ silent token
-        self.silent_tokens = [1, 2, 28, 29, 55, 2241, 2242, 2322, 2323]
+        # FSQ silent and breath token
+        self.silent_tokens = [1, 2, 28, 29, 55, 248, 494, 2241, 2242, 2322, 2323]
 
     def token2wav(self, token, prompt_token, prompt_feat, embedding, token_offset, uuid, stream=False, finalize=False, speed=1.0):
         with torch.cuda.amp.autocast(self.fp16):

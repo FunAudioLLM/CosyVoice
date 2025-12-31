@@ -37,6 +37,8 @@ def job(utt_list, parquet_file, utt2parquet_file, spk2parquet_file):
     speech_token_list = [utt2speech_token.get(utt, []) for utt in utt_list]
     if args.dpo:
         reject_speech_token_list = [utt2reject_speech_token[utt] for utt in utt_list]
+    if args.instruct:
+        instruct_list = [utt2instruct[utt] for utt in utt_list]
 
     # 保存到parquet,utt2parquet_file,spk2parquet_file
     df = pd.DataFrame()
@@ -50,6 +52,8 @@ def job(utt_list, parquet_file, utt2parquet_file, spk2parquet_file):
     df['speech_token'] = speech_token_list
     if args.dpo:
         df['reject_speech_token'] = reject_speech_token_list
+    if args.instruct:
+        df['instruct'] = instruct_list
     df.to_parquet(parquet_file)
     with open(utt2parquet_file, 'w') as f:
         json.dump({k: parquet_file for k in utt_list}, f, ensure_ascii=False, indent=2)
@@ -68,6 +72,10 @@ if __name__ == "__main__":
                         type=int,
                         default=1,
                         help='num processes for make parquets')
+    parser.add_argument('--instruct',
+                        action='store_true',
+                        default=False,
+                        help='has instruct file or not')
     parser.add_argument('--src_dir',
                         type=str)
     parser.add_argument('--des_dir',
@@ -78,7 +86,7 @@ if __name__ == "__main__":
                         help='Use Direct Preference Optimization')
     args = parser.parse_args()
 
-    utt2wav, utt2text, utt2spk = {}, {}, {}
+    utt2wav, utt2text, utt2spk, utt2instruct = {}, {}, {}, {}
     with open('{}/wav.scp'.format(args.src_dir)) as f:
         for l in f:
             l = l.replace('\n', '').split()
@@ -91,6 +99,11 @@ if __name__ == "__main__":
         for l in f:
             l = l.replace('\n', '').split()
             utt2spk[l[0]] = l[1]
+    if args.instruct is True:
+        with open('{}/instruct'.format(args.src_dir)) as f:
+            for l in f:
+                l = l.replace('\n', '').split()
+                utt2instruct[l[0]] = ' '.join(l[1:])
     utt2embedding = torch.load('{}/utt2embedding.pt'.format(args.src_dir))
     spk2embedding = torch.load('{}/spk2embedding.pt'.format(args.src_dir))
     utt2speech_token = torch.load('{}/utt2speech_token.pt'.format(args.src_dir))

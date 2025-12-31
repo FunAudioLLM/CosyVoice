@@ -61,7 +61,7 @@
 
 ## Evaluation
 
-| Model | Open-Source | Model Size | test-zh<br>CER (%) ↓ | test-zh<br>Speaker Similarity (%) ↑ | test-en<br>WER (%) ↓ | test-en<br>Speaker Similarity (%) ↑ | test-hard<br>CER (%) ↓ | test-hard<br>Speaker Similarity (%) ↑ |
+| Model | Open-Source | Model Size | test-zh<br>CER (%) ↓ | test-zh<br>SS (%) ↑ | test-en<br>WER (%) ↓ | test-en<br>SS (%) ↑ | test-hard<br>CER (%) ↓ | test-hard<br>SS (%) ↑ |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | Human | - | - | 1.26 | 75.5 | 2.14 | 73.4 | - | - |
 | Seed-TTS | ❌ | - | 1.12 | 79.6 | 2.25 | 76.2 | 7.59 | 77.6 |
@@ -151,11 +151,11 @@ Follow the code in `example.py` for detailed usage of each model.
 python example.py
 ```
 
-#### CosyVoice2 vllm Usage
-CosyVoice2 now supports **vLLM 0.11.x+ (V1 engine)** and **vLLM 0.9.0 (legacy)**.
-Older vllm version(<0.9.0) do not support CosyVoice2 inference, and versions in between (e.g., 0.10.x) are not tested.
+#### vLLM Usage
+CosyVoice2/3 now supports **vLLM 0.11.x+ (V1 engine)** and **vLLM 0.9.0 (legacy)**.
+Older vllm version(<0.9.0) do not support CosyVoice inference, and versions in between (e.g., 0.10.x) are not tested.
 
-Notice that `vllm==v0.9.0` has a lot of specific requirements, for example `torch==2.7.0`. You can create a new env to in case your hardward do not support vllm and old env is corrupted.
+Notice that `vllm` has a lot of specific requirements. You can create a new env to in case your hardward do not support vllm and old env is corrupted.
 
 ``` sh
 conda create -n cosyvoice_vllm --clone cosyvoice
@@ -180,7 +180,7 @@ python3 webui.py --port 50000 --model_dir pretrained_models/CosyVoice-300M
 
 #### Advanced Usage
 
-For advanced users, we have provided training and inference scripts in `examples/libritts/cosyvoice/run.sh`.
+For advanced users, we have provided training and inference scripts in `examples/libritts`.
 
 #### Build for deployment
 

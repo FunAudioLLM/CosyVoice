@@ -11,7 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Tuple
+from typing import Any, Dict, Optional
+import types
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -85,6 +86,119 @@ class CausalResnetBlock1D(ResnetBlock1D):
         self.block2 = CausalBlock1D(dim_out, dim_out)
 
 
+
+def forward_with_stg(
+    self,
+    hidden_states: torch.FloatTensor,
+    attention_mask: Optional[torch.FloatTensor] = None,
+    encoder_hidden_states: Optional[torch.FloatTensor] = None,
+    encoder_attention_mask: Optional[torch.FloatTensor] = None,
+    timestep: Optional[torch.LongTensor] = None,
+    cross_attention_kwargs: Dict[str, Any] = None,
+    class_labels: Optional[torch.LongTensor] = None,
+) -> torch.FloatTensor:
+
+    num_prompt = hidden_states.size(0) // 3
+    hidden_states_ptb = hidden_states[2 * num_prompt:]
+
+
+    if self.use_ada_layer_norm:
+        norm_hidden_states = self.norm1(hidden_states, timestep)
+    elif self.use_ada_layer_norm_zero:
+        norm_hidden_states, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.norm1(
+            hidden_states, timestep, class_labels, hidden_dtype=hidden_states.dtype
+        )
+    else:
+        norm_hidden_states = self.norm1(hidden_states)
+
+
+    cross_attention_kwargs = cross_attention_kwargs if cross_attention_kwargs is not None else {}
+
+    attn_output = self.attn1(
+        norm_hidden_states,
+        encoder_hidden_states=encoder_hidden_states if self.only_cross_attention else None,
+        attention_mask=encoder_attention_mask if self.only_cross_attention else attention_mask,
+        **cross_attention_kwargs,
+    )
+    if self.use_ada_layer_norm_zero:
+        attn_output = gate_msa.unsqueeze(1) * attn_output
+    hidden_states = attn_output + hidden_states
+
+    # 2. Cross-Attention
+    if self.attn2 is not None:
+        norm_hidden_states = (
+            self.norm2(hidden_states, timestep) if self.use_ada_layer_norm else self.norm2(hidden_states)
+        )
+
+        attn_output = self.attn2(
+            norm_hidden_states,
+            encoder_hidden_states=encoder_hidden_states,
+            attention_mask=encoder_attention_mask,
+            **cross_attention_kwargs,
+        )
+        hidden_states = attn_output + hidden_states
+
+    hidden_states[2*num_prompt:] = hidden_states_ptb
+
+    # 3. Feed-forward
+    norm_hidden_states = self.norm3(hidden_states)
+
+    if self.use_ada_layer_norm_zero:
+        norm_hidden_states = norm_hidden_states * (1 + scale_mlp[:, None]) + shift_mlp[:, None]
+
+    if self._chunk_size is not None:
+        # "feed_forward_chunk_size" can be used to save memory
+        if norm_hidden_states.shape[self._chunk_dim] % self._chunk_size != 0:
+            raise ValueError(
+                f"`hidden_states` dimension to be chunked: {norm_hidden_states.shape[self._chunk_dim]} has to be divisible by chunk size: {self._chunk_size}. Make sure to set an appropriate `chunk_size` when calling `unet.enable_forward_chunking`."
+            )
+
+        num_chunks = norm_hidden_states.shape[self._chunk_dim] // self._chunk_size
+        ff_output = torch.cat(
+            [self.ff(hid_slice) for hid_slice in norm_hidden_states.chunk(num_chunks, dim=self._chunk_dim)],
+            dim=self._chunk_dim,
+        )
+    else:
+        ff_output = self.ff(norm_hidden_states)
+
+    if self.use_ada_layer_norm_zero:
+        ff_output = gate_mlp.unsqueeze(1) * ff_output
+
+    hidden_states = ff_output + hidden_states
+    return hidden_states
+
+def forward_with_stg_residual(
+    self,
+    hidden_states: torch.FloatTensor,
+    attention_mask: Optional[torch.FloatTensor] = None,
+    encoder_hidden_states: Optional[torch.FloatTensor] = None,
+    encoder_attention_mask: Optional[torch.FloatTensor] = None,
+    timestep: Optional[torch.LongTensor] = None,
+    cross_attention_kwargs: Dict[str, Any] = None,
+    class_labels: Optional[torch.LongTensor] = None,
+) -> torch.FloatTensor:
+    # Split batch for perturbation (last third is perturbed)
+    num_prompt = hidden_states.size(0) // 3
+    hidden_states_ptb = hidden_states[2 * num_prompt:]
+
+    # Apply normal forward pass to all samples
+    output = self.forward(
+        hidden_states=hidden_states,
+        attention_mask=attention_mask,
+        encoder_hidden_states=encoder_hidden_states,
+        encoder_attention_mask=encoder_attention_mask,
+        timestep=timestep,
+        cross_attention_kwargs=cross_attention_kwargs,
+        class_labels=class_labels,
+    )
+
+    # Replace perturbed samples with their input (residual skip)
+    output[2 * num_prompt:] = hidden_states_ptb
+
+    return output
+
+
+
 class ConditionalDecoder(nn.Module):
     def __init__(
         self,
@@ -97,6 +211,10 @@ class ConditionalDecoder(nn.Module):
         num_mid_blocks=2,
         num_heads=4,
         act_fn="snake",
+        stg_applied_layers_idx=None,
+        stg_scale=0.0,
+        do_rescaling=False,
+        stg_mode="attention"
     ):
         """
         This decoder requires an input with the same shape of the target. So, if your text content
@@ -114,9 +232,17 @@ class ConditionalDecoder(nn.Module):
             time_embed_dim=time_embed_dim,
             act_fn="silu",
         )
+
+        self.stg_applied_layers_idx = stg_applied_layers_idx or []
+        self.stg_scale = stg_scale
+        self.do_rescaling = do_rescaling
+        self.stg_mode = stg_mode
+
         self.down_blocks = nn.ModuleList([])
         self.mid_blocks = nn.ModuleList([])
         self.up_blocks = nn.ModuleList([])
+
+        layer_idx = 0
 
         output_channel = in_channels
         for i in range(len(channels)):  # pylint: disable=consider-using-enumerate
@@ -136,6 +262,15 @@ class ConditionalDecoder(nn.Module):
                     for _ in range(n_blocks)
                 ]
             )
+            # Bind STG methods to transformer blocks if applicable
+            for block in transformer_blocks:
+                if self.stg_scale > 0 and layer_idx in self.stg_applied_layers_idx:
+                    if self.stg_mode == "attention":
+                        block.forward = types.MethodType(forward_with_stg, block)
+                    else:  # residual
+                        block.forward = types.MethodType(forward_with_stg_residual, block)
+                layer_idx += 1
+
             downsample = (
                 Downsample1D(output_channel) if not is_last else nn.Conv1d(output_channel, output_channel, 3, padding=1)
             )
@@ -158,6 +293,14 @@ class ConditionalDecoder(nn.Module):
                     for _ in range(n_blocks)
                 ]
             )
+            # Bind STG methods to transformer blocks if applicable
+            for block in transformer_blocks:
+                if self.stg_scale > 0 and layer_idx in self.stg_applied_layers_idx:
+                    if self.stg_mode == "attention":
+                        block.forward = types.MethodType(forward_with_stg, block)
+                    else:  # residual
+                        block.forward = types.MethodType(forward_with_stg_residual, block)
+                layer_idx += 1
 
             self.mid_blocks.append(nn.ModuleList([resnet, transformer_blocks]))
 
@@ -183,6 +326,14 @@ class ConditionalDecoder(nn.Module):
                     for _ in range(n_blocks)
                 ]
             )
+            for block in transformer_blocks:
+                if self.stg_scale > 0 and layer_idx in self.stg_applied_layers_idx:
+                    if self.stg_mode == "attention":
+                        block.forward = types.MethodType(forward_with_stg, block)
+                    else:  # residual
+                        block.forward = types.MethodType(forward_with_stg_residual, block)
+                layer_idx += 1
+
             upsample = (
                 Upsample1D(output_channel, use_conv_transpose=True)
                 if not is_last
@@ -238,13 +389,15 @@ class ConditionalDecoder(nn.Module):
 
         hiddens = []
         masks = [mask]
+        
+
         for resnet, transformer_blocks, downsample in self.down_blocks:
             mask_down = masks[-1]
             x = resnet(x, mask_down, t)
             x = rearrange(x, "b c t -> b t c").contiguous()
             attn_mask = add_optional_chunk_mask(x, mask_down.bool(), False, False, 0, 0, -1).repeat(1, x.size(1), 1)
             attn_mask = mask_to_bias(attn_mask, x.dtype)
-            for transformer_block in transformer_blocks:
+            for transformer_block in transformer_blocks:                    
                 x = transformer_block(
                     hidden_states=x,
                     attention_mask=attn_mask,

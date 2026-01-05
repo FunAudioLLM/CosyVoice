@@ -146,7 +146,7 @@ def Dataset(data_list_file,
                        partition=partition)
     # map partial arg to padding func
     for i in range(1, len(data_pipeline)):
-        if data_pipeline[i].func.__name__ == 'compute_fbank':
+        if data_pipeline[i].func.__name__ == 'compute_fbank' and gan is True:
             data_pipeline[i] = partial(data_pipeline[i], token_mel_ratio=0)
         if data_pipeline[i].func.__name__ == 'padding':
             data_pipeline[i] = partial(data_pipeline[i], gan=gan, dpo=dpo)

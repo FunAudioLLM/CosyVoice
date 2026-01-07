@@ -314,6 +314,7 @@ class Qwen2LM(TransformerLM):
         else:
             instruct_token = [torch.empty(0).to(text_token[0])] * len(text_token)
             instruct_token_emb = [torch.empty(0, 896).to(text_token_emb[0])] * len(text_token)
+            instruct_token_len = torch.zeros(len(text_token)).to(text_token_len)
         for i in range(len(text_token)):
             # bistream sequence
             if random.random() < 0.5 and speech_token_len[i] / text_token_len[i] > self.mix_ratio[1] / self.mix_ratio[0]:

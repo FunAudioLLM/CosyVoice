@@ -28,6 +28,7 @@ from cosyvoice.transformer.label_smoothing_loss import LabelSmoothingLoss
 from cosyvoice.utils.common import th_accuracy
 from cosyvoice.utils.file_utils import logging
 from cosyvoice.utils.mask import make_pad_mask
+from cosyvoice.utils.onnx import SpeechTokenExtractor
 
 
 class TransformerLM(torch.nn.Module):

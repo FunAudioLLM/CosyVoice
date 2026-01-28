@@ -54,6 +54,7 @@ if __name__ == "__main__":
     parser.add_argument('--des_dir',
                         type=str)
     parser.add_argument('--instruct',
-                        type=str)
+                        type=str,
+                        default='')
     args = parser.parse_args()
     main()

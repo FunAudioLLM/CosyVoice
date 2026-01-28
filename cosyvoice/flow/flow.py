@@ -19,6 +19,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 from omegaconf import DictConfig
 from cosyvoice.utils.mask import make_pad_mask
+from cosyvoice.utils.onnx import SpeechTokenExtractor
 
 
 class MaskedDiffWithXvec(torch.nn.Module):

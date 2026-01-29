@@ -150,6 +150,7 @@ compute_fbank: !name:cosyvoice.dataset.processor.compute_fbank
     feat_extractor: !ref <feat_extractor>
     num_frames: 960
 compute_whisper_fbank: !name:cosyvoice.dataset.processor.compute_whisper_fbank
+    num_frames: 960
 compute_f0: !name:cosyvoice.dataset.processor.compute_f0
     sample_rate: !ref <sample_rate>
     hop_size: 480

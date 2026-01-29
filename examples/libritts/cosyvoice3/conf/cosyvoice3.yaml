@@ -149,6 +149,7 @@ feat_extractor: !name:matcha.utils.audio.mel_spectrogram
 compute_fbank: !name:cosyvoice.dataset.processor.compute_fbank
     feat_extractor: !ref <feat_extractor>
     num_frames: 960
+compute_whisper_fbank: !name:cosyvoice.dataset.processor.compute_whisper_fbank
 compute_f0: !name:cosyvoice.dataset.processor.compute_f0
     sample_rate: !ref <sample_rate>
     hop_size: 480
@@ -173,6 +174,7 @@ data_pipeline: [
     !ref <resample>,
     !ref <compute_fbank>,
     !ref <parse_embedding>,
+    !ref <compute_whisper_fbank>,
     !ref <shuffle>,
     !ref <sort>,
     !ref <batch>,

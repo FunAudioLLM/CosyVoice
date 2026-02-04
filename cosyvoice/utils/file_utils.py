@@ -42,7 +42,19 @@ def read_json_lists(list_file):
 
 
 def load_wav(wav, target_sr, min_sr=16000):
-    speech, sample_rate = torchaudio.load(wav, backend='soundfile')
+    import soundfile as sf
+    import numpy as np
+    # 直接使用 soundfile 加载，避免 torchaudio 兼容性问题
+    if isinstance(wav, (str, os.PathLike)):
+        data, sample_rate = sf.read(wav)
+        if data.ndim > 1:
+            data = data.mean(axis=1)
+        speech = torch.from_numpy(data.astype(np.float32)).unsqueeze(0)
+    else:
+        speech = wav if isinstance(wav, torch.Tensor) else torch.tensor(wav)
+        if speech.ndim == 1:
+            speech = speech.unsqueeze(0)
+        sample_rate = target_sr
     speech = speech.mean(dim=0, keepdim=True)
     if sample_rate != target_sr:
         assert sample_rate >= min_sr, 'wav sample rate {} must be greater than {}'.format(sample_rate, target_sr)

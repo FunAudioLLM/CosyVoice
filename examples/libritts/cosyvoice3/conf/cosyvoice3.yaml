@@ -129,7 +129,7 @@ tokenize: !name:cosyvoice.dataset.processor.tokenize
     get_tokenizer: !ref <get_tokenizer>
     allowed_special: !ref <allowed_special>
 filter: !name:cosyvoice.dataset.processor.filter
-    max_length: 40960
+    max_length: 6000
     min_length: 100
     token_max_length: 200
     token_min_length: 1
@@ -148,7 +148,9 @@ feat_extractor: !name:matcha.utils.audio.mel_spectrogram
     center: False
 compute_fbank: !name:cosyvoice.dataset.processor.compute_fbank
     feat_extractor: !ref <feat_extractor>
-    token_mel_ratio: 2
+    num_frames: 960
+compute_whisper_fbank: !name:cosyvoice.dataset.processor.compute_whisper_fbank
+    num_frames: 960
 compute_f0: !name:cosyvoice.dataset.processor.compute_f0
     sample_rate: !ref <sample_rate>
     hop_size: 480
@@ -173,6 +175,7 @@ data_pipeline: [
     !ref <resample>,
     !ref <compute_fbank>,
     !ref <parse_embedding>,
+    !ref <compute_whisper_fbank>,
     !ref <shuffle>,
     !ref <sort>,
     !ref <batch>,

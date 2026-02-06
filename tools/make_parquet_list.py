@@ -29,31 +29,24 @@ def job(utt_list, parquet_file, utt2parquet_file, spk2parquet_file):
     for utt in tqdm(utt_list):
         data = open(utt2wav[utt], 'rb').read()
         data_list.append(data)
-    wav_list = [utt2wav[utt] for utt in utt_list]
-    text_list = [utt2text[utt] for utt in utt_list]
-    spk_list = [utt2spk[utt] for utt in utt_list]
-    uttembedding_list = [utt2embedding[utt] for utt in utt_list]
-    spkembedding_list = [spk2embedding[utt2spk[utt]] for utt in utt_list]
-    speech_token_list = [utt2speech_token.get(utt, []) for utt in utt_list]
-    if args.dpo:
-        reject_speech_token_list = [utt2reject_speech_token[utt] for utt in utt_list]
-    if args.instruct:
-        instruct_list = [utt2instruct[utt] for utt in utt_list]
 
     # 保存到parquet,utt2parquet_file,spk2parquet_file
     df = pd.DataFrame()
     df['utt'] = utt_list
-    df['wav'] = wav_list
     df['audio_data'] = data_list
-    df['text'] = text_list
-    df['spk'] = spk_list
-    df['utt_embedding'] = uttembedding_list
-    df['spk_embedding'] = spkembedding_list
-    df['speech_token'] = speech_token_list
+    df['wav'] = [utt2wav[utt] for utt in utt_list]
+    df['text'] = [utt2text[utt] for utt in utt_list]
+    df['spk'] = [utt2spk[utt] for utt in utt_list]
+    if utt2embedding is not None:
+        df['utt_embedding'] = [utt2embedding[utt] for utt in utt_list]
+    if spk2embedding is not None:
+        df['spk_embedding'] = [spk2embedding[utt2spk[utt]] for utt in utt_list]
+    if utt2speech_token is not None:
+        df['speech_token'] = [utt2speech_token[utt] for utt in utt_list]
+    if utt2instruct is not None:
+        df['instruct'] = [utt2instruct[utt] for utt in utt_list]
     if args.dpo:
-        df['reject_speech_token'] = reject_speech_token_list
-    if args.instruct:
-        df['instruct'] = instruct_list
+        df['reject_speech_token'] = [utt2reject_speech_token.get(utt, None) for utt in utt_list]
     df.to_parquet(parquet_file)
     with open(utt2parquet_file, 'w') as f:
         json.dump({k: parquet_file for k in utt_list}, f, ensure_ascii=False, indent=2)
@@ -72,10 +65,6 @@ if __name__ == "__main__":
                         type=int,
                         default=1,
                         help='num processes for make parquets')
-    parser.add_argument('--instruct',
-                        action='store_true',
-                        default=False,
-                        help='has instruct file or not')
     parser.add_argument('--src_dir',
                         type=str)
     parser.add_argument('--des_dir',
@@ -86,7 +75,7 @@ if __name__ == "__main__":
                         help='Use Direct Preference Optimization')
     args = parser.parse_args()
 
-    utt2wav, utt2text, utt2spk, utt2instruct = {}, {}, {}, {}
+    utt2wav, utt2text, utt2spk = {}, {}, {}
     with open('{}/wav.scp'.format(args.src_dir)) as f:
         for l in f:
             l = l.replace('\n', '').split()
@@ -99,16 +88,19 @@ if __name__ == "__main__":
         for l in f:
             l = l.replace('\n', '').split()
             utt2spk[l[0]] = l[1]
-    if args.instruct is True:
+    if os.path.exists('{}/instruct'.format(args.src_dir)):
+        utt2instruct = {}
         with open('{}/instruct'.format(args.src_dir)) as f:
             for l in f:
                 l = l.replace('\n', '').split()
                 utt2instruct[l[0]] = ' '.join(l[1:])
-    utt2embedding = torch.load('{}/utt2embedding.pt'.format(args.src_dir))
-    spk2embedding = torch.load('{}/spk2embedding.pt'.format(args.src_dir))
-    utt2speech_token = torch.load('{}/utt2speech_token.pt'.format(args.src_dir))
+    else:
+        utt2instruct = None
+    utt2embedding = torch.load('{}/utt2embedding.pt'.format(args.src_dir)) if os.path.exists('{}/utt2embedding.pt'.format(args.src_dir)) else None
+    spk2embedding = torch.load('{}/spk2embedding.pt'.format(args.src_dir)) if os.path.exists('{}/spk2embedding.pt'.format(args.src_dir)) else None
+    utt2speech_token = torch.load('{}/utt2speech_token.pt'.format(args.src_dir)) if os.path.exists('{}/utt2speech_token.pt'.format(args.src_dir)) else None
     if args.dpo:
-        utt2reject_speech_token = torch.load('{}_reject/utt2speech_token.pt'.format(args.src_dir))
+        utt2reject_speech_token = torch.load('{}_reject/utt2speech_token.pt'.format(args.src_dir)) if os.path.exists('{}_reject/utt2speech_token.pt'.format(args.src_dir)) else {}
     utts = list(utt2wav.keys())
 
     # Using process pool to speedup

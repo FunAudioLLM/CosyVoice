@@ -16,12 +16,14 @@ import random
 
 import pyarrow.parquet as pq
 from io import BytesIO
+import numpy as np
+import whisper
 import torch
 import torchaudio
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
 import pyworld as pw
-
+from cosyvoice.utils.onnx import embedding_extractor, online_feature
 
 AUDIO_FORMAT_SETS = {'flac', 'mp3', 'm4a', 'ogg', 'opus', 'wav', 'wma'}
 
@@ -92,9 +94,9 @@ def filter(data,
             continue
         if len(sample['text_token']) > token_max_length:
             continue
-        if len(sample['speech_token']) == 0:
+        if online_feature is False and len(sample['speech_token']) == 0:
             continue
-        if 'reject_speech_token' in sample and len(sample['reject_speech_token']) == 0:
+        if online_feature is False and 'reject_speech_token' in sample and len(sample['reject_speech_token']) == 0:
             continue
         if num_frames != 0:
             if len(sample['text_token']) / num_frames < min_output_input_ratio:
@@ -155,7 +157,7 @@ def truncate(data, truncate_length=24576, mode='train'):
 
 def compute_fbank(data,
                   feat_extractor,
-                  token_mel_ratio=0,
+                  num_frames=-1,
                   mode='train'):
     """ Extract fbank
 
@@ -170,14 +172,28 @@ def compute_fbank(data,
         assert 'speech' in sample
         assert 'utt' in sample
         assert 'text_token' in sample
-        waveform = sample['speech']
-        feat = feat_extractor(waveform).squeeze(dim=0).transpose(0, 1)
-        if token_mel_ratio != 0:
-            # trim to align speech_token and speech_feat
-            token_len = int(min(feat.shape[0] / token_mel_ratio, sample["speech_token"].shape[0]))
-            feat = feat[:token_mel_ratio * token_len]
-            sample["speech_token"] = sample["speech_token"][:token_len]
-        sample['speech_feat'] = feat
+        # NOTE in cosyvoice2/3, we support online token extraction, so we need to align speech to 25hz first
+        if num_frames != -1:
+            index = int(np.ceil(sample['speech'].shape[1] / num_frames))
+            sample['speech'] = torch.concat([sample['speech'], torch.zeros(1, index * num_frames - sample['speech'].shape[1])], dim=1)
+        sample['speech_feat'] = feat_extractor(sample['speech']).squeeze(dim=0).transpose(0, 1)
+        yield sample
+
+
+def compute_whisper_fbank(data, num_frames=-1, mode='train'):
+    """ Extract whisper fbank 
+
+        Args:
+            data: Iterable[{key, wav, label, sample_rate}]
+
+        Returns:
+            Iterable[{key, feat, label}]
+    """
+    for sample in data:
+        if num_frames != -1:
+            assert sample['speech'].shape[1] % num_frames == 0, 'speech length is not aligned with speech_token'
+        sample['speech_16k'] = torchaudio.transforms.Resample(orig_freq=sample['sample_rate'], new_freq=16000)(sample['speech'])
+        sample['whisper_feat'] = whisper.log_mel_spectrogram(sample['speech_16k'], n_mels=128).squeeze(dim=0).transpose(0, 1)
         yield sample
 
 
@@ -216,8 +232,13 @@ def parse_embedding(data, normalize, mode='train'):
             Iterable[{key, feat, label}]
     """
     for sample in data:
-        sample['utt_embedding'] = torch.tensor(sample['utt_embedding'], dtype=torch.float32)
-        sample['spk_embedding'] = torch.tensor(sample['spk_embedding'], dtype=torch.float32)
+        if 'utt_embedding' not in sample and 'spk_embedding' not in sample:
+            sample['speech_16k'] = torchaudio.transforms.Resample(orig_freq=sample['sample_rate'], new_freq=16000)(sample['speech'])
+            embedding = embedding_extractor.inference(sample['speech_16k'])
+            sample['spk_embedding'] = sample['utt_embedding'] = embedding
+        else:
+            sample['utt_embedding'] = torch.tensor(sample['utt_embedding'], dtype=torch.float32)
+            sample['spk_embedding'] = torch.tensor(sample['spk_embedding'], dtype=torch.float32)
         if normalize:
             sample['utt_embedding'] = F.normalize(sample['utt_embedding'], dim=0)
             sample['spk_embedding'] = F.normalize(sample['spk_embedding'], dim=0)
@@ -240,8 +261,6 @@ def tokenize(data, get_tokenizer, allowed_special, mode='train'):
         sample['text_token'] = tokenizer.encode(sample['text'], allowed_special=allowed_special)
         if 'instruct' in sample:
             sample['instruct_token'] = tokenizer.encode(sample['instruct'], allowed_special=allowed_special)
-        else:
-            sample['instruct_token'] = tokenizer.encode('', allowed_special=allowed_special)
         yield sample
 
 
@@ -256,13 +275,14 @@ def shuffle(data, shuffle_size=10000, mode='train'):
             Iterable[{key, feat, label}]
     """
     buf = []
+    yield_size = int(shuffle_size / 2)
     for sample in data:
         buf.append(sample)
         if len(buf) >= shuffle_size:
             random.shuffle(buf)
-            for x in buf:
+            for x in buf[:yield_size]:
                 yield x
-            buf = []
+            buf = buf[yield_size:]
     # The sample left over
     random.shuffle(buf)
     for x in buf:
@@ -368,70 +388,42 @@ def padding(data, use_spk_embedding, mode='train', gan=False, dpo=False):
     """
     for sample in data:
         assert isinstance(sample, list)
-        speech_feat_len = torch.tensor([x['speech_feat'].size(1) for x in sample],
-                                       dtype=torch.int32)
-        order = torch.argsort(speech_feat_len, descending=True)
-
-        utts = [sample[i]['utt'] for i in order]
-        speech = [sample[i]['speech'].squeeze(dim=0) for i in order]
-        speech_len = torch.tensor([i.size(0) for i in speech], dtype=torch.int32)
-        speech = pad_sequence(speech, batch_first=True, padding_value=0)
-        speech_token = [torch.tensor(sample[i]['speech_token']) for i in order]
-        speech_token_len = torch.tensor([i.size(0) for i in speech_token], dtype=torch.int32)
-        speech_token = pad_sequence(speech_token,
-                                    batch_first=True,
-                                    padding_value=0)
-        speech_feat = [sample[i]['speech_feat'] for i in order]
-        speech_feat_len = torch.tensor([i.size(0) for i in speech_feat], dtype=torch.int32)
-        speech_feat = pad_sequence(speech_feat,
-                                   batch_first=True,
-                                   padding_value=0)
-        text = [sample[i]['text'] for i in order]
+        order = torch.argsort(torch.tensor([x['speech'].size(1) for x in sample], dtype=torch.int32), descending=True)
+        batch = {}
+        batch['utts'] = [sample[i]['utt'] for i in order]
+        batch['text'] = [sample[i]['text'] for i in order]
         text_token = [torch.tensor(sample[i]['text_token']) for i in order]
-        text_token_len = torch.tensor([i.size(0) for i in text_token], dtype=torch.int32)
-        text_token = pad_sequence(text_token, batch_first=True, padding_value=0)
-        instruct_token = [torch.tensor(sample[i]['instruct_token']) for i in order]
-        instruct_token_len = torch.tensor([i.size(0) for i in instruct_token], dtype=torch.int32)
-        instruct_token = pad_sequence(instruct_token, batch_first=True, padding_value=0)
-        utt_embedding = torch.stack([sample[i]['utt_embedding'] for i in order], dim=0)
-        spk_embedding = torch.stack([sample[i]['spk_embedding'] for i in order], dim=0)
-        batch = {
-            "utts": utts,
-            "speech": speech,
-            "speech_len": speech_len,
-            "speech_token": speech_token,
-            "speech_token_len": speech_token_len,
-            "speech_feat": speech_feat,
-            "speech_feat_len": speech_feat_len,
-            "text": text,
-            "text_token": text_token,
-            "text_token_len": text_token_len,
-            "instruct_token": instruct_token,
-            "instruct_token_len": instruct_token_len,
-            "utt_embedding": utt_embedding,
-            "spk_embedding": spk_embedding,
-        }
+        batch['text_token_len'] = torch.tensor([i.size(0) for i in text_token], dtype=torch.int32)
+        batch['text_token'] = pad_sequence(text_token, batch_first=True, padding_value=0)
+        speech_feat = [sample[i]['speech_feat'] for i in order]
+        batch['speech_feat_len'] = torch.tensor([i.size(0) for i in speech_feat], dtype=torch.int32)
+        batch['speech_feat'] = pad_sequence(speech_feat, batch_first=True, padding_value=0)
+        batch['utt_embedding'] = torch.stack([sample[i]['utt_embedding'] for i in order], dim=0)
+        batch['spk_embedding'] = torch.stack([sample[i]['spk_embedding'] for i in order], dim=0)
+        if torch.tensor(['instruct_token' in sample[i] for i in order]).all():
+            instruct_token = [torch.tensor(sample[i]['instruct_token']) for i in order]
+            batch['instruct_token_len'] = torch.tensor([i.size(0) for i in instruct_token], dtype=torch.int32)
+            batch['instruct_token'] = pad_sequence(instruct_token, batch_first=True, padding_value=0)
+        if torch.tensor(['whisper_feat' in sample[i] for i in order]).all():
+            whisper_feat = [sample[i]['whisper_feat'] for i in order]
+            batch['whisper_feat_len'] = torch.tensor([i.size(0) for i in whisper_feat], dtype=torch.int32)
+            batch['whisper_feat'] = pad_sequence(whisper_feat, batch_first=True, padding_value=0)
+        if torch.tensor(['speech_token' in sample[i] for i in order]).all():
+            speech_token = [torch.tensor(sample[i]['speech_token']) for i in order]
+            batch['speech_token_len'] = torch.tensor([i.size(0) for i in speech_token], dtype=torch.int32)
+            batch['speech_token'] = pad_sequence(speech_token, batch_first=True, padding_value=0)
         if gan is True:
-            # in gan train, we need pitch_feat
+            # in gan train, we need speech/pitch_feat
+            speech = [sample[i]['speech'].squeeze(dim=0) for i in order]
+            batch['speech_len'] = torch.tensor([i.size(0) for i in speech], dtype=torch.int32)
+            batch['speech'] = pad_sequence(speech, batch_first=True, padding_value=0)
             pitch_feat = [sample[i]['pitch_feat'] for i in order]
-            pitch_feat_len = torch.tensor([i.size(0) for i in pitch_feat], dtype=torch.int32)
-            pitch_feat = pad_sequence(pitch_feat,
-                                      batch_first=True,
-                                      padding_value=0)
-            batch["pitch_feat"] = pitch_feat
-            batch["pitch_feat_len"] = pitch_feat_len
-        else:
-            # only gan train needs speech, delete it to save memory
-            del batch["speech"]
-            del batch["speech_len"]
+            batch['pitch_feat_len'] = torch.tensor([i.size(0) for i in pitch_feat], dtype=torch.int32)
+            batch['pitch_feat'] = pad_sequence(pitch_feat, batch_first=True, padding_value=0)
         if dpo is True:
             reject_speech_token = [torch.tensor(sample[i]['reject_speech_token']) for i in order]
-            reject_speech_token_len = torch.tensor([i.size(0) for i in reject_speech_token], dtype=torch.int32)
-            reject_speech_token = pad_sequence(reject_speech_token,
-                                               batch_first=True,
-                                               padding_value=0)
-            batch['reject_speech_token'] = reject_speech_token
-            batch['reject_speech_token_len'] = reject_speech_token_len
+            batch['reject_speech_token_len'] = torch.tensor([i.size(0) for i in reject_speech_token], dtype=torch.int32)
+            batch['reject_speech_token'] = pad_sequence(reject_speech_token, batch_first=True, padding_value=0)
         if use_spk_embedding is True:
             batch["embedding"] = batch["spk_embedding"]
         else:

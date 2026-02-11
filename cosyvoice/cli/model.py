@@ -117,7 +117,7 @@ class CosyVoiceModel:
                                                      prompt_speech_token=llm_prompt_speech_token.to(self.device),
                                                      prompt_speech_token_len=torch.tensor([llm_prompt_speech_token.shape[1]], dtype=torch.int32).to(self.device),
                                                      embedding=llm_embedding.to(self.device),
-                                                     uuid=uuid)  
+                                                     uuid=uuid)
             for i in token_generator:
                 if i in self.silent_tokens:
                     cur_silent_token_num += 1
@@ -256,7 +256,7 @@ class CosyVoice2Model(CosyVoiceModel):
         self.fp16 = fp16
         # NOTE must matching training static_chunk_size
         self.token_hop_len = 25
-        # NOTE increase token_hop_len incrementally to avoid duplicate inference 
+        # NOTE increase token_hop_len incrementally to avoid duplicate inference
         self.token_max_hop_len = 4 * self.token_hop_len
         self.stream_scale_factor = 2
         assert self.stream_scale_factor >= 1, 'stream_scale_factor should be greater than 1, change it according to your actual rtf'
@@ -408,7 +408,7 @@ class CosyVoice3Model(CosyVoice2Model):
         self.fp16 = fp16
         # NOTE must matching training static_chunk_size
         self.token_hop_len = 25
-        # NOTE increase token_hop_len incrementally to avoid duplicate inference 
+        # NOTE increase token_hop_len incrementally to avoid duplicate inference
         self.token_max_hop_len = 4 * self.token_hop_len
         self.stream_scale_factor = 2
         assert self.stream_scale_factor >= 1, 'stream_scale_factor should be greater than 1, change it according to your actual rtf'

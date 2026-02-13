@@ -29,6 +29,7 @@ class ConditionalCFM(BASECFM):
         self.t_scheduler = cfm_params.t_scheduler
         self.training_cfg_rate = cfm_params.training_cfg_rate
         self.inference_cfg_rate = cfm_params.inference_cfg_rate
+        self.spk_masking_rate = getattr(cfm_params, 'spk_masking_rate', 0.0)
         in_channels = in_channels + (spk_emb_dim if n_spks > 0 else 0)
         # Just change the architecture of the estimator here
         self.estimator = estimator
@@ -187,6 +188,11 @@ class ConditionalCFM(BASECFM):
             mu = mu * cfg_mask.view(-1, 1, 1)
             spks = spks * cfg_mask.view(-1, 1)
             cond = cond * cfg_mask.view(-1, 1, 1)
+
+        # identify speaker masking
+        if self.spk_masking_rate > 0:
+            spk_cfg_mask = torch.rand(b, device=x1.device) > self.spk_masking_rate
+            spks = spks * spk_cfg_mask.view(-1, 1)
 
         pred = self.estimator(y, mask, mu, t.squeeze(), spks, cond, streaming=streaming)
         loss = F.mse_loss(pred * mask, u * mask, reduction="sum") / (torch.sum(mask) * u.shape[1])

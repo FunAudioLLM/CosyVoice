@@ -237,11 +237,27 @@ def parse_embedding(data, normalize, mode='train'):
             embedding = embedding_extractor.inference(sample['speech_16k'])
             sample['spk_embedding'] = sample['utt_embedding'] = embedding
         else:
-            sample['utt_embedding'] = torch.tensor(sample['utt_embedding'], dtype=torch.float32)
-            sample['spk_embedding'] = torch.tensor(sample['spk_embedding'], dtype=torch.float32)
+            if isinstance(sample['utt_embedding'], bytes):
+                sample['utt_embedding'] = torch.from_numpy(np.frombuffer(sample['utt_embedding'], dtype=np.float32))
+            else:
+                sample['utt_embedding'] = torch.tensor(sample['utt_embedding'], dtype=torch.float32)
+            
+            if isinstance(sample['spk_embedding'], bytes):
+                sample['spk_embedding'] = torch.from_numpy(np.frombuffer(sample['spk_embedding'], dtype=np.float32))
+            else:
+                sample['spk_embedding'] = torch.tensor(sample['spk_embedding'], dtype=torch.float32)
+
+            if 'style_embedding' in sample:
+                if isinstance(sample['style_embedding'], bytes):
+                    sample['style_embedding'] = torch.from_numpy(np.frombuffer(sample['style_embedding'], dtype=np.float32))
+                elif sample['style_embedding'] is not None:
+                    sample['style_embedding'] = torch.tensor(sample['style_embedding'], dtype=torch.float32)
+
         if normalize:
             sample['utt_embedding'] = F.normalize(sample['utt_embedding'], dim=0)
             sample['spk_embedding'] = F.normalize(sample['spk_embedding'], dim=0)
+            if 'style_embedding' in sample and sample['style_embedding'] is not None:
+                sample['style_embedding'] = F.normalize(sample['style_embedding'], dim=0)
         yield sample
 
 
@@ -400,10 +416,24 @@ def padding(data, use_spk_embedding, mode='train', gan=False, dpo=False):
         batch['speech_feat'] = pad_sequence(speech_feat, batch_first=True, padding_value=0)
         batch['utt_embedding'] = torch.stack([sample[i]['utt_embedding'] for i in order], dim=0)
         batch['spk_embedding'] = torch.stack([sample[i]['spk_embedding'] for i in order], dim=0)
+        
+        # Handle style_embedding if present
+        if torch.tensor(['style_embedding' in sample[i] and sample[i]['style_embedding'] is not None for i in order]).all():
+            batch['style_embedding'] = torch.stack([sample[i]['style_embedding'] for i in order], dim=0)
+            
+        # Handle descriptions if present
+        if torch.tensor(['description' in sample[i] for i in order]).all():
+            batch['descriptions'] = [sample[i]['description'] for i in order]
+
         if torch.tensor(['instruct_token' in sample[i] for i in order]).all():
             instruct_token = [torch.tensor(sample[i]['instruct_token']) for i in order]
             batch['instruct_token_len'] = torch.tensor([i.size(0) for i in instruct_token], dtype=torch.int32)
             batch['instruct_token'] = pad_sequence(instruct_token, batch_first=True, padding_value=0)
+        else:
+            
+            batch['instruct_token'] = torch.zeros(len(order), 0, dtype=torch.int32)
+            batch['instruct_token_len'] = torch.zeros(len(order), dtype=torch.int32)
+
         if torch.tensor(['whisper_feat' in sample[i] for i in order]).all():
             whisper_feat = [sample[i]['whisper_feat'] for i in order]
             batch['whisper_feat_len'] = torch.tensor([i.size(0) for i in whisper_feat], dtype=torch.int32)
@@ -429,3 +459,47 @@ def padding(data, use_spk_embedding, mode='train', gan=False, dpo=False):
         else:
             batch["embedding"] = batch["utt_embedding"]
         yield batch
+
+
+def parse_description(data, mode='train'):
+    """ Parse voice description from parquet data
+    
+        Args:
+            data: Iterable[{key, description, ...}]
+        
+        Returns:
+            Iterable[{key, description, ...}]
+    """
+    for sample in data:
+        if 'description' in sample and sample['description']:
+            sample['description'] = str(sample['description'])
+        else:
+            sample['description'] = "A neutral voice"
+        yield sample
+
+
+def parse_style_embedding(data, mode='train'):
+    """ Parse style embedding (ground truth for description encoder training)
+    
+        Args:
+            data: Iterable[{key, style_embedding, ...}]
+        
+        Returns:
+            Iterable[{key, style_embedding, ...}]
+    """
+    for sample in data:
+        if 'style_embedding' in sample and sample['style_embedding']:
+            # Style embedding is stored as bytes in parquet
+            if isinstance(sample['style_embedding'], bytes):
+                sample['style_embedding'] = torch.from_numpy(
+                    np.frombuffer(sample['style_embedding'], dtype=np.float32)
+                )
+            elif isinstance(sample['style_embedding'], (list, tuple)):
+                sample['style_embedding'] = torch.tensor(sample['style_embedding'], dtype=torch.float32)
+            else:
+                # Already a tensor
+                sample['style_embedding'] = torch.tensor(sample['style_embedding'], dtype=torch.float32)
+        else:
+            # If no style embedding, we'll extract it online (fallback)
+            sample['style_embedding'] = None
+        yield sample

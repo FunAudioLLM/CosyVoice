@@ -19,6 +19,7 @@ import glob
 
 import yaml
 import torch
+from hyperpyyaml import load_hyperpyyaml
 
 
 def get_args():
@@ -47,16 +48,17 @@ def main():
         yamls = glob.glob('{}/*.yaml'.format(args.src_path))
         yamls = [
             f for f in yamls
-            if not (os.path.basename(f).startswith('train')
-                    or os.path.basename(f).startswith('init'))
+            if os.path.basename(f).startswith('epoch_')
         ]
         for y in yamls:
             with open(y, 'r') as f:
-                dic_yaml = yaml.load(f, Loader=yaml.BaseLoader)
+                dic_yaml = load_hyperpyyaml(f)
+                if dic_yaml is None or 'loss_dict' not in dic_yaml:
+                    continue
                 loss = float(dic_yaml['loss_dict']['loss'])
                 epoch = int(dic_yaml['epoch'])
                 step = int(dic_yaml['step'])
-                tag = dic_yaml['tag']
+                tag = dic_yaml.get('tag', 'unknown')
                 val_scores += [[epoch, step, loss, tag]]
         sorted_val_scores = sorted(val_scores,
                                    key=lambda x: x[2],
@@ -67,22 +69,39 @@ def main():
             args.src_path + '/epoch_{}_whole.pt'.format(score[0])
             for score in sorted_val_scores[:args.num]
         ]
+    else:
+        # Default behavior: take the last N checkpoints if val_best is not specified
+        path_list = glob.glob('{}/*_whole.pt'.format(args.src_path))
+        path_list = sorted(path_list, key=os.path.getmtime, reverse=True)[:args.num]
+
+    if not path_list:
+        print("Error: No models found to average in {}".format(args.src_path))
+        return
+
     print(path_list)
     avg = {}
     num = args.num
     assert num == len(path_list)
     for path in path_list:
         print('Processing {}'.format(path))
-        states = torch.load(path, map_location=torch.device('cpu'))
-        for k in states.keys():
+        checkpoint = torch.load(path, map_location=torch.device('cpu'))
+        # If the checkpoint is a dict containing 'model', use checkpoint['model']
+        states = checkpoint.get('model', checkpoint)
+        
+        for k, v in states.items():
             if k not in ['step', 'epoch']:
-                if k not in avg.keys():
-                    avg[k] = states[k].clone()
+                if k not in avg:
+                    if isinstance(v, torch.Tensor):
+                        avg[k] = v.clone()
+                    else:
+                        avg[k] = v
                 else:
-                    avg[k] += states[k]
+                    if isinstance(v, torch.Tensor):
+                        avg[k] += v
+
     # average
     for k in avg.keys():
-        if avg[k] is not None:
+        if avg[k] is not None and isinstance(avg[k], torch.Tensor):
             # pytorch 1.6 use true_divide instead of /=
             avg[k] = torch.true_divide(avg[k], num)
     print('Saving to {}'.format(args.dst_model))

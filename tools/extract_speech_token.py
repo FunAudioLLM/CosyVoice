@@ -65,8 +65,14 @@ if __name__ == "__main__":
     option = onnxruntime.SessionOptions()
     option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
     option.intra_op_num_threads = 1
-    providers = ["CUDAExecutionProvider"]
-    ort_session = onnxruntime.InferenceSession(args.onnx_path, sess_options=option, providers=providers)
+    try:
+        providers = ["CUDAExecutionProvider"]
+        ort_session = onnxruntime.InferenceSession(args.onnx_path, sess_options=option, providers=providers)
+        logging.info("Using CUDAExecutionProvider")
+    except Exception as e:
+        logging.warning(f"Failed to use CUDAExecutionProvider: {e}. Falling back to CPU.")
+        providers = ["CPUExecutionProvider"]
+        ort_session = onnxruntime.InferenceSession(args.onnx_path, sess_options=option, providers=providers)
     executor = ThreadPoolExecutor(max_workers=args.num_thread)
 
     main(args)

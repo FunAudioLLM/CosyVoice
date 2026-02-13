@@ -354,6 +354,13 @@ class CausalMaskedDiffWithDiT(torch.nn.Module):
                 continue
             index = random.randint(0, int(0.3 * j))
             conds[i, :index] = feat[i, :index]
+
+        # align h, mask, feat, conds to minimum length
+        min_len = min(h.shape[1], feat.shape[1])
+        h = h[:, :min_len, :]
+        mask = mask[:, :min_len]
+        feat = feat[:, :min_len, :]
+        conds = conds[:, :min_len, :]
         conds = conds.transpose(1, 2)
 
         loss, _ = self.decoder.compute_loss(

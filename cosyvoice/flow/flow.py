@@ -347,12 +347,18 @@ class CausalMaskedDiffWithDiT(torch.nn.Module):
         h = h.repeat_interleave(self.token_mel_ratio, dim=1)
         mask = mask.repeat_interleave(self.token_mel_ratio, dim=1).squeeze(dim=-1)
 
+        # align feat and h lengths: speech_token (parquet) and speech_feat (pipeline) may differ
+        # due to different alignment (e.g. 960 padding), use min length to avoid tensor size mismatch
+        min_len = min(feat.shape[1], h.shape[1])
+        feat = feat[:, :min_len, :]
+        h = h[:, :min_len, :]
+        mask = mask[:, :min_len]
         # get conditions
         conds = torch.zeros(feat.shape, device=token.device)
         for i, j in enumerate(feat_len):
             if random.random() < 0.5:
                 continue
-            index = random.randint(0, int(0.3 * j))
+            index = min(int(0.3 * j), min_len)
             conds[i, :index] = feat[i, :index]
         conds = conds.transpose(1, 2)
 

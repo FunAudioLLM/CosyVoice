@@ -78,7 +78,7 @@ bash run_cosyvoice3.sh 5 5
 
 #### Offline TTS (CosyVoice3 0.5B LLM + Token2Wav with TensorRT)
 
-| Backend | Batch Size | llm_time (s) | token2wav_time (s) | pipeline_time (s) | RTF    |
+| Backend | LLM Batch Size | llm_time (s) | token2wav_time (s) | pipeline_time (s) | RTF    |
 |---------|------------|--------------|--------------------|--------------------|--------|
 | TRTLLM  | 1          | 13.21        | 5.72               | 19.48              | 0.1091 |
 | TRTLLM  | 2          | 8.46         | 6.02               | 14.91              | 0.0822 |

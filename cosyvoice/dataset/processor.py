@@ -181,7 +181,7 @@ def compute_fbank(data,
 
 
 def compute_whisper_fbank(data, num_frames=-1, mode='train'):
-    """ Extract whisper fbank 
+    """ Extract whisper fbank
 
         Args:
             data: Iterable[{key, wav, label, sample_rate}]

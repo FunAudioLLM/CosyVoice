@@ -8,7 +8,7 @@ This document describes how to accelerate CosyVoice with a DiT-based Token2Wav m
 
 Launch the service directly with Docker Compose:
 ```sh
-docker compose -f docker-compose.dit.yml up
+docker compose -f docker-compose.cosyvoice2.dit.yml up
 ```
 
 ### Build the Docker Image

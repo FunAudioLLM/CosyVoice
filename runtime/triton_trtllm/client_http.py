@@ -37,14 +37,14 @@ def get_args():
     parser.add_argument(
         "--server-url",
         type=str,
-        default="localhost:8000",
+        default="localhost:18000",
         help="Address of the server",
     )
 
     parser.add_argument(
         "--reference-audio",
         type=str,
-        default="../../example/prompt_audio.wav",
+        default="./prompt_audio.wav",
         help="Path to a single audio file. It can't be specified at the same time with --manifest-dir",
     )
 
@@ -65,9 +65,10 @@ def get_args():
     parser.add_argument(
         "--model-name",
         type=str,
-        default="spark_tts",
+        default="cosyvoice3",
         choices=[
             "f5_tts",
+            "cosyvoice3",
             "spark_tts",
             "cosyvoice2"],
         help="triton model_repo module name to request",

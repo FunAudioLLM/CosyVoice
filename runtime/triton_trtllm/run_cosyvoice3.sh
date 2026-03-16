@@ -1,8 +1,7 @@
 #!/bin/bash
 # Copyright (c) 2026 NVIDIA (authors: Yuekai Zhang)
 export CUDA_VISIBLE_DEVICES=0
-# cosyvoice_path=/workspace/CosyVoice
-cosyvoice_path=/workspace_yuekai/tts/CosyVoice
+cosyvoice_path=/workspace/CosyVoice
 
 export PYTHONPATH=${cosyvoice_path}:$PYTHONPATH
 export PYTHONPATH=${cosyvoice_path}/third_party/Matcha-TTS:$PYTHONPATH
@@ -24,7 +23,6 @@ bls_instance_num=10
 if [ $stage -le -1 ] && [ $stop_stage -ge -1 ]; then
 
     echo "Cloning CosyVoice"
-    pip3 install --upgrade x_transformers s3tokenizer
     git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git $cosyvoice_path
     cd $cosyvoice_path
     git submodule update --init --recursive
@@ -33,6 +31,10 @@ fi
 
 if [ $stage -le 0 ] && [ $stop_stage -ge 0 ]; then
     echo "Downloading CosyVoice3 Checkpoints"
+    # if s3 tokenizer version is not 0.3.0
+    if [ $(pip3 show s3tokenizer | grep -o "0\.2\.[0-9]") != "0.3.0" ]; then
+        pip3 install --upgrade x_transformers s3tokenizer
+    fi
     huggingface-cli download --local-dir $huggingface_llm_local_dir yuekai/Fun-CosyVoice3-0.5B-2512-LLM-HF
     huggingface-cli download --local-dir $cosyvoice3_official_model_dir yuekai/Fun-CosyVoice3-0.5B-2512-FP16-ONNX
     huggingface-cli download --local-dir $cosyvoice3_official_model_dir FunAudioLLM/Fun-CosyVoice3-0.5B-2512
@@ -76,7 +78,7 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
     LLM_TOKENIZER_DIR=$huggingface_llm_local_dir
     BLS_INSTANCE_NUM=$bls_instance_num
     TRITON_MAX_BATCH_SIZE=1
-    DECOUPLED_MODE=True
+    DECOUPLED_MODE=True # False for offline TTS
 
     python3 scripts/fill_template.py -i ${model_repo}/cosyvoice3/config.pbtxt model_dir:${MODEL_DIR},bls_instance_num:${BLS_INSTANCE_NUM},llm_tokenizer_dir:${LLM_TOKENIZER_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},decoupled_mode:${DECOUPLED_MODE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
     python3 scripts/fill_template.py -i ${model_repo}/token2wav/config.pbtxt model_dir:${MODEL_DIR},triton_max_batch_size:${TRITON_MAX_BATCH_SIZE},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MICROSECONDS}
@@ -111,17 +113,17 @@ if [ $stage -le 4 ] && [ $stop_stage -ge 4 ]; then
 fi
 
 if [ $stage -le 5 ] && [ $stop_stage -ge 5 ]; then
-    echo "stage 10: Python script CosyVoice3 TTS (LLM + CosyVoice3 Token2Wav) inference"
+    echo "stage 5: Python script CosyVoice3 TTS (LLM + CosyVoice3 Token2Wav) inference"
 
     datasets=(wenetspeech4tts) # wenetspeech4tts
-    backend=trtllm-serve  # hf, trtllm, vllm, trtllm-serve
+    backend=trtllm  # hf, trtllm, vllm, trtllm-serve
 
-    batch_sizes=(1)
+    batch_sizes=(16 8 4 2 1)
     token2wav_batch_size=1 # Only support 1 for now
 
     for batch_size in ${batch_sizes[@]}; do
       for dataset in ${datasets[@]}; do
-        output_dir=./cosyvoice3_${dataset}_${backend}_llm_batch_size_${batch_size}_token2wav_batch_size_${token2wav_batch_size}_streaming_trt
+        output_dir=./cosyvoice3_${dataset}_${backend}_llm_batch_size_${batch_size}_token2wav_batch_size_${token2wav_batch_size}_offline_tts_trt
         CUDA_VISIBLE_DEVICES=0 \
             python3 infer_cosyvoice3.py \
                 --output-dir $output_dir \
@@ -130,8 +132,8 @@ if [ $stage -le 5 ] && [ $stop_stage -ge 5 ]; then
                 --backend $backend \
                 --batch-size $batch_size --token2wav-batch-size $token2wav_batch_size \
                 --engine-dir $trt_engines_dir \
-                --enable-trt --streaming\
-                --epoch 1 \
+                --enable-trt \
+                --epoch 3 \
                 --split-name ${dataset} || exit 1
       done
     done

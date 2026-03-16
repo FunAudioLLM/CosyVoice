@@ -1,0 +1,71 @@
+name: "token2wav"
+backend: "python"
+max_batch_size: ${triton_max_batch_size}
+
+dynamic_batching {
+    max_queue_delay_microseconds: ${max_queue_delay_microseconds}
+    priority_levels: 100
+    default_priority_level: 100
+}
+
+parameters [
+  {
+   key: "model_dir",
+   value: {string_value:"${model_dir}"}
+  }
+]
+
+input [
+  {
+    name: "target_speech_tokens"
+    data_type: TYPE_INT32
+    dims: [-1]
+  },
+  {
+    name: "prompt_speech_tokens"
+    data_type: TYPE_INT32
+    dims: [-1]
+    optional: true
+  },
+  {
+    name: "prompt_speech_feat"
+    data_type: TYPE_FP16
+    dims: [-1, 80]
+    optional: true
+  },
+  {
+    name: "prompt_spk_embedding"
+    data_type: TYPE_FP16
+    dims: [-1]
+    optional: true
+  },
+  {
+    name: "token_offset"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  },
+  {
+    name: "finalize"
+    data_type: TYPE_BOOL
+    dims: [ 1 ]
+    reshape: { shape: [ ] }
+    optional: true
+  }
+]
+output [
+  {
+    name: "mel"
+    data_type: TYPE_FP32
+    dims: [ 80, -1 ]
+  }
+]
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_GPU
+    gpus: [ 0 ]
+  }
+]

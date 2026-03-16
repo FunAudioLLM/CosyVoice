@@ -281,6 +281,7 @@ def get_args():
         choices=[
             "f5_tts",
             "spark_tts",
+            "cosyvoice3",
             "cosyvoice2",
             "cosyvoice2_dit"],
         help="triton model_repo module name to request",

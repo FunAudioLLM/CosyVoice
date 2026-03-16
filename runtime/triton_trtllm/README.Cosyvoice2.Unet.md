@@ -6,7 +6,7 @@ Contributed by Yuekai Zhang (NVIDIA).
 
 Launch the service directly with Docker Compose:
 ```sh
-docker compose up
+docker compose -f docker-compose.cosyvoice2.unet.yml up
 ```
 
 ### Build the Docker Image

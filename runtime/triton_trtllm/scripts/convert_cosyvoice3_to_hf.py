@@ -13,21 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Конвертация CosyVoice3 LLM в HuggingFace формат с объединёнными embeddings.
+Convert CosyVoice3 LLM to HuggingFace format with merged embeddings.
 
-Этот скрипт:
-1. Загружает CosyVoice3 модель
-2. Расширяет vocab токенизатора с speech токенами
-3. Объединяет speech_embedding в embed_tokens Qwen2
-4. Заменяет lm_head на llm_decoder с расширенным vocab
-5. Сохраняет модель в HuggingFace формате для TRT-LLM конвертации
+This script:
+1. Loads CosyVoice3 model
+2. Extends tokenizer vocab with speech tokens
+3. Merges speech_embedding into embed_tokens of Qwen2
+4. Replaces lm_head with llm_decoder using extended vocab
+5. Saves model in HuggingFace format for TRT-LLM conversion
 
 Usage:
     python scripts/convert_cosyvoice3_to_hf.py \
         --model-dir pretrained_models/Fun-CosyVoice3-0.5B \
         --output-dir pretrained_models/Fun-CosyVoice3-0.5B/hf_merged
 
-После этого можно конвертировать в TRT-LLM:
+Then convert to TRT-LLM:
     trtllm-build --checkpoint_dir <output_dir> --output_dir <trt_engines_dir> ...
 """
 import argparse
@@ -70,7 +70,7 @@ def parse_args():
 
 
 def load_cosyvoice3_model(model_dir: str):
-    """Загружает CosyVoice3 модель для извлечения весов."""
+    """Load CosyVoice3 model for weight extraction."""
     from hyperpyyaml import load_hyperpyyaml
     from cosyvoice.utils.class_utils import get_model_type
     
@@ -86,7 +86,7 @@ def load_cosyvoice3_model(model_dir: str):
             overrides={'qwen_pretrain_path': hf_llm_dir}
         )
     
-    # Загружаем только LLM
+    # Load LLM only
     llm = configs['llm']
     llm_weights_path = os.path.join(model_dir, 'llm.pt')
     llm.load_state_dict(torch.load(llm_weights_path, map_location='cpu'), strict=True)
@@ -98,12 +98,11 @@ def load_cosyvoice3_model(model_dir: str):
 
 
 def get_speech_token_size(llm) -> int:
-    """Определяет размер speech token vocabulary из модели."""
-    # CosyVoice3LM имеет: speech_token_size + 200 в llm_decoder
-    # speech_embedding имеет: speech_token_size + 200
+    """Determine speech token vocabulary size from the model."""
+    # CosyVoice3LM has: speech_token_size + 200 in llm_decoder
+    # speech_embedding has: speech_token_size + 200
     speech_embedding_size = llm.speech_embedding.num_embeddings
-    # Вычитаем 200 специальных токенов (sos, eos, task_id, fill, и т.д.)
-    # Но для безопасности используем полный размер embedding
+    # Use full embedding size (includes speech special tokens)
     return speech_embedding_size
 
 
@@ -113,32 +112,32 @@ def convert_cosyvoice3_to_hf(
     dtype: str = "bfloat16",
 ):
     """
-    Конвертирует CosyVoice3 LLM в HuggingFace формат с объединёнными embeddings.
-    
-    Архитектура объединения:
-    - embed_tokens[0:original_vocab_size] = оригинальные text embeddings
+    Convert CosyVoice3 LLM to HuggingFace format with merged embeddings.
+
+    Merging architecture:
+    - embed_tokens[0:original_vocab_size] = original text embeddings
     - embed_tokens[original_vocab_size:original_vocab_size+speech_token_size] = speech_embedding
     - lm_head[original_vocab_size:original_vocab_size+speech_token_size] = llm_decoder
-    
+
     Args:
-        model_dir: Путь к CosyVoice3 модели
-        output_dir: Путь для сохранения HF модели
-        dtype: Тип данных для сохранения
+        model_dir: Path to CosyVoice3 model
+        output_dir: Path to save HF model
+        dtype: Data type for saving
     """
     logger.info(f"Loading CosyVoice3 model from {model_dir}")
     
-    # 1. Загружаем CosyVoice3 компоненты
+    # 1. Load CosyVoice3 components
     cosyvoice3_llm, hf_llm_dir, configs = load_cosyvoice3_model(model_dir)
     
-    # Извлекаем ключевые компоненты
+    # Extract key components
     qwen_model = cosyvoice3_llm.llm.model  # Qwen2ForCausalLM
-    speech_embedding = cosyvoice3_llm.speech_embedding  # Embedding для speech токенов
-    llm_decoder = cosyvoice3_llm.llm_decoder  # Linear для декодирования в speech токены
+    speech_embedding = cosyvoice3_llm.speech_embedding  # Embedding for speech tokens
+    llm_decoder = cosyvoice3_llm.llm_decoder  # Linear for decoding to speech tokens
     
     speech_token_size = get_speech_token_size(cosyvoice3_llm)
     logger.info(f"Speech token size: {speech_token_size}")
     
-    # 2. Загружаем tokenizer и добавляем CosyVoice3 text special tokens + speech токены
+    # 2. Load tokenizer and add CosyVoice3 text special tokens + speech tokens
     tokenizer = AutoTokenizer.from_pretrained(hf_llm_dir, trust_remote_code=True)
     base_vocab_size = len(tokenizer)
     logger.info(f"Base tokenizer vocab size: {base_vocab_size}")
@@ -210,8 +209,8 @@ def convert_cosyvoice3_to_hf(
     logger.info(f"New tokenizer vocab size: {new_vocab_size}")
     logger.info(f"Added {new_vocab_size - base_vocab_size} tokens total (text special + speech tokens)")
     
-    # 3. Изменяем размер embeddings в Qwen модели
-    # Выравниваем по 128 для эффективности TensorRT
+    # 3. Resize embeddings in Qwen model
+    # Align to 128 for TensorRT efficiency
     padded_vocab_size = ((new_vocab_size + 127) // 128) * 128
     qwen_model.resize_token_embeddings(padded_vocab_size)
     logger.info(f"Resized embeddings to: {padded_vocab_size}")
@@ -219,7 +218,7 @@ def convert_cosyvoice3_to_hf(
     # Speech tokens start after text vocab (base + CosyVoice3 text special tokens)
     speech_token_offset = text_vocab_size
 
-    # 4. Копируем speech_embedding в расширенную часть embed_tokens
+    # 4. Copy speech_embedding into extended embed_tokens
     input_embeddings = qwen_model.get_input_embeddings()
     hidden_size = input_embeddings.weight.shape[1]
     
@@ -228,7 +227,7 @@ def convert_cosyvoice3_to_hf(
     logger.info(f"llm_decoder shape: {llm_decoder.weight.shape}")
     
     with torch.no_grad():
-        # Копируем speech_embedding веса в embed_tokens
+        # Copy speech_embedding weights into embed_tokens
         # Indices: [speech_token_offset, speech_token_offset + speech_token_size)
         src_size = min(speech_embedding.weight.shape[0], actual_speech_tokens)
         input_embeddings.weight[speech_token_offset:speech_token_offset + src_size] = \
@@ -236,12 +235,12 @@ def convert_cosyvoice3_to_hf(
     
     logger.info(f"Copied speech_embedding to embed_tokens[{speech_token_offset}:{speech_token_offset + src_size}]")
     
-    # 5. Создаём новый lm_head с расширенным vocab и копируем llm_decoder
-    # Оригинальный lm_head: hidden_size -> original_vocab_size
-    # Новый lm_head: hidden_size -> padded_vocab_size
+    # 5. Create new lm_head with extended vocab and copy llm_decoder
+    # Original lm_head: hidden_size -> original_vocab_size
+    # New lm_head: hidden_size -> padded_vocab_size
     # llm_decoder: hidden_size -> speech_token_size
-    
-    # Создаём новый lm_head
+
+    # Create new lm_head
     has_bias = llm_decoder.bias is not None
     new_lm_head = torch.nn.Linear(
         in_features=hidden_size,
@@ -250,24 +249,24 @@ def convert_cosyvoice3_to_hf(
     )
     
     with torch.no_grad():
-        # Инициализируем веса:
-        # - Text часть: копируем из оригинального lm_head (или нули)
-        # - Speech часть: копируем из llm_decoder
-        # - Padding: нули
-        
-        # Сначала заполняем нулями и -inf в bias (чтобы text токены не генерировались)
+        # Initialize weights:
+        # - Text part: copy from original lm_head (or zeros)
+        # - Speech part: copy from llm_decoder
+        # - Padding: zeros
+
+        # Fill with zeros and -inf in bias (so text tokens are not generated)
         new_lm_head.weight.data.zero_()
         if has_bias:
             new_lm_head.bias.data.fill_(-float('inf'))
         
-        # Копируем оригинальный lm_head для text токенов (опционально)
+        # Copy original lm_head for text tokens (optional)
         original_lm_head = qwen_model.lm_head
         if original_lm_head is not None and original_lm_head.weight.shape[0] >= text_vocab_size:
             new_lm_head.weight[:text_vocab_size] = original_lm_head.weight[:text_vocab_size]
             if has_bias and original_lm_head.bias is not None:
                 new_lm_head.bias[:text_vocab_size] = original_lm_head.bias[:text_vocab_size]
         
-        # Копируем llm_decoder для speech токенов
+        # Copy llm_decoder for speech tokens
         decoder_size = min(llm_decoder.weight.shape[0], actual_speech_tokens)
         new_lm_head.weight[speech_token_offset:speech_token_offset + decoder_size] = \
             llm_decoder.weight[:decoder_size].to(new_lm_head.weight.dtype)
@@ -276,18 +275,18 @@ def convert_cosyvoice3_to_hf(
             new_lm_head.bias[speech_token_offset:speech_token_offset + decoder_size] = \
                 llm_decoder.bias[:decoder_size].to(new_lm_head.bias.dtype)
         else:
-            # Если llm_decoder не имеет bias, но мы хотим его для text токенов
+            # If llm_decoder has no bias but we want it for text tokens
             pass
     
-    # Заменяем lm_head
+    # Replace lm_head
     qwen_model.lm_head = new_lm_head
     
     logger.info(f"Created new lm_head with shape: {new_lm_head.weight.shape}")
     logger.info(f"Copied llm_decoder to lm_head[{speech_token_offset}:{speech_token_offset + decoder_size}]")
     
-    # 6. Обновляем конфигурацию модели
+    # 6. Update model configuration
     qwen_model.config.vocab_size = padded_vocab_size
-    qwen_model.config.tie_word_embeddings = False  # Embeddings и lm_head теперь разные!
+    qwen_model.config.tie_word_embeddings = False  # Embeddings and lm_head are now different!
     
     # Set EOS token for generation (speech EOS lives inside speech_embedding as <|s_{base_speech_token_size+1}|>)
     base_speech_token_size = getattr(cosyvoice3_llm, "speech_token_size", 6561)
@@ -295,7 +294,7 @@ def convert_cosyvoice3_to_hf(
     eos_id = speech_token_offset + eos_speech_idx
     qwen_model.config.eos_token_id = eos_id
     
-    # Настройки генерации
+    # Generation settings
     qwen_model.generation_config.eos_token_id = eos_id
     qwen_model.generation_config.pad_token_id = eos_id
     qwen_model.generation_config.temperature = 0.8
@@ -304,7 +303,7 @@ def convert_cosyvoice3_to_hf(
     qwen_model.generation_config.repetition_penalty = 1.1
     qwen_model.generation_config.max_new_tokens = 2048
     
-    # 7. Конвертируем в нужный dtype
+    # 7. Convert to target dtype
     dtype_map = {
         "float16": torch.float16,
         "bfloat16": torch.bfloat16,
@@ -313,7 +312,7 @@ def convert_cosyvoice3_to_hf(
     target_dtype = dtype_map[dtype]
     qwen_model.to(target_dtype)
     
-    # 8. Сохраняем модель и tokenizer
+    # 8. Save model and tokenizer
     os.makedirs(output_dir, exist_ok=True)
     
     qwen_model.save_pretrained(output_dir)
@@ -322,7 +321,7 @@ def convert_cosyvoice3_to_hf(
     tokenizer.chat_template = TEMPLATE
     tokenizer.save_pretrained(output_dir)
     
-    # Сохраняем метаданные для TRT-LLM inference
+    # Save metadata for TRT-LLM inference
     metadata = {
         "original_vocab_size": base_vocab_size,
         "text_vocab_size": text_vocab_size,

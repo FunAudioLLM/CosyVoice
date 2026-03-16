@@ -12,3 +12,4 @@ pyworld
 openai-whisper
 tritonclient
 modelscope
+x_transformers

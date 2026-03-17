@@ -20,7 +20,7 @@ from tqdm import tqdm
 import onnxruntime
 import numpy as np
 import torchaudio
-import whisper
+from cosyvoice.utils.audio_utils import log_mel_spectrogram
 
 
 def single_job(utt):
@@ -34,7 +34,7 @@ def single_job(utt):
         logging.warning('do not support extract speech token for audio longer than 30s')
         speech_token = []
     else:
-        feat = whisper.log_mel_spectrogram(audio, n_mels=128)
+        feat = log_mel_spectrogram(audio, n_mels=128)
         speech_token = ort_session.run(None, {ort_session.get_inputs()[0].name: feat.detach().cpu().numpy(),
                                               ort_session.get_inputs()[1].name: np.array([feat.shape[2]], dtype=np.int32)})[0].flatten().tolist()
     return utt, speech_token

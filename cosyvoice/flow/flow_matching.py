@@ -92,12 +92,14 @@ class ConditionalCFM(BASECFM):
 
         # Do not use concat, it may cause memory format changed and trt infer with wrong results!
         # NOTE when flow run in amp mode, x.dtype is float32, which cause nan in trt fp16 inference, so set dtype=spks.dtype
-        x_in = torch.zeros([2, 80, x.size(2)], device=x.device, dtype=spks.dtype)
-        mask_in = torch.zeros([2, 1, x.size(2)], device=x.device, dtype=spks.dtype)
-        mu_in = torch.zeros([2, 80, x.size(2)], device=x.device, dtype=spks.dtype)
-        t_in = torch.zeros([2], device=x.device, dtype=spks.dtype)
-        spks_in = torch.zeros([2, 80], device=x.device, dtype=spks.dtype)
-        cond_in = torch.zeros([2, 80, x.size(2)], device=x.device, dtype=spks.dtype)
+        # Fix: use x.dtype as fallback when spks is None to avoid AttributeError
+        dtype = spks.dtype if spks is not None else x.dtype
+        x_in = torch.zeros([2, 80, x.size(2)], device=x.device, dtype=dtype)
+        mask_in = torch.zeros([2, 1, x.size(2)], device=x.device, dtype=dtype)
+        mu_in = torch.zeros([2, 80, x.size(2)], device=x.device, dtype=dtype)
+        t_in = torch.zeros([2], device=x.device, dtype=dtype)
+        spks_in = torch.zeros([2, 80], device=x.device, dtype=dtype)
+        cond_in = torch.zeros([2, 80, x.size(2)], device=x.device, dtype=dtype)
         for step in range(1, len(t_span)):
             # Classifier-Free Guidance inference introduced in VoiceBox
             x_in[:] = x

@@ -12,9 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os, queue
+import os
+import hashlib
+import queue
 import random
-import time
 import threading
 from typing import Dict, Optional, Callable, List, Generator
 import numpy as np
@@ -29,6 +30,62 @@ from cosyvoice.utils.common import th_accuracy
 from cosyvoice.utils.file_utils import logging
 from cosyvoice.utils.mask import make_pad_mask
 from cosyvoice.utils.onnx import SpeechTokenExtractor, online_feature, onnx_path
+
+
+def _generation_env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _generation_request_seed(lm_input: torch.Tensor) -> int:
+    base_seed = _generation_env_int('COSYVOICE_SAMPLING_SEED', 0)
+    payload = lm_input.detach().float().contiguous().cpu().numpy().tobytes()
+    digest = hashlib.sha256(payload).digest()
+    return (int.from_bytes(digest[:8], byteorder='little', signed=False) ^ base_seed) & ((1 << 63) - 1)
+
+
+def _build_generation_generator(lm_input: torch.Tensor):
+    seed = _generation_request_seed(lm_input)
+    generator = torch.Generator(device=lm_input.device if lm_input.is_cuda else 'cpu')
+    generator.manual_seed(seed)
+    return generator, seed
+
+
+class CosyVoiceSamplingLogitsProcessor:
+    """Force vLLM to follow CosyVoice's sampling_ids / ras_sampling path."""
+
+    def __init__(self, sampling_fn: Callable, sampling: int, speech_token_size: int, min_tokens: int,
+                 seed: Optional[int] = None):
+        self.sampling_fn = sampling_fn
+        self.sampling = sampling
+        self.speech_token_size = speech_token_size
+        self.min_tokens = min_tokens
+        self.seed = seed
+        self.generator = None
+
+    def __call__(self, token_ids: list[int], logits: torch.Tensor) -> torch.Tensor:
+        if self.generator is None:
+            self.generator = torch.Generator(device=logits.device)
+            if self.seed is not None:
+                self.generator.manual_seed(self.seed)
+        num_trials, max_trials = 0, 100
+        ignore_eos = len(token_ids) < self.min_tokens
+        while True:
+            top_ids = self.sampling_fn(logits, token_ids, self.sampling, generator=self.generator)
+            if (not ignore_eos) or (top_ids < self.speech_token_size):
+                break
+            num_trials += 1
+            if num_trials > max_trials:
+                raise RuntimeError(
+                    'sampling reaches max_trials {} and still get eos when ignore_eos is True, check your input!'.format(
+                        max_trials
+                    )
+                )
+        forced_logits = torch.full_like(logits, torch.finfo(logits.dtype).min)
+        forced_logits[top_ids] = 0
+        return forced_logits
 
 
 class TransformerLM(torch.nn.Module):
@@ -153,10 +210,16 @@ class TransformerLM(torch.nn.Module):
             decoded_tokens: List,
             sampling: int,
             ignore_eos: bool = True,
+            generator: Optional[torch.Generator] = None,
     ):
-        if ignore_eos is True:
-            weighted_scores[self.speech_token_size] = -float('inf')
-        top_ids = self.sampling(weighted_scores, decoded_tokens, sampling)
+        num_trials, max_trials = 0, 100
+        while True:
+            top_ids = self.sampling(weighted_scores, decoded_tokens, sampling, generator=generator)
+            if (not ignore_eos) or (top_ids < self.speech_token_size):
+                break
+            num_trials += 1
+            if num_trials > max_trials:
+                raise RuntimeError('sampling reaches max_trials {} and still get eos when ignore_eos is True, check your input!'.format(max_trials))
         return top_ids
 
     @torch.inference_mode()
@@ -296,8 +359,49 @@ class Qwen2LM(TransformerLM):
         # 5. vllm related
         self.stop_token_ids = [speech_token_size + i for i in range(3)]
         self.vllm_output_queue = {}
+        self.vllm_finished_requests = set()
+        self.vllm_step_condition = None
+        self.vllm_step_thread = None
+        self.vllm_background_error = None
         if online_feature is True:
             self.speech_token_extractor = SpeechTokenExtractor(model_path=os.path.join(onnx_path, 'speech_tokenizer_v2.batch.onnx'))
+
+    def _ensure_vllm_runtime(self):
+        if self.vllm_background_error is not None:
+            raise self.vllm_background_error
+        if getattr(self, 'lock', None) is None:
+            self.lock = threading.Lock()
+        if self.vllm_step_condition is None:
+            self.vllm_step_condition = threading.Condition(self.lock)
+        if self.vllm_step_thread is None or self.vllm_step_thread.is_alive() is False:
+            self.vllm_step_thread = threading.Thread(target=self._vllm_step_loop, daemon=True)
+            self.vllm_step_thread.start()
+
+    def _vllm_step_loop(self):
+        while True:
+            try:
+                with self.lock:
+                    while len(self.vllm_output_queue) == 0 or all(i in self.vllm_finished_requests for i in self.vllm_output_queue):
+                        self.vllm_step_condition.wait()
+                    request_outputs = self.vllm.step()
+                    for request_output in request_outputs:
+                        if len(request_output.outputs) == 0:
+                            continue
+                        token_ids = request_output.outputs[0].token_ids
+                        if len(token_ids) == 0:
+                            continue
+                        output_queue = self.vllm_output_queue.get(request_output.request_id, None)
+                        if output_queue is not None:
+                            top_id = token_ids[-1]
+                            if top_id in self.stop_token_ids:
+                                self.vllm_finished_requests.add(request_output.request_id)
+                            output_queue.put(top_id)
+            except Exception as e:
+                with self.lock:
+                    self.vllm_background_error = RuntimeError('vLLM step worker failed: {}'.format(e))
+                    for output_queue in self.vllm_output_queue.values():
+                        output_queue.put(self.vllm_background_error)
+                return
 
     def prepare_lm_input_target(self, sos_emb, text_token, text_token_emb, text_token_len, task_id_emb, speech_token, speech_token_emb, speech_token_len, instruct_token=None, instruct_token_emb=None, instruct_token_len=None):
         lm_target, lm_input = [], []
@@ -503,25 +607,41 @@ class Qwen2LM(TransformerLM):
 
     @torch.inference_mode()
     def inference_wrapper(self, lm_input, sampling, min_len, max_len, uuid):
+        generator, seed = _build_generation_generator(lm_input)
         if hasattr(self, 'vllm'):
             from vllm import SamplingParams, RequestOutput
+            self._ensure_vllm_runtime()
+            logits_processor = CosyVoiceSamplingLogitsProcessor(
+                sampling_fn=self.sampling,
+                sampling=sampling,
+                speech_token_size=self.speech_token_size,
+                min_tokens=min_len,
+                seed=seed,
+            )
             sampling_params = SamplingParams(top_k=sampling,
                                              stop_token_ids=self.stop_token_ids,
-                                             min_tokens=min_len,
-                                             max_tokens=max_len)
+                                             min_tokens=0,
+                                             max_tokens=max_len,
+                                             temperature=0.0,
+                                             top_p=1.0,
+                                             logits_processors=[logits_processor])
+            output_queue = queue.Queue()
             with self.lock:
-                self.vllm.add_request(uuid, {"prompt_embeds": lm_input.squeeze(0).to(torch.bfloat16).to(lm_input.device)}, sampling_params)
-                self.vllm_output_queue[uuid] = queue.Queue()
+                self.vllm_output_queue[uuid] = output_queue
+                self.vllm_finished_requests.discard(uuid)
+                try:
+                    self.vllm.add_request(uuid, {"prompt_embeds": lm_input.squeeze(0).to(torch.bfloat16).to(lm_input.device)}, sampling_params)
+                except Exception:
+                    self.vllm_output_queue.pop(uuid, None)
+                    self.vllm_finished_requests.discard(uuid)
+                    raise
+                self.vllm_step_condition.notify()
             out_tokens = []
-            while True:
-                with self.lock:
-                    if self.vllm_output_queue[uuid].empty() is True:
-                        request_outputs: List[RequestOutput] = self.vllm.step()
-                        for request_output in request_outputs:
-                            top_ids = list(request_output.outputs[0].token_ids)[-1]
-                            self.vllm_output_queue[request_output.request_id].put(top_ids)
-                if self.vllm_output_queue[uuid].empty() is False:
-                    top_ids = self.vllm_output_queue[uuid].get()
+            try:
+                while True:
+                    top_ids = output_queue.get()
+                    if isinstance(top_ids, Exception):
+                        raise top_ids
                     if top_ids in self.stop_token_ids:
                         break
                     # in stream mode, yield token one by one
@@ -529,9 +649,11 @@ class Qwen2LM(TransformerLM):
                     out_tokens.append(top_ids)
                     if len(out_tokens) == max_len:
                         break
-                time.sleep(0.001)
-            with self.lock:
-                self.vllm_output_queue.pop(uuid)
+            finally:
+                with self.lock:
+                    self.vllm_finished_requests.add(uuid)
+                    self.vllm_output_queue.pop(uuid, None)
+                    self.vllm_finished_requests.discard(uuid)
         else:
             out_tokens = []
             cache = None
@@ -540,7 +662,8 @@ class Qwen2LM(TransformerLM):
                                                           masks=torch.tril(torch.ones((1, lm_input.shape[1], lm_input.shape[1]), device=lm_input.device)).to(torch.bool),
                                                           cache=cache)
                 logp = self.llm_decoder(y_pred[:, -1]).log_softmax(dim=-1)
-                top_ids = self.sampling_ids(logp.squeeze(dim=0), out_tokens, sampling, ignore_eos=True if i < min_len else False)
+                ignore_eos = True if i < min_len else False
+                top_ids = self.sampling_ids(logp.squeeze(dim=0), out_tokens, sampling, ignore_eos=ignore_eos, generator=generator)
                 if top_ids in self.stop_token_ids:
                     break
                 # in stream mode, yield token one by one
@@ -702,5 +825,9 @@ class CosyVoice3LM(Qwen2LM):
         # 5. vllm related
         self.stop_token_ids = [speech_token_size + i for i in range(200)]
         self.vllm_output_queue = {}
+        self.vllm_finished_requests = set()
+        self.vllm_step_condition = None
+        self.vllm_step_thread = None
+        self.vllm_background_error = None
         if online_feature is True:
             self.speech_token_extractor = SpeechTokenExtractor(model_path=os.path.join(onnx_path, 'speech_tokenizer_v3.batch.onnx'))

@@ -1,0 +1,5 @@
+# CUDA-specific requirements (Linux with NVIDIA GPU)
+# Install with: pip install -r requirements-cuda.txt
+--extra-index-url https://download.pytorch.org/whl/cu121
+--extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+-r requirements.txt

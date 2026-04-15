@@ -200,12 +200,10 @@ class CosyVoice3(CosyVoice2):
         # llama.cpp parameters
         load_llama_cpp=False,
         gguf_model_path=None,
-        speech_token_offset=None,  # auto-detect from GGUF vocab if None
     ):
         self.model_dir = model_dir
         self.fp16 = fp16
         self.gguf_model_path = gguf_model_path
-        self._manual_speech_token_offset = speech_token_offset
 
         # match model's training context length
         self.llm_n_ctx = 32768

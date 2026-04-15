@@ -62,9 +62,10 @@ class CosyVoiceModel:
         self.hift_cache_dict = {}
         self.silent_tokens = []
 
-    def load(self, llm_model, flow_model, hift_model):
-        self.llm.load_state_dict(torch.load(llm_model, map_location=self.device, weights_only=True), strict=True)
-        self.llm.to(self.device).eval()
+    def load(self, llm_model, flow_model, hift_model, load_llm=True):
+        if load_llm:
+            self.llm.load_state_dict(torch.load(llm_model, map_location=self.device, weights_only=True), strict=True)
+            self.llm.to(self.device).eval()
         self.flow.load_state_dict(torch.load(flow_model, map_location=self.device, weights_only=True), strict=True)
         self.flow.to(self.device).eval()
         # in case hift_model is a hifigan model
@@ -448,3 +449,110 @@ class CosyVoice3Model(CosyVoice2Model):
             tts_speech = tts_speech[:, self.hift_cache_dict[uuid]['speech_offset']:]
             self.hift_cache_dict[uuid]['speech_offset'] += tts_speech.shape[1]
         return tts_speech
+
+    def tts_with_external_tokens(
+        self,
+        tokens,
+        flow_embedding=torch.zeros(0, 192),
+        flow_prompt_speech_token=torch.zeros(1, 0, dtype=torch.int32),
+        prompt_speech_feat=torch.zeros(1, 0, 80),
+        speed=1.0,
+        **kwargs
+    ):
+        """Non-streaming TTS with pre-generated speech tokens (for llama.cpp backend)."""
+        if not tokens:
+            return {'tts_speech': torch.zeros(1, 0)}
+
+        this_uuid = str(uuid.uuid1())
+        with self.lock:
+            self.hift_cache_dict[this_uuid] = None
+
+        tokens_gpu = torch.tensor(tokens, dtype=torch.int32, device=self.device).unsqueeze(0)
+        tts_speech = self.token2wav(
+            token=tokens_gpu,
+            prompt_token=flow_prompt_speech_token,
+            prompt_feat=prompt_speech_feat,
+            embedding=flow_embedding,
+            token_offset=0,
+            uuid=this_uuid,
+            finalize=True,
+            speed=speed,
+        )
+
+        with self.lock:
+            self.hift_cache_dict.pop(this_uuid)
+        return {'tts_speech': tts_speech.cpu()}
+
+    def tts_stream_external_llm(
+        self,
+        tokens_list,
+        tokens_lock,
+        llm_end_flag,
+        flow_embedding=torch.zeros(0, 192),
+        flow_prompt_speech_token=torch.zeros(1, 0, dtype=torch.int32),
+        prompt_speech_feat=torch.zeros(1, 0, 80),
+        **kwargs
+    ):
+        """Streaming TTS with external LLM providing tokens via shared list + lock."""
+        this_uuid = str(uuid.uuid1())
+        with self.lock:
+            self.hift_cache_dict[this_uuid] = None
+
+        token_offset = 0
+        prompt_token_pad = int(
+            np.ceil(flow_prompt_speech_token.shape[1] / self.token_hop_len)
+            * self.token_hop_len
+            - flow_prompt_speech_token.shape[1]
+        )
+
+        try:
+            while True:
+                time.sleep(0.1)
+                this_token_hop_len = (
+                    self.token_hop_len + prompt_token_pad if token_offset == 0
+                    else self.token_hop_len
+                )
+                with tokens_lock:
+                    available = len(tokens_list) - token_offset
+                    need = this_token_hop_len + self.flow.pre_lookahead_len
+
+                if available >= need:
+                    with tokens_lock:
+                        batch = list(tokens_list[:token_offset + need])
+                    this_tts_speech_token = torch.tensor(batch).unsqueeze(0)
+                    tts_speech = self.token2wav(
+                        token=this_tts_speech_token,
+                        prompt_token=flow_prompt_speech_token,
+                        prompt_feat=prompt_speech_feat,
+                        embedding=flow_embedding,
+                        token_offset=token_offset,
+                        uuid=this_uuid,
+                        stream=True,
+                        finalize=False,
+                    )
+                    token_offset += this_token_hop_len
+                    yield {'tts_speech': tts_speech.cpu()}
+
+                if llm_end_flag['done'] and available < need:
+                    break
+
+            # Final batch
+            with tokens_lock:
+                final_tokens = list(tokens_list)
+            if final_tokens and token_offset < len(final_tokens):
+                this_tts_speech_token = torch.tensor(final_tokens).unsqueeze(0)
+                tts_speech = self.token2wav(
+                    token=this_tts_speech_token,
+                    prompt_token=flow_prompt_speech_token,
+                    prompt_feat=prompt_speech_feat,
+                    embedding=flow_embedding,
+                    token_offset=token_offset,
+                    uuid=this_uuid,
+                    finalize=True,
+                )
+                yield {'tts_speech': tts_speech.cpu()}
+        finally:
+            with self.lock:
+                self.hift_cache_dict.pop(this_uuid, None)
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()

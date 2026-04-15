@@ -297,8 +297,6 @@ class CosyVoice3(CosyVoice2):
         self.eos_token_id = self.speech_token_offset + self.eos_speech_idx
         self.task_id_token_id = self.speech_token_offset + self.task_id_speech_idx
 
-        logging.info('llama.cpp loaded: SOS={}, EOS={}, speech_offset={}'.format(
-            self.sos_token_id, self.eos_token_id, self.speech_token_offset))
         self._llama_cpp_loaded = True
 
     def _sample_speech_token_constrained(self, logit_pos):
@@ -358,9 +356,6 @@ class CosyVoice3(CosyVoice2):
         prompt_speech_ids = [self.speech_token_offset + t for t in prompt_speech_tokens]
         input_ids = [self.sos_token_id] + all_text_ids + [self.task_id_token_id] + prompt_speech_ids
 
-        logging.debug('llama.cpp input: {} text tokens, {} speech prompt tokens, total={}'.format(
-            len(all_text_ids), len(prompt_speech_tokens), len(input_ids)))
-
         self.llm_gguf.reset()
         self.llm_gguf.eval(input_ids)
 
@@ -395,11 +390,6 @@ class CosyVoice3(CosyVoice2):
             self.llm_gguf.eval([next_token_id])
             n_past += 1
 
-        logging.info('llama.cpp: generated={}, audio={}, caught_eos={}'.format(
-            len(raw_generated), len(speech_tokens), self.eos_token_id in raw_generated))
-        if raw_generated:
-            logging.info('llama.cpp: first_5={}, last_5={}'.format(
-                raw_generated[:5], raw_generated[-5:]))
         return speech_tokens
 
     def _llama_cpp_job(

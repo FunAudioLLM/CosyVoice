@@ -75,6 +75,23 @@ cold-start outlier — focus on p50.
 |---|---|---:|---:|---:|---:|---:|
 | 0 (baseline) | TRT fp32, FE-cache, lock-free | 588 ms | 1141 ms | 2067 ms | 3.39 | 2.09 s |
 | **1** | **+ Flow TRT fp16** | **559 ms** (−5%) | **997 ms** (−13%) | **1210 ms** (−41%) | **3.58** (+6%) | **1.21 s** (−42%) |
+| **2** | **+ vLLM `gpu_mem=0.6` + chunked-prefill + `max_num_seqs=64`** | **525 ms** (−11%) | 1137 ms (noise) | 1605 ms (−22%) | 3.33 (noise) | 1.61 s (−23%) |
+
+Round 2 wins are at higher concurrency where the larger KV-cache budget lets
+vLLM batch more aggressively (low conc was already saturated):
+
+| conc | Round 0 QPS | Round 2 QPS | Round 0 TTFA p50 | Round 2 TTFA p50 | Round 2 audio thru |
+|---:|---:|---:|---:|---:|---:|
+| 8 | 2.71 | **4.44** (+64%) | 2942 ms | 1787 ms (−39%) | 8.4× |
+| 16 | 3.14 | **5.33** (+70%) | 4772 ms | 2973 ms (−38%) | **10.04×** |
+
+Notes:
+- `enable_prefix_caching=True` was silently ignored — vLLM V1 doesn't support
+  it together with `enable_prompt_embeds`, so it falls back to off. Kept the
+  flag for future vLLM versions.
+- `max_num_seqs=64` was important: with the 0.2→0.6 mem-util bump, vLLM would
+  otherwise default to ~256 seqs and reserve KV cache for them upfront, eating
+  most of the headroom. 64 is enough for our concurrent-stream pattern.
 
 Round 1 wins where it matters most for production: TTFA p95 and tail latency
 collapse (−41% / −42%) because the fp16 Flow engine finishes per-request 30%

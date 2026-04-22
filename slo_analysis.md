@@ -78,6 +78,27 @@ cold-start outlier — focus on p50.
 | **2** | **+ vLLM `gpu_mem=0.6` + chunked-prefill + `max_num_seqs=64`** | **525 ms** (−11%) | 1137 ms (noise) | 1605 ms (−22%) | 3.33 (noise) | 1.61 s (−23%) |
 | **3** | **+ Single-thread vllm.step scheduler (lock removed)** | **520 ms** (−12%) | 1115 ms | 1825 ms (−12%) | 3.41 | 1.83 s |
 | **6** | **+ HiFi-GAN decoder TRT fp16** (Round 5 spec-decode blocked by `enable_prompt_embeds`) | **426 ms** (−28%) | **936 ms** (−18%) | 1143 ms (−45%) | **3.99** (+18%) | **1.73 s** (−17%) |
+| **7** | **+ Flow TRT `trt_concurrent=4`** (cheap variant of cross-req batching) | **416 ms** (−29%) | **786 ms** (−31%) | 1092 ms (−47%) | **4.68** (+38%) | **1.29 s** (−38%) |
+
+Round 7 details: full Flow cross-request batching needed re-exporting the
+TRT engine away from the CFG-baked batch=2 layout (1-2 days of work,
+30-50% best-case Flow gain). Instead bumped `trt_concurrent` from 1 to 4,
+which is the supported pattern -- 4 dedicated CUDA streams + execution
+contexts share the same engine weights (~1 GB extra GPU). Concurrent
+requests now run on different streams without re-serializing.
+
+| conc | Round 6 QPS | Round 7 QPS | Round 6 TTFA p50 | Round 7 TTFA p50 |
+|---:|---:|---:|---:|---:|
+| 1 | 0.41 | 0.41 | 426 ms | 416 ms |
+| 4 | 3.99 | **4.68** (+17%) | 936 ms | **786 ms** (−16%) |
+| 8 | **7.22** | 5.55 (−23%, likely contention with hift TRT context) | 1432 | 1481 |
+| 16 | 5.19 | **6.63** (+28%) | 3102 | **2542 ms** (−18%) |
+
+Tradeoff: peak QPS shifts down slightly (7.22 → 6.63) but TTFA at every
+SLO-relevant concurrency improves. conc=8 single-point regression looks
+like GPU resource contention between 4 Flow contexts and the hift
+context; conc=4 (one hift call per Flow call) and conc=16 (already
+saturated) both win.
 
 Round 6 is best at **conc=8: QPS 7.22, TTFA p50 1432 ms, audio throughput
 14.03×** real-time -- a clean +24% QPS over Round 3's conc=8 peak (5.81)

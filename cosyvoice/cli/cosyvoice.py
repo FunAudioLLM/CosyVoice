@@ -188,7 +188,8 @@ class CosyVoice2(CosyVoice):
 
 class CosyVoice3(CosyVoice2):
 
-    def __init__(self, model_dir, load_trt=False, load_vllm=False, fp16=False, trt_concurrent=1):
+    def __init__(self, model_dir, load_trt=False, load_vllm=False, fp16=False,
+                 trt_concurrent=int(os.environ.get('FLOW_TRT_CONCURRENT', '4'))):
         self.model_dir = model_dir
         self.fp16 = fp16
         if not os.path.exists(model_dir):

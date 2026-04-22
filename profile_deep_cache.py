@@ -1,5 +1,5 @@
 """Same deep profile but with FE cache enabled."""
-import sys, time, statistics
+import os, sys, time, statistics
 sys.path.append('third_party/Matcha-TTS')
 
 from vllm import ModelRegistry
@@ -12,9 +12,10 @@ import profile_deep as PD
 
 
 def main():
-    print('Loading CosyVoice3 (TRT + vLLM, fp32) + FE cache ...', flush=True)
+    fp16 = os.environ.get('FP16', '1') == '1'
+    print(f'Loading CosyVoice3 (TRT + vLLM, fp16={fp16}) + FE cache ...', flush=True)
     t0 = time.time()
-    model = AutoModel(model_dir='pretrained_models/Fun-CosyVoice3-0.5B', load_trt=True, load_vllm=True, fp16=False)
+    model = AutoModel(model_dir='pretrained_models/Fun-CosyVoice3-0.5B', load_trt=True, load_vllm=True, fp16=fp16)
     print(f'Loaded in {time.time()-t0:.2f}s', flush=True)
 
     # IMPORTANT: enable cache BEFORE patching for profile (since cache wraps frontend_zero_shot)

@@ -112,6 +112,53 @@ Effective production capacity (TTFA ≤ 1.5 s SLO):
 | 2 | 4 | 3.33 | 1137 ms |
 | 3 | 8 | **5.81** | **1431 ms** |
 
+## Post-Round-3 stage profile (where the time actually goes)
+
+Run with FP16=1 + FE-cache + lock-free + scheduler thread, single-stream
+sequential, 6 reps post-warmup, on the same 3090.
+
+**Stream short text (~9 chars, ~2.9 s audio, 1 chunk):**
+
+| Stage | avg | % of TTFA |
+|---|---:|---:|
+| LLM total (72 tokens, first=11ms, per=5.2ms) | 382 ms | **62%** |
+| Token2Wav first chunk (Flow + HiFi) | ~219 ms | 35% |
+| Other (FE cache hit + framing) | ~16 ms | 3% |
+| **TTFA** | **601 ms** | 100% |
+
+**Stream medium text (~50 chars, ~11 s audio, 3.2 chunks):**
+
+| Stage | per request | % of TOTAL |
+|---|---:|---:|
+| LLM total | 1428 ms | **80%** |
+| T2W.flow_ms (TRT fp16) | 360 ms (~113/chunk) | 20% |
+| T2W.hift_ms (PyTorch + autocast fp16) | 297 ms (~93/chunk) | 17% |
+| **TOTAL wall** | **1779 ms** | 100% |
+| TTFA | 765 ms | — |
+
+(Flow + HiFi overlap with LLM in stream mode, so TOTAL ≠ sum.)
+
+## Where the easy wins live (and don't)
+
+**LLM is now the wall (62% short / 80% medium).** Per-token rate is
+already 5.2 ms (192 tok/s) — vLLM continuous batching is doing its job.
+Dropping below this for TTFA needs an architectural change:
+
+| Lever | Expected TTFA gain | Effort | Notes |
+|---|---:|---|---|
+| Speculative decoding (draft+verify) | -30% LLM, ~−115 ms TTFA | 1-2 days | Need a draft model, vLLM 0.11 supports it |
+| HiFi-GAN → TRT fp16 (per Round-4 plan) | -30 to -50 ms/chunk | 1-2 days | Original plan; ROI is small at the new bottleneck shape |
+| Flow batching across concurrent reqs | concurrent QPS x2 | 2-3 days | Doesn't move TTFA; lifts ceiling at conc=16+ |
+| Smaller TTS model (Kokoro/Piper) | TTFA <300 ms | 3-5 days | Different model, different voice quality |
+| Round 3's GIL ceiling at conc=16 | +10-15% QPS at conc≥16 | 4-6 hours | Replace per-uuid Queue with shared epoll-style dispatch |
+
+**Verdict**: rounds 1-3 captured the cheap wins. Rounds 4+ are
+multi-day investments with smaller percentage returns. Pick based on
+SLO target:
+- TTFA-bound use case (voice agent) → speculative decoding
+- Throughput-bound (batch dubbing) → Flow batching
+- Both → smaller model
+
 Notes:
 - `enable_prefix_caching=True` was silently ignored — vLLM V1 doesn't support
   it together with `enable_prompt_embeds`, so it falls back to off. Kept the

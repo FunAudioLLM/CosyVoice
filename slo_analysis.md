@@ -65,6 +65,29 @@ Compare:
 - Aliyun Qwen3-TTS API: ~¥1-2/万字符 ≈ ¥2-5/audio·hour (depends on text density)
 - Self-hosted CosyVoice3 breaks even at ~3-5 audio·hours/day; beyond that self-host is cheaper
 
+## Optimization rounds (2026-04-23)
+
+Apples-to-apples short-text (~9-10 chars, ~1.6s audio/req) on the same WSL+3090
++ FE-cache + lock-free server. `n=4` per concurrency, so conc=1 p95 includes a
+cold-start outlier — focus on p50.
+
+| Round | Change | conc=1 TTFA p50 | conc=4 TTFA p50 | conc=4 TTFA p95 | conc=4 QPS | conc=4 lat p95 |
+|---|---|---:|---:|---:|---:|---:|
+| 0 (baseline) | TRT fp32, FE-cache, lock-free | 588 ms | 1141 ms | 2067 ms | 3.39 | 2.09 s |
+| **1** | **+ Flow TRT fp16** | **559 ms** (−5%) | **997 ms** (−13%) | **1210 ms** (−41%) | **3.58** (+6%) | **1.21 s** (−42%) |
+
+Round 1 wins where it matters most for production: TTFA p95 and tail latency
+collapse (−41% / −42%) because the fp16 Flow engine finishes per-request 30%
+faster, draining the per-token-decode queue before a second request can pile up.
+p50 gain is more modest because it was already dominated by FE/LLM-prefill
+floor (~500 ms), not Flow.
+
+Audio samples: `samples/round0_baseline/` vs `samples/round1_fp16/` — same
+prompts/seeds. Long-text (~120 chars) stability checked, no degradation.
+
+The upstream warning (`DiT tensorRT fp16 engine have some performance issue`)
+did not manifest as user-perceptible artifacts in our test set.
+
 ## Key takeaways
 
 1. **TTFA is dominated by vLLM prefill + first flow-matching batch**, not by GPU throughput. You cannot tune your way past ~1.2s TTFA on a single 3090 for CosyVoice3.

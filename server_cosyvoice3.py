@@ -31,6 +31,7 @@ PROMPT_TEXT = 'You are a helpful assistant.<|endofprompt|>希望你以后能够�
 PROMPT_WAV = './asset/zero_shot_prompt.wav'
 MODEL_DIR = os.environ.get('MODEL_DIR', 'pretrained_models/Fun-CosyVoice3-0.5B')
 LOAD_TRT = os.environ.get('LOAD_TRT', '1') == '1'
+FP16 = os.environ.get('FP16', '1') == '1'
 
 app = FastAPI(title='CosyVoice3 TTS (lockfree)')
 _model = None
@@ -47,9 +48,9 @@ class TTSRequest(BaseModel):
 @app.on_event('startup')
 def load_model():
     global _model
-    print(f'[startup] loading {MODEL_DIR}, trt={LOAD_TRT} ...', flush=True)
+    print(f'[startup] loading {MODEL_DIR}, trt={LOAD_TRT}, fp16={FP16} ...', flush=True)
     t0 = time.time()
-    _model = AutoModel(model_dir=MODEL_DIR, load_trt=LOAD_TRT, load_vllm=True, fp16=False)
+    _model = AutoModel(model_dir=MODEL_DIR, load_trt=LOAD_TRT, load_vllm=True, fp16=FP16)
     enable_fe_cache(_model)
     print(f'[startup] loaded in {time.time()-t0:.2f}s; FE prompt cache enabled', flush=True)
 

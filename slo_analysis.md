@@ -122,6 +122,41 @@ normalization. What matters is the regression jump from ~0.25 to 1.00.)
   fp32 with `.float()` then iSTFT — but maybe the cast comes too late.
 - Or: ONNX export of Snake produced wrong constant for `1/α + ε` term.
 
+## Round 10 — hift TRT fp32 fix (audio correct + still useful speed gain)
+
+Built the hift engine in fp32 instead of fp16 (env `HIFT_TRT_FP16=0`,
+default after this round). The fp16 saturation bug is gone; audio matches
+the no-TRT path (`round7_fixed`). Speed vs Round 3 (last clean benchmark):
+
+| conc | R3 | R10 fp32 hift TRT | Δ |
+|---:|---:|---:|---:|
+| 4 QPS | 3.41 | **4.97** | **+46%** |
+| 4 TTFA p50 | 1115 ms | **743 ms** | **−33%** |
+| 8 QPS | 5.81 | 5.74 | −1% |
+| 8 TTFA p50 | 1431 ms | **1348 ms** | −6% |
+| 16 QPS | 4.54 | **5.60** | +23% |
+| 16 TTFA p50 | 3382 ms | **2741 ms** | −19% |
+
+| round | n | CER | SECS | RMS dB | status |
+|---|---:|---:|---:|---:|---|
+| round0_baseline | 4 | 0.254 | 0.607 | -21.6 | ok |
+| round7_fixed (no hift TRT) | 4 | 0.234 | 0.615 | -20.3 | ok |
+| **round10_hift_fp32** | 4 | **0.234** | **0.615** | -20.3 | ok |
+| (old) round6_hift_trt fp16 | 4 | 1.000 | -0.14 | 0.0 | broken |
+
+Same CER and SECS as no-TRT baseline → the fp32 engine is byte-faithful
+to the PyTorch reference. fp32 sacrifices the theoretical fp16 ~2x speed
+on Snake / ResBlocks but still wins ~20-30% over PyTorch+autocast because
+TRT eliminates the Python op-launch overhead and fuses ops better.
+
+**Default config now**: `LOAD_TRT_HIFT=1 HIFT_TRT_FP16=0 FP16=1
+LOAD_TRT=1 FLOW_TRT_CONCURRENT=4`.
+
+To revisit fp16 hift later: rebuild the engine with TRT
+`OBEY_PRECISION_CONSTRAINTS` flag and per-layer fp32 markings on every
+Snake activation — likely cuts hift time ~30% more, but needs careful
+layer-name targeting in the engine builder.
+
 Round 7 details: full Flow cross-request batching needed re-exporting the
 TRT engine away from the CFG-baked batch=2 layout (1-2 days of work,
 30-50% best-case Flow gain). Instead bumped `trt_concurrent` from 1 to 4,

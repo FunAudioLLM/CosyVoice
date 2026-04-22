@@ -224,17 +224,19 @@ class CosyVoice3(CosyVoice2):
                                 trt_concurrent,
                                 self.fp16)
             # HiFi-GAN decoder (post conv_pre) -> TRT, opt-in via env LOAD_TRT_HIFT=1.
-            # WARNING: current implementation produces saturated audio (output
-            # clips to -1.0). Likely cause: fp16 numerical overflow in Snake
-            # activation, or magnitude/phase tensor dtype mismatch at engine
-            # boundary. Disabled by default until investigated. See
-            # slo_analysis.md "Round 6 regression" for details.
+            # NOTE: hift TRT uses fp32 by default (HIFT_TRT_FP16 defaults off).
+            # The fp16 engine produces saturated audio (likely Snake activation
+            # numerical overflow); fp32 is correct but only ~10-15% faster than
+            # PyTorch+autocast. See slo_analysis.md "Round 6 regression".
             if os.environ.get('LOAD_TRT_HIFT', '0') == '1':
+                hift_fp16 = os.environ.get('HIFT_TRT_FP16', '0') == '1'
                 hift_onnx = '{}/hift.decoder.fp32.onnx'.format(model_dir)
-                hift_engine = '{}/hift.decoder.{}.mygpu.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32')
+                hift_engine = '{}/hift.decoder.{}.mygpu.plan'.format(
+                    model_dir, 'fp16' if hift_fp16 else 'fp32')
                 if os.path.exists(hift_onnx):
-                    self.model.load_trt_hift(hift_engine, hift_onnx, self.fp16)
-                    logging.info('hift TRT engine loaded; decode patched')
+                    self.model.load_trt_hift(hift_engine, hift_onnx, hift_fp16)
+                    logging.info('hift TRT engine loaded ({}); decode patched'.format(
+                        'fp16' if hift_fp16 else 'fp32'))
                 else:
                     logging.warning('LOAD_TRT_HIFT=1 but {} not found; skipping'.format(hift_onnx))
         del configs

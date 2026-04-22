@@ -77,8 +77,50 @@ cold-start outlier — focus on p50.
 | **1** | **+ Flow TRT fp16** | **559 ms** (−5%) | **997 ms** (−13%) | **1210 ms** (−41%) | **3.58** (+6%) | **1.21 s** (−42%) |
 | **2** | **+ vLLM `gpu_mem=0.6` + chunked-prefill + `max_num_seqs=64`** | **525 ms** (−11%) | 1137 ms (noise) | 1605 ms (−22%) | 3.33 (noise) | 1.61 s (−23%) |
 | **3** | **+ Single-thread vllm.step scheduler (lock removed)** | **520 ms** (−12%) | 1115 ms | 1825 ms (−12%) | 3.41 | 1.83 s |
-| **6** | **+ HiFi-GAN decoder TRT fp16** (Round 5 spec-decode blocked by `enable_prompt_embeds`) | **426 ms** (−28%) | **936 ms** (−18%) | 1143 ms (−45%) | **3.99** (+18%) | **1.73 s** (−17%) |
-| **7** | **+ Flow TRT `trt_concurrent=4`** (cheap variant of cross-req batching) | **416 ms** (−29%) | **786 ms** (−31%) | 1092 ms (−47%) | **4.68** (+38%) | **1.29 s** (−38%) |
+| **6** | **+ HiFi-GAN decoder TRT fp16** (Round 5 spec-decode blocked by `enable_prompt_embeds`) ⚠️ **AUDIO REGRESSION** | **426 ms** (−28%) | **936 ms** (−18%) | 1143 ms (−45%) | **3.99** (+18%) | **1.73 s** (−17%) |
+| **7** | **+ Flow TRT `trt_concurrent=4`** (cheap variant of cross-req batching) — speed numbers were measured WITH `LOAD_TRT_HIFT=1`, audio was broken; `round7_fixed/` has the correct samples generated with `LOAD_TRT_HIFT=0` and the same Flow-concurrency win. | **416 ms** (−29%) | **786 ms** (−31%) | 1092 ms (−47%) | **4.68** (+38%) | **1.29 s** (−38%) |
+
+## ⚠️ Round 6 audio regression (discovered in Round 9 quality eval)
+
+The Round 6 hift-TRT integration (`LOAD_TRT_HIFT=1`) **produces saturated
+audio** -- every sample value clips to `-1.0`. The fp16 TRT engine appears to
+explode the magnitude / phase tensors so that PyTorch's `_istft` then
+`audio_limit` clamp drives the waveform to the lower rail. Whisper cannot
+transcribe these samples (CER = 1.0) and the SECS speaker similarity is
+≈ 0 (essentially noise). **Speed numbers in commits 8c8b05f and 29894a7 are
+real (the TRT call returns fast), but the audio is unusable.**
+
+Concrete eval (cpu, base Whisper, ECAPA-TDNN SECS, n=4 per round):
+
+| round | CER ↓ | SECS ↑ | RMS dB | status |
+|---|---:|---:|---:|---|
+| round0_baseline | 0.254 | 0.607 | -21.6 | ok |
+| round1_fp16 | 0.184 | 0.672 | -20.0 | ok |
+| round2_vllm | 0.214 | 0.676 | -21.1 | ok |
+| round3_lockfree | 0.270 | 0.662 | -20.4 | ok |
+| **round6_hift_trt** | **1.000** | **-0.14** | **0.0** | **broken (saturated)** |
+| **round7_flow_concurrent** | **1.000** | **-0.14** | **0.0** | **broken (had hift TRT on)** |
+| round7_fixed (`LOAD_TRT_HIFT=0`) | 0.234 | 0.615 | -20.3 | ok |
+
+(High absolute CER is expected — base Whisper on short Chinese, naive text
+normalization. What matters is the regression jump from ~0.25 to 1.00.)
+
+**Mitigation in this commit:**
+- `LOAD_TRT_HIFT` defaults to `0` already in
+  [cosyvoice/cli/cosyvoice.py:225](cosyvoice/cli/cosyvoice.py#L225); a
+  warning comment now explains why it should stay off until investigated.
+- `round7_fixed/` directory contains the correct R7 audio (Flow concurrency
+  speedup is unaffected; only the hift TRT path is broken).
+- `eval/quality_eval.py` is the framework that caught this; rerun before
+  any future audio-touching optimization.
+
+**Open bug to investigate next session:**
+- fp16 numerical overflow in Snake activation (`x + (1/α)·sin²(αx)`) —
+  large `αx` values overflow before saturating. Try keeping Snake layers in
+  fp32 via TRT `OBEY_PRECISION_CONSTRAINTS`.
+- Or: dtype mismatch at engine boundary. Engine outputs fp16; we cast to
+  fp32 with `.float()` then iSTFT — but maybe the cast comes too late.
+- Or: ONNX export of Snake produced wrong constant for `1/α + ε` term.
 
 Round 7 details: full Flow cross-request batching needed re-exporting the
 TRT engine away from the CFG-baked batch=2 layout (1-2 days of work,

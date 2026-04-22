@@ -1,0 +1,304 @@
+[
+  {
+    "round": "round0_baseline",
+    "n_samples": 4,
+    "avg_cer": 0.2536,
+    "avg_secs": 0.6065,
+    "avg_rms_db": -21.645,
+    "avg_dur_s": 4.33,
+    "samples": [
+      {
+        "file": "你好欢迎_s0.wav",
+        "duration_s": 1.6,
+        "rms_db": -22.44,
+        "whisper_cer": 0.25,
+        "whisper_text": "你好,歡迎",
+        "secs": 0.4029
+      },
+      {
+        "file": "你好欢迎_s1.wav",
+        "duration_s": 1.52,
+        "rms_db": -20.94,
+        "whisper_cer": 0.25,
+        "whisper_text": "你好,歡迎",
+        "secs": 0.6009
+      },
+      {
+        "file": "阿里云Cos_s0.wav",
+        "duration_s": 7.04,
+        "rms_db": -20.85,
+        "whisper_cer": 0.3143,
+        "whisper_text": "阿里云 科斯科尔斯3号是当前开员里最先进的多语言语音合成系统之一",
+        "secs": 0.6824
+      },
+      {
+        "file": "阿里云Cos_s1.wav",
+        "duration_s": 7.16,
+        "rms_db": -22.35,
+        "whisper_cer": 0.2,
+        "whisper_text": "阿里云Cosey Voice 3号使当前开原理最先进的多语言语音和程系统之一",
+        "secs": 0.7398
+      }
+    ]
+  },
+  {
+    "round": "round1_fp16",
+    "n_samples": 5,
+    "avg_cer": 0.1835,
+    "avg_secs": 0.6719,
+    "avg_rms_db": -20.026,
+    "avg_dur_s": 7.744,
+    "samples": [
+      {
+        "file": "long_s0.wav",
+        "duration_s": 22.36,
+        "rms_db": -21.37,
+        "whisper_cer": 0.0673,
+        "whisper_text": "昨天我去图书馆借了三本关于人工智能的书发现现代深度学习模型的发展速度真的非常清人难单几年时间从GPT-2到GPT-4再到现在的多摩太大模型每一代都有智的飞越我相信未来十年内人工智能将会彻底改变我们的工作和生活方式",
+        "secs": 0.7316
+      },
+      {
+        "file": "你好欢迎_s0.wav",
+        "duration_s": 1.6,
+        "rms_db": -18.28,
+        "whisper_cer": 0.25,
+        "whisper_text": "你好,歡迎",
+        "secs": 0.534
+      },
+      {
+        "file": "你好欢迎_s1.wav",
+        "duration_s": 2.12,
+        "rms_db": -16.61,
+        "whisper_cer": 0.0,
+        "whisper_text": "你好,欢迎",
+        "secs": 0.5721
+      },
+      {
+        "file": "阿里云Cos_s0.wav",
+        "duration_s": 6.28,
+        "rms_db": -22.24,
+        "whisper_cer": 0.2286,
+        "whisper_text": "阿里云Cosey Voice 3号是当前开原理最先进的多语言语音和成细统G",
+        "secs": 0.7317
+      },
+      {
+        "file": "阿里云Cos_s1.wav",
+        "duration_s": 6.36,
+        "rms_db": -21.63,
+        "whisper_cer": 0.3714,
+        "whisper_text": "阿里云 科斯科斯3号是当前开员里最先进的多语言语音和诚系统之一",
+        "secs": 0.7901
+      }
+    ]
+  },
+  {
+    "round": "round2_vllm",
+    "n_samples": 4,
+    "avg_cer": 0.2143,
+    "avg_secs": 0.6764,
+    "avg_rms_db": -21.1125,
+    "avg_dur_s": 4.12,
+    "samples": [
+      {
+        "file": "你好欢迎_s0.wav",
+        "duration_s": 1.52,
+        "rms_db": -19.59,
+        "whisper_cer": 0.0,
+        "whisper_text": "你好,欢迎",
+        "secs": 0.5814
+      },
+      {
+        "file": "你好欢迎_s1.wav",
+        "duration_s": 1.68,
+        "rms_db": -20.69,
+        "whisper_cer": 0.0,
+        "whisper_text": "你好,欢迎",
+        "secs": 0.589
+      },
+      {
+        "file": "阿里云Cos_s0.wav",
+        "duration_s": 6.84,
+        "rms_db": -21.41,
+        "whisper_cer": 0.4286,
+        "whisper_text": "阿里文 Cosey Voice 3號時當前開員裡最先進達多餘言語音和成系統之一",
+        "secs": 0.7435
+      },
+      {
+        "file": "阿里云Cos_s1.wav",
+        "duration_s": 6.44,
+        "rms_db": -22.76,
+        "whisper_cer": 0.4286,
+        "whisper_text": "阿里云 高CBOS3号时当前开原理最先进的多语言与音和成细统之一",
+        "secs": 0.7916
+      }
+    ]
+  },
+  {
+    "round": "round3_lockfree",
+    "n_samples": 4,
+    "avg_cer": 0.2697,
+    "avg_secs": 0.6617,
+    "avg_rms_db": -20.415,
+    "avg_dur_s": 4.19,
+    "samples": [
+      {
+        "file": "你好欢迎_s0.wav",
+        "duration_s": 1.68,
+        "rms_db": -19.84,
+        "whisper_cer": 0.0,
+        "whisper_text": "你好欢迎",
+        "secs": 0.6292
+      },
+      {
+        "file": "你好欢迎_s1.wav",
+        "duration_s": 1.64,
+        "rms_db": -18.13,
+        "whisper_cer": 0.25,
+        "whisper_text": "你好,歡迎",
+        "secs": 0.638
+      },
+      {
+        "file": "阿里云Cos_s0.wav",
+        "duration_s": 6.44,
+        "rms_db": -21.77,
+        "whisper_cer": 0.3143,
+        "whisper_text": "阿里云 科斯科斯3号是当前开员里最先进的多语言语音合成系统之一",
+        "secs": 0.6852
+      },
+      {
+        "file": "阿里云Cos_s1.wav",
+        "duration_s": 7.0,
+        "rms_db": -21.92,
+        "whisper_cer": 0.5143,
+        "whisper_text": "阿里云·Kosivo 3號使當前開員裡最先進的多於言語音和成系統之一",
+        "secs": 0.6944
+      }
+    ]
+  },
+  {
+    "round": "round6_hift_trt",
+    "n_samples": 4,
+    "avg_cer": 1.0,
+    "avg_secs": -0.1377,
+    "avg_rms_db": 0.0,
+    "avg_dur_s": 4.53,
+    "samples": [
+      {
+        "file": "你好欢迎_s0.wav",
+        "duration_s": 1.8,
+        "rms_db": 0.0,
+        "whisper_cer": 1.0,
+        "whisper_text": "",
+        "secs": -0.1333
+      },
+      {
+        "file": "你好欢迎_s1.wav",
+        "duration_s": 1.44,
+        "rms_db": 0.0,
+        "whisper_cer": 1.0,
+        "whisper_text": "",
+        "secs": -0.1331
+      },
+      {
+        "file": "阿里云Cos_s0.wav",
+        "duration_s": 7.56,
+        "rms_db": 0.0,
+        "whisper_cer": 1.0,
+        "whisper_text": "",
+        "secs": -0.1422
+      },
+      {
+        "file": "阿里云Cos_s1.wav",
+        "duration_s": 7.32,
+        "rms_db": 0.0,
+        "whisper_cer": 1.0,
+        "whisper_text": "",
+        "secs": -0.1422
+      }
+    ]
+  },
+  {
+    "round": "round7_fixed",
+    "n_samples": 4,
+    "avg_cer": 0.2339,
+    "avg_secs": 0.6151,
+    "avg_rms_db": -20.29,
+    "avg_dur_s": 4.11,
+    "samples": [
+      {
+        "file": "你好欢迎_s0.wav",
+        "duration_s": 1.12,
+        "rms_db": -20.98,
+        "whisper_cer": 0.25,
+        "whisper_text": "你好,歡迎",
+        "secs": 0.47
+      },
+      {
+        "file": "你好欢迎_s1.wav",
+        "duration_s": 1.96,
+        "rms_db": -17.03,
+        "whisper_cer": 0.0,
+        "whisper_text": "你好 欢迎",
+        "secs": 0.6337
+      },
+      {
+        "file": "阿里云Cos_s0.wav",
+        "duration_s": 6.8,
+        "rms_db": -22.07,
+        "whisper_cer": 0.3143,
+        "whisper_text": "阿里云Cosey Voice 3號是當前開員裡最先進的多餘言語音合成系統之一",
+        "secs": 0.7081
+      },
+      {
+        "file": "阿里云Cos_s1.wav",
+        "duration_s": 6.56,
+        "rms_db": -21.08,
+        "whisper_cer": 0.3714,
+        "whisper_text": "阿里云CoseyBoss3号是当前开原理最先进的多余言云和成细统之一",
+        "secs": 0.6485
+      }
+    ]
+  },
+  {
+    "round": "round7_flow_concurrent",
+    "n_samples": 4,
+    "avg_cer": 1.0,
+    "avg_secs": -0.1376,
+    "avg_rms_db": 0.0,
+    "avg_dur_s": 4.27,
+    "samples": [
+      {
+        "file": "你好欢迎_s0.wav",
+        "duration_s": 1.4,
+        "rms_db": 0.0,
+        "whisper_cer": 1.0,
+        "whisper_text": "",
+        "secs": -0.1331
+      },
+      {
+        "file": "你好欢迎_s1.wav",
+        "duration_s": 1.68,
+        "rms_db": 0.0,
+        "whisper_cer": 1.0,
+        "whisper_text": "",
+        "secs": -0.1332
+      },
+      {
+        "file": "阿里云Cos_s0.wav",
+        "duration_s": 6.76,
+        "rms_db": 0.0,
+        "whisper_cer": 1.0,
+        "whisper_text": "",
+        "secs": -0.1421
+      },
+      {
+        "file": "阿里云Cos_s1.wav",
+        "duration_s": 7.24,
+        "rms_db": 0.0,
+        "whisper_cer": 1.0,
+        "whisper_text": "",
+        "secs": -0.1422
+      }
+    ]
+  }
+]

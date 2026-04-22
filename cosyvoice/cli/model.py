@@ -98,6 +98,82 @@ class CosyVoiceModel:
         input_names = ["x", "mask", "mu", "cond"]
         return {'min_shape': min_shape, 'opt_shape': opt_shape, 'max_shape': max_shape, 'input_names': input_names}
 
+    def load_trt_hift(self, hift_engine_path, hift_onnx_path, fp16):
+        """Load (or build) the TRT engine for HiFi-GAN's conv-only decoder
+        path and monkey-patch hift.decode to use it. Engine takes
+        (x_post_conv_pre, s_stft) and returns (magnitude, phase)."""
+        import numpy as np
+        assert torch.cuda.is_available(), 'tensorrt only supports gpu!'
+        if not os.path.exists(hift_engine_path) or os.path.getsize(hift_engine_path) == 0:
+            # Internal Add op enforces T_stft = 120 * T_x + 1 exactly.
+            # min=10 covers finalize=False truncated chunks; max=600 covers full utterance.
+            trt_kwargs = {
+                'min_shape': [(1, 512, 10),  (1, 18, 1201)],
+                'opt_shape': [(1, 512, 80),  (1, 18, 9601)],
+                'max_shape': [(1, 512, 600), (1, 18, 72001)],
+                'input_names': ['x', 's_stft'],
+            }
+            convert_onnx_to_trt(hift_engine_path, trt_kwargs, hift_onnx_path, fp16)
+        import tensorrt as trt
+        import queue as _queue
+        with open(hift_engine_path, 'rb') as f:
+            engine = trt.Runtime(trt.Logger(trt.Logger.INFO)).deserialize_cuda_engine(f.read())
+        assert engine is not None, 'failed to load hift trt {}'.format(hift_engine_path)
+        self._hift_trt_engine = engine
+        self._hift_trt_dtype = torch.float16 if fp16 else torch.float32
+
+        # Single context + lock. Tried: (a) Flow-style multi-ctx with dedicated
+        # streams (per-call sync killed perf, 3x worse); (b) multi-ctx with
+        # shared current_stream (slower than single-ctx, likely TRT-internal
+        # concurrent-context contention). Single-ctx + lock is the only stable
+        # variant; lock contention is small because TRT exec is async.
+        self._hift_trt_context = engine.create_execution_context()
+        self._hift_trt_lock = threading.Lock()
+
+        hift = self.hift
+        n_fft_half = hift.istft_params['n_fft'] // 2 + 1
+        upsample_prod = int(np.prod(hift.upsample_rates))
+        hop_len = hift.istft_params['hop_len']
+        engine_dtype = self._hift_trt_dtype
+
+        def trt_decode(x, s=torch.zeros(1, 1, 0), finalize=True):
+            # Mirror CausalHiFTGenerator.decode preamble in PyTorch.
+            s_stft_real, s_stft_imag = hift._stft(s.squeeze(1))
+            if finalize is True:
+                x_post = hift.conv_pre(x)
+            else:
+                x_post = hift.conv_pre(x[:, :, :-hift.conv_pre_look_right], x[:, :, -hift.conv_pre_look_right:])
+                s_stft_real = s_stft_real[:, :, :-upsample_prod * hift.conv_pre_look_right]
+                s_stft_imag = s_stft_imag[:, :, :-upsample_prod * hift.conv_pre_look_right]
+            s_stft = torch.cat([s_stft_real, s_stft_imag], dim=1)
+
+            # === TRT engine (single context + lock) ===
+            x_in = x_post.to(engine_dtype).contiguous()
+            s_in = s_stft.to(engine_dtype).contiguous()
+            with self._hift_trt_lock:
+                ctx = self._hift_trt_context
+                ctx.set_input_shape('x', tuple(x_in.shape))
+                ctx.set_input_shape('s_stft', tuple(s_in.shape))
+                T_out = ctx.get_tensor_shape('magnitude')[2]
+                magnitude = torch.empty(x_in.shape[0], n_fft_half, T_out, device=x.device, dtype=engine_dtype)
+                phase = torch.empty_like(magnitude)
+                ctx.set_tensor_address('x', x_in.data_ptr())
+                ctx.set_tensor_address('s_stft', s_in.data_ptr())
+                ctx.set_tensor_address('magnitude', magnitude.data_ptr())
+                ctx.set_tensor_address('phase', phase.data_ptr())
+                assert ctx.execute_async_v3(torch.cuda.current_stream().cuda_stream), 'hift trt exec failed'
+            magnitude_f32 = magnitude.float()
+            phase_f32 = phase.float()
+            # === end TRT ===
+
+            audio = hift._istft(magnitude_f32, phase_f32)
+            if finalize is False:
+                audio = audio[:, :-upsample_prod * hop_len]
+            audio = torch.clamp(audio, -hift.audio_limit, hift.audio_limit)
+            return audio
+
+        hift.decode = trt_decode
+
     def llm_job(self, text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):
         cur_silent_token_num, max_silent_token_num = 0, 5
         with self.llm_context, torch.cuda.amp.autocast(self.fp16 is True and hasattr(self.llm, 'vllm') is False):

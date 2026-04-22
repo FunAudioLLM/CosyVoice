@@ -222,6 +222,15 @@ class CosyVoice3(CosyVoice2):
                                 '{}/flow.decoder.estimator.fp32.onnx'.format(model_dir),
                                 trt_concurrent,
                                 self.fp16)
+            # HiFi-GAN decoder (post conv_pre) -> TRT, opt-in via env LOAD_TRT_HIFT=1
+            if os.environ.get('LOAD_TRT_HIFT', '0') == '1':
+                hift_onnx = '{}/hift.decoder.fp32.onnx'.format(model_dir)
+                hift_engine = '{}/hift.decoder.{}.mygpu.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32')
+                if os.path.exists(hift_onnx):
+                    self.model.load_trt_hift(hift_engine, hift_onnx, self.fp16)
+                    logging.info('hift TRT engine loaded; decode patched')
+                else:
+                    logging.warning('LOAD_TRT_HIFT=1 but {} not found; skipping'.format(hift_onnx))
         del configs
 
 

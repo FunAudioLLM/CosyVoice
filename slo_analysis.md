@@ -77,6 +77,19 @@ cold-start outlier — focus on p50.
 | **1** | **+ Flow TRT fp16** | **559 ms** (−5%) | **997 ms** (−13%) | **1210 ms** (−41%) | **3.58** (+6%) | **1.21 s** (−42%) |
 | **2** | **+ vLLM `gpu_mem=0.6` + chunked-prefill + `max_num_seqs=64`** | **525 ms** (−11%) | 1137 ms (noise) | 1605 ms (−22%) | 3.33 (noise) | 1.61 s (−23%) |
 | **3** | **+ Single-thread vllm.step scheduler (lock removed)** | **520 ms** (−12%) | 1115 ms | 1825 ms (−12%) | 3.41 | 1.83 s |
+| **6** | **+ HiFi-GAN decoder TRT fp16** (Round 5 spec-decode blocked by `enable_prompt_embeds`) | **426 ms** (−28%) | **936 ms** (−18%) | 1143 ms (−45%) | **3.99** (+18%) | **1.73 s** (−17%) |
+
+Round 6 is best at **conc=8: QPS 7.22, TTFA p50 1432 ms, audio throughput
+14.03×** real-time -- a clean +24% QPS over Round 3's conc=8 peak (5.81)
+with identical TTFA. Cumulative vs Round 0 baseline:
+
+| metric | Round 0 | Round 6 | Δ |
+|---|---:|---:|---:|
+| Peak QPS (short, conc=8) | 2.71 | **7.22** | **+166%** |
+| Audio throughput @ peak | 5.27× | **14.03×** | **+166%** |
+| TTFA p50 @ peak | 2942 ms | **1432 ms** | −51% |
+| TTFA p50 @ conc=1 | 1170 ms | **426 ms** | **−64%** |
+| TTFA p50 @ conc=4 | 1772 ms | **936 ms** | −47% |
 
 Round 2 wins are at higher concurrency where the larger KV-cache budget lets
 vLLM batch more aggressively (low conc was already saturated):

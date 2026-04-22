@@ -76,6 +76,7 @@ cold-start outlier — focus on p50.
 | 0 (baseline) | TRT fp32, FE-cache, lock-free | 588 ms | 1141 ms | 2067 ms | 3.39 | 2.09 s |
 | **1** | **+ Flow TRT fp16** | **559 ms** (−5%) | **997 ms** (−13%) | **1210 ms** (−41%) | **3.58** (+6%) | **1.21 s** (−42%) |
 | **2** | **+ vLLM `gpu_mem=0.6` + chunked-prefill + `max_num_seqs=64`** | **525 ms** (−11%) | 1137 ms (noise) | 1605 ms (−22%) | 3.33 (noise) | 1.61 s (−23%) |
+| **3** | **+ Single-thread vllm.step scheduler (lock removed)** | **520 ms** (−12%) | 1115 ms | 1825 ms (−12%) | 3.41 | 1.83 s |
 
 Round 2 wins are at higher concurrency where the larger KV-cache budget lets
 vLLM batch more aggressively (low conc was already saturated):
@@ -84,6 +85,32 @@ vLLM batch more aggressively (low conc was already saturated):
 |---:|---:|---:|---:|---:|---:|
 | 8 | 2.71 | **4.44** (+64%) | 2942 ms | 1787 ms (−39%) | 8.4× |
 | 16 | 3.14 | **5.33** (+70%) | 4772 ms | 2973 ms (−38%) | **10.04×** |
+
+Round 3 collapses peak concurrency from 16 → 8 by removing per-thread
+`vllm.step()` lock contention (Single-thread vllm scheduler dispatches
+tokens to per-uuid queues; clients block on `queue.get()` instead of
+holding a global lock + sleep-polling):
+
+| conc | Round 2 QPS | Round 3 QPS | Round 2 TTFA p50 | Round 3 TTFA p50 |
+|---:|---:|---:|---:|---:|
+| 8 | 4.44 | **5.81** (+31%) | 1787 ms | **1431 ms** (−20%) |
+| 16 | **5.33** | 4.54 (−15%) | 2973 ms | 3382 ms (+14%) |
+| 32 | n/a | 4.93 | n/a | 6059 ms |
+
+Round 3 peak is **5.81 QPS at TTFA 1.4 s** (conc=8) vs Round 2's
+**5.33 QPS at TTFA 3.0 s** (conc=16) — same throughput, half the
+latency, half the queue depth. The conc=16 regression is the new
+GIL-bound bottleneck: dispatching tokens from the scheduler to many
+waiting `queue.put()` calls per `vllm.step()` saturates the GIL.
+
+Effective production capacity (TTFA ≤ 1.5 s SLO):
+
+| Round | Best conc | QPS | TTFA p50 |
+|---:|---:|---:|---:|
+| 0 | 4 | 2.68 | 1772 ms (over SLO) |
+| 1 | 4 | 3.58 |  997 ms |
+| 2 | 4 | 3.33 | 1137 ms |
+| 3 | 8 | **5.81** | **1431 ms** |
 
 Notes:
 - `enable_prefix_caching=True` was silently ignored — vLLM V1 doesn't support

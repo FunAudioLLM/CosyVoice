@@ -501,37 +501,65 @@ class Qwen2LM(TransformerLM):
         for token in self.inference_wrapper(lm_input, sampling, min_len, max_len, uuid):
             yield token
 
+    def _ensure_vllm_scheduler(self):
+        # Single dedicated thread owns vllm.step(); client threads block on
+        # their own per-uuid Queue. This collapses the per-client polling
+        # contention that capped concurrent QPS.
+        if getattr(self, '_vllm_scheduler_started', False):
+            return
+        with self.lock:
+            if getattr(self, '_vllm_scheduler_started', False):
+                return
+            self._vllm_scheduler_started = True
+            t = threading.Thread(target=self._vllm_scheduler_loop, daemon=True,
+                                 name='vllm-scheduler')
+            t.start()
+
+    def _vllm_scheduler_loop(self):
+        while True:
+            try:
+                if not self.vllm.has_unfinished_requests():
+                    time.sleep(0.001)
+                    continue
+                request_outputs = self.vllm.step()
+                for request_output in request_outputs:
+                    top_ids = list(request_output.outputs[0].token_ids)[-1]
+                    q = self.vllm_output_queue.get(request_output.request_id)
+                    if q is not None:
+                        q.put(top_ids)
+            except Exception as e:
+                # Surface but keep the scheduler alive so other reqs survive
+                print(f'[vllm-scheduler] {type(e).__name__}: {e}', flush=True)
+                time.sleep(0.01)
+
     @torch.inference_mode()
     def inference_wrapper(self, lm_input, sampling, min_len, max_len, uuid):
         if hasattr(self, 'vllm'):
-            from vllm import SamplingParams, RequestOutput
+            from vllm import SamplingParams
             sampling_params = SamplingParams(top_k=sampling,
                                              stop_token_ids=self.stop_token_ids,
                                              min_tokens=min_len,
                                              max_tokens=max_len)
+            self._ensure_vllm_scheduler()
+            # Register the queue BEFORE add_request so the scheduler never
+            # has to drop a token because the dict isn't ready yet.
+            q = queue.Queue()
             with self.lock:
+                self.vllm_output_queue[uuid] = q
                 self.vllm.add_request(uuid, {"prompt_embeds": lm_input.squeeze(0).to(torch.bfloat16).to(lm_input.device)}, sampling_params)
-                self.vllm_output_queue[uuid] = queue.Queue()
             out_tokens = []
-            while True:
-                with self.lock:
-                    if self.vllm_output_queue[uuid].empty() is True:
-                        request_outputs: List[RequestOutput] = self.vllm.step()
-                        for request_output in request_outputs:
-                            top_ids = list(request_output.outputs[0].token_ids)[-1]
-                            self.vllm_output_queue[request_output.request_id].put(top_ids)
-                if self.vllm_output_queue[uuid].empty() is False:
-                    top_ids = self.vllm_output_queue[uuid].get()
+            try:
+                while True:
+                    top_ids = q.get(timeout=120)  # blocks; safety timeout
                     if top_ids in self.stop_token_ids:
                         break
-                    # in stream mode, yield token one by one
                     yield top_ids
                     out_tokens.append(top_ids)
                     if len(out_tokens) == max_len:
                         break
-                time.sleep(0.001)
-            with self.lock:
-                self.vllm_output_queue.pop(uuid)
+            finally:
+                with self.lock:
+                    self.vllm_output_queue.pop(uuid, None)
         else:
             out_tokens = []
             cache = None

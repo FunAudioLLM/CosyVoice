@@ -87,6 +87,7 @@ class InputEmbedding(nn.Module):
             cond: float["b n d"],
             text_embed: float["b n d"],
             spks: float["b d"],
+            conv_cache: torch.Tensor = None,
     ):
         to_cat = [x, cond, text_embed]
         if self.spk_dim > 0:
@@ -94,8 +95,10 @@ class InputEmbedding(nn.Module):
             to_cat.append(spks)
 
         x = self.proj(torch.cat(to_cat, dim=-1))
-        x = self.conv_pos_embed(x) + x
-        return x
+
+        conv, new_conv_cache = self.conv_pos_embed(x, conv_cache=conv_cache)
+        x = conv + x
+        return x, new_conv_cache
 
 
 # Transformer backbone using DiT blocks
@@ -153,7 +156,7 @@ class DiT(nn.Module):
 
         # t: conditioning time, c: context (text + masked cond audio), x: noised input audio
         t = self.time_embed(t)
-        x = self.input_embed(x, cond, mu, spks.squeeze(1))
+        x, _ = self.input_embed(x, cond, mu, spks.squeeze(1))
 
         rope = self.rotary_embed.forward_from_seq_len(seq_len)
 
@@ -173,4 +176,119 @@ class DiT(nn.Module):
 
         x = self.norm_out(x, t)
         output = self.proj_out(x).transpose(1, 2)
-        return output
+        return output, None
+
+    def forward_chunk(self, x, x_offset, mask, mu, t, spks=None, cond=None, streaming=False, conv_cache:torch.Tensor=None, att_cache:torch.Tensor=None):
+        x = x.transpose(1, 2)
+        mu = mu.transpose(1, 2)
+        cond = cond.transpose(1, 2)
+        spks = spks.unsqueeze(dim=1)
+        batch, seq_len = x.shape[0], x.shape[1]
+        if t.ndim == 0:
+            t = t.repeat(batch)
+
+        # t: conditioning time, c: context (text + masked cond audio), x: noised input audio
+        t = self.time_embed(t)
+        x, new_conv_cache = self.input_embed(x, cond, mu, spks.squeeze(1), conv_cache=conv_cache)
+
+        x_off = int(x_offset.item()) if isinstance(x_offset, torch.Tensor) else int(x_offset)
+        x_partial = x[:, x_off:, :]
+
+        rope = self.rotary_embed.forward_from_seq_len(seq_len)
+
+        if self.long_skip_connection is not None:
+            residual = x_partial
+        
+        attn_mask = add_optional_chunk_mask(x_partial, mask.bool(), False, False, 0, self.static_chunk_size, -1).unsqueeze(dim=1)
+
+        new_att_cache = []
+        for i, block in enumerate(self.transformer_blocks):
+            x_partial, new_att_cache_i = block.forward_chunk(x_partial, t, x_offset=x_off, mask=attn_mask.bool(), rope=rope, att_cache=att_cache[i])
+            new_att_cache.append(new_att_cache_i)
+
+        if self.long_skip_connection is not None:
+            x_partial = self.long_skip_connection(torch.cat((x_partial, residual), dim=-1))
+
+        x_partial = self.norm_out(x_partial, t)
+
+        output = self.proj_out(x_partial).transpose(1, 2)
+        return output, new_conv_cache, torch.stack(new_att_cache)
+
+class DiTWithCache(nn.Module):
+    def __init__(
+        self,
+        *,
+        dim,
+        depth=8,
+        heads=8,
+        dim_head=64,
+        dropout=0.1,
+        ff_mult=4,
+        mel_dim=80,
+        mu_dim=None,
+        long_skip_connection=False,
+        spk_dim=None,
+        out_channels=None,
+        static_chunk_size=50,
+        num_decoding_left_chunks=2
+    ):
+        super().__init__()
+
+        self.time_embed = TimestepEmbedding(dim)
+        if mu_dim is None:
+            mu_dim = mel_dim
+        self.input_embed = InputEmbedding(mel_dim, mu_dim, dim, spk_dim)
+
+        self.rotary_embed = RotaryEmbedding(dim_head)
+
+        self.dim = dim
+        self.depth = depth
+
+        self.transformer_blocks = nn.ModuleList(
+            [DiTBlock(dim=dim, heads=heads, dim_head=dim_head, ff_mult=ff_mult, dropout=dropout) for _ in range(depth)]
+        )
+        self.long_skip_connection = nn.Linear(dim * 2, dim, bias=False) if long_skip_connection else None
+
+        self.norm_out = AdaLayerNormZero_Final(dim)  # final modulation
+        self.proj_out = nn.Linear(dim, mel_dim)
+        self.out_channels = out_channels
+        self.static_chunk_size = static_chunk_size
+        self.num_decoding_left_chunks = num_decoding_left_chunks
+
+    def forward(self, x, x_offset, mask, mu, t, spks=None, cond=None, conv_cache:torch.Tensor=None, att_cache:torch.Tensor=None, streaming=False):
+        x = x.transpose(1, 2)
+        mu = mu.transpose(1, 2)
+        cond = cond.transpose(1, 2)
+        spks = spks.unsqueeze(dim=1)
+        batch, seq_len = x.shape[0], x.shape[1]
+        seq_len = torch.tensor(seq_len, dtype=torch.int64)
+        x_offset = x_offset.to(dtype=torch.int64)
+        if t.ndim == 0:
+            t = t.repeat(batch)
+
+        # t: conditioning time, c: context (text + masked cond audio), x: noised input audio
+        t = self.time_embed(t)
+        x, new_conv_cache = self.input_embed(x, cond, mu, spks.squeeze(1), conv_cache=conv_cache)
+
+        # ONNX cannot capture python int so create a dummy tensor
+        #dummy_x = torch.zeros((seq_len))
+        #dummy_x = F.pad(dummy_x, (0, x_offset))
+        rope = self.rotary_embed.forward_from_seq_len(seq_len + x_offset)
+
+        if self.long_skip_connection is not None:
+            residual = x
+        
+        attn_mask = add_optional_chunk_mask(x, mask.bool(), False, False, 0, self.static_chunk_size, -1).unsqueeze(dim=1)
+
+        new_att_cache = []
+        for i, block in enumerate(self.transformer_blocks):
+            x, new_att_cache_i = block.forward_chunk(x, t, x_offset=x_offset, mask=attn_mask.bool(), rope=rope, att_cache=att_cache[:, i, :, :])
+            new_att_cache.append(new_att_cache_i)
+
+        if self.long_skip_connection is not None:
+            x = self.long_skip_connection(torch.cat((x, residual), dim=-1))
+
+        x = self.norm_out(x, t)
+
+        output = self.proj_out(x).transpose(1, 2)
+        return output, new_conv_cache, torch.stack(new_att_cache, dim=1)

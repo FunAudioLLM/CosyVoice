@@ -17,8 +17,35 @@ from torch import nn
 import torch.nn.functional as F
 import torchaudio
 
-from x_transformers.x_transformers import apply_rotary_pos_emb
+#from x_transformers.x_transformers import apply_rotary_pos_emb
 
+import einops
+
+def rotate_half(x):
+    x = einops.rearrange(x, '... (d r) -> ... d r', r = 2)
+    x1, x2 = x.unbind(dim = -1)
+    x = torch.stack((-x2, x1), dim = -1)
+    return einops.rearrange(x, '... d r -> ... (d r)')
+
+@torch.amp.autocast('cuda', enabled = False)
+def apply_rotary_pos_emb(t, freqs, scale = 1, offset = 0):
+    rot_dim, seq_len, orig_dtype = freqs.shape[-1], t.shape[-2], t.dtype
+
+    freqs = freqs[:, offset:, :]
+    scale = scale[:, offset:, :] if torch.is_tensor(scale) else scale
+
+    if t.ndim == 4 and freqs.ndim == 3:
+        freqs = einops.rearrange(freqs, 'b n d -> b 1 n d')
+
+        if torch.is_tensor(scale):
+            scale = einops.rearrange(scale, 'b n d -> b 1 n d')
+
+    # partial rotary embeddings, Wang et al. GPT-J
+    t, t_unrotated = t[..., :rot_dim], t[..., rot_dim:]
+    t = (t * freqs.cos() * scale) + (rotate_half(t) * freqs.sin() * scale)
+    out = torch.cat((t, t_unrotated), dim = -1)
+
+    return out.type(orig_dtype)
 
 # raw wav to mel spec
 class MelSpec(nn.Module):
@@ -126,22 +153,33 @@ class CausalConvPositionEmbedding(nn.Module):
             nn.Mish(),
         )
 
-    def forward(self, x: float["b n d"], mask: bool["b n"] | None = None):  # noqa: F722
+    def forward(self, x: float["b n d"], mask: bool["b n"] | None = None, conv_cache: torch.Tensor = None):  # noqa: F722
         if mask is not None:
             mask = mask[..., None]
             x = x.masked_fill(~mask, 0.0)
 
         x = x.permute(0, 2, 1)
-        x = F.pad(x, (self.kernel_size - 1, 0, 0, 0))
+
+        if conv_cache is not None:
+            x = torch.cat((conv_cache[:, 0, :, :], x), dim=-1)
+            conv_cache[:, 0, :, :] = x[:, :, -self.kernel_size + 1:]
+        else:
+            x = F.pad(x, (self.kernel_size - 1, 0, 0, 0))
+
         x = self.conv1(x)
-        x = F.pad(x, (self.kernel_size - 1, 0, 0, 0))
+
+        if conv_cache is not None:
+            x = torch.cat((conv_cache[:, 1, :, :], x), dim=-1)
+            conv_cache[:, 1, :, :] = x[:, :, -self.kernel_size + 1:]
+        else:
+            x = F.pad(x, (self.kernel_size - 1, 0, 0, 0))
         x = self.conv2(x)
         out = x.permute(0, 2, 1)
 
         if mask is not None:
             out = out.masked_fill(~mask, 0.0)
 
-        return out
+        return out, conv_cache
 
 
 # rotary positional embedding related
@@ -342,6 +380,21 @@ class Attention(nn.Module):
         else:
             return self.processor(self, x, mask=mask, rope=rope)
 
+    def forward_chunk(
+        self,
+        x: float["b n d"],  # noised input x  # noqa: F722
+        x_offset: int = 0,
+        c: float["b n d"] = None,  # context c  # noqa: F722
+        mask: bool["b n"] | None = None,  # noqa: F722
+        rope=None,  # rotary position embedding for x
+        c_rope=None,  # rotary position embedding for c
+        att_cache:torch.Tensor=None
+    ) -> torch.Tensor:
+        if c is not None:
+            return self.processor(self, x, x_offset=x_offset, c=c, mask=mask, rope=rope, c_rope=c_rope, att_cache=att_cache)
+        else:
+            return self.processor(self, x, x_offset=x_offset, mask=mask, rope=rope, att_cache=att_cache)
+
 
 # Attention processor
 
@@ -354,23 +407,31 @@ class AttnProcessor:
         self,
         attn: Attention,
         x: float["b n d"],  # noised input x  # noqa: F722
+        x_offset: int = 0,
         mask: bool["b n"] | None = None,  # noqa: F722
         rope=None,  # rotary position embedding
+        att_cache:torch.Tensor=None
     ) -> torch.FloatTensor:
         batch_size = x.shape[0]
-
         # `sample` projections.
         query = attn.to_q(x)
         key = attn.to_k(x)
         value = attn.to_v(x)
-
         # apply rotary position embedding
         if rope is not None:
             freqs, xpos_scale = rope
             q_xpos_scale, k_xpos_scale = (xpos_scale, xpos_scale**-1.0) if xpos_scale is not None else (1.0, 1.0)
 
-            query = apply_rotary_pos_emb(query, freqs, q_xpos_scale)
-            key = apply_rotary_pos_emb(key, freqs, k_xpos_scale)
+            query = apply_rotary_pos_emb(query, freqs, q_xpos_scale, offset=x_offset)
+            key = apply_rotary_pos_emb(key, freqs, k_xpos_scale, offset=x_offset)
+
+        new_att_cache = None
+        if att_cache is not None:
+            att_cache = att_cache.transpose(0, 1)
+            k_cache, v_cache = torch.chunk(att_cache, 2, dim=0)
+            new_att_cache = torch.cat((key, value), dim=0).transpose(0, 1)
+            key = torch.cat((k_cache, key), dim=1)
+            value = torch.cat((v_cache, value), dim=1)
 
         # attention
         inner_dim = key.shape[-1]
@@ -384,7 +445,11 @@ class AttnProcessor:
             attn_mask = mask
             if attn_mask.dim() == 2:
                 attn_mask = attn_mask.unsqueeze(1).unsqueeze(1)  # 'b n -> b 1 1 n'
-                attn_mask = attn_mask.expand(batch_size, attn.heads, query.shape[-2], key.shape[-2])
+                attn_mask = attn_mask.expand(batch_size, attn.heads, query.shape[-2], mask.shape[-1])
+
+            if key.shape[-2] > mask.shape[-1]:
+                pad = attn_mask.new_ones(attn_mask.shape[0], 1, mask.shape[-2], key.shape[-2] - mask.shape[-1])
+                attn_mask = torch.cat([pad, attn_mask], dim=-1)  # (B, 1, 1, key_len)
         else:
             attn_mask = None
 
@@ -404,8 +469,7 @@ class AttnProcessor:
                 mask = mask[:, 0, -1].unsqueeze(-1)
             x = x.masked_fill(~mask, 0.0)
 
-        return x
-
+        return x, new_att_cache
 
 # Joint Attention processor for MM-DiT
 # modified from diffusers/src/diffusers/models/attention_processor.py
@@ -518,7 +582,7 @@ class DiTBlock(nn.Module):
         norm, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.attn_norm(x, emb=t)
 
         # attention
-        attn_output = self.attn(x=norm, mask=mask, rope=rope)
+        attn_output, _ = self.attn(x=norm, mask=mask, rope=rope)
 
         # process attention output for input x
         x = x + gate_msa.unsqueeze(1) * attn_output
@@ -528,6 +592,22 @@ class DiTBlock(nn.Module):
         x = x + gate_mlp.unsqueeze(1) * ff_output
 
         return x
+
+    def forward_chunk(self, x, t, x_offset=0, mask=None, rope=None, att_cache:torch.Tensor=None):  # x: noised input, t: time embedding
+        # pre-norm & modulation for attention input
+        norm, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.attn_norm(x, emb=t)
+
+        # attention
+        attn_output, new_att_cache = self.attn.forward_chunk(x=norm, x_offset=x_offset, mask=mask, rope=rope, att_cache=att_cache)
+
+        # process attention output for input x
+        x = x + gate_msa.unsqueeze(1) * attn_output
+
+        ff_norm = self.ff_norm(x) * (1 + scale_mlp[:, None]) + shift_mlp[:, None]
+        ff_output = self.ff(ff_norm)
+        x = x + gate_mlp.unsqueeze(1) * ff_output
+
+        return x, new_att_cache
 
 
 # MMDiT Block https://arxiv.org/abs/2403.03206

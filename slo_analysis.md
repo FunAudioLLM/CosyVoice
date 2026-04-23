@@ -186,7 +186,32 @@ complexity right now.
 | (no hift TRT) | PyTorch + autocast | 3.41 (R3) | 1115 | 0.270 | baseline |
 | 6 | fp16 unconstrained | 3.99 | 936 | 1.000 | broken |
 | **10** | **fp32** | **4.97** | **743** | **0.234** | **production** |
-| 11 | fp16 + Snake fp32 | 4.21 | 846 | 0.234 | works but slower |
+| 11 | fp16 + sin/pow/recip/div fp32 (broad keywords, 289 layers) | 4.21 | 846 | 0.234 | works but slower |
+| 12 | fp16 + `activations` precise keyword (648 layers = 72 Snake × 9 ops) | 4.84 | 758 | 0.234 | works, ≈ fp32 |
+
+## Round 12 — precise Snake-fp32 keyword from ONNX node-name probe
+
+`dump_onnx_nodes.py` showed every Snake op lives under
+`/<module>/activations<N>.<M>/<Op>`, so a single substring `'activations'`
+exactly targets the Snake math (Reciprocal + Sin + Pow + 4× Mul + 2× Add
+× 72 instances = 648 layers, no over-match into ConvTranspose / ResBlock
+math).
+
+R12 numbers are essentially R10 within noise; R12 is a touch faster
+than R11 (whose broader keyword set was over-matching Mul/Div/Pow ops in
+the cleaner conv chain) but still doesn't beat pure fp32.
+
+**Why fp16+Snake-fp32 can't beat pure fp32 on this network:**
+the 72 Snake activations are *interleaved* through every ResBlock, so
+TRT inserts ~144 fp16↔fp32 cast layers (one in / one out per Snake).
+The fp16 Conv speedup on the remaining ~80 % of layers is exactly
+cancelled by those casts. To actually win in fp16 we'd need to either
+(a) replace Snake with a numerically-safe equivalent like
+`tanh(αx)`, requiring re-training; or (b) write a custom TRT plugin
+that does the Snake math entirely in fp32 inside one kernel, avoiding
+the per-op cast overhead.
+
+**Production config remains R10**: pure fp32 hift TRT engine.
 
 Round 7 details: full Flow cross-request batching needed re-exporting the
 TRT engine away from the CFG-baked batch=2 layout (1-2 days of work,

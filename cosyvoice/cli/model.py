@@ -115,9 +115,11 @@ class CosyVoiceModel:
             }
             # When fp16, keep Snake activation ops in fp32 to avoid 1/alpha
             # overflow (alpha values < ~0.015 send 1/alpha past fp16 max=65504).
-            # Snake decomposes as Sin -> Pow(2) -> Reciprocal/Div -> Mul -> Add;
-            # protecting just Sin/Pow/Reciprocal/Div is enough.
-            extra = {'fp32_layer_keywords': ['sin', 'pow', 'reciprocal', 'div']} if fp16 else {}
+            # ONNX-export node-name probe (dump_onnx_nodes.py) showed all
+            # Snake ops live under "/activations<N>.<M>/", so this single
+            # keyword precisely targets them and nothing else (vs the previous
+            # 'sin/pow/reciprocal/div' keyword set that over-matched).
+            extra = {'fp32_layer_keywords': ['activations']} if fp16 else {}
             convert_onnx_to_trt(hift_engine_path, trt_kwargs, hift_onnx_path, fp16, **extra)
         import tensorrt as trt
         import queue as _queue

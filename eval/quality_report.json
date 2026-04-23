@@ -84,6 +84,48 @@
     ]
   },
   {
+    "round": "round11_hift_fp16_snake32",
+    "n_samples": 4,
+    "avg_cer": 0.2339,
+    "avg_secs": 0.6139,
+    "avg_rms_db": -20.23,
+    "avg_dur_s": 4.11,
+    "samples": [
+      {
+        "file": "你好欢迎_s0.wav",
+        "duration_s": 1.12,
+        "rms_db": -20.92,
+        "whisper_cer": 0.25,
+        "whisper_text": "你好,歡迎",
+        "secs": 0.4666
+      },
+      {
+        "file": "你好欢迎_s1.wav",
+        "duration_s": 1.96,
+        "rms_db": -16.99,
+        "whisper_cer": 0.0,
+        "whisper_text": "你好 欢迎",
+        "secs": 0.6314
+      },
+      {
+        "file": "阿里云Cos_s0.wav",
+        "duration_s": 6.8,
+        "rms_db": -22.0,
+        "whisper_cer": 0.3143,
+        "whisper_text": "阿里云Cosey Voice 3號是當前開員裡最先進的多餘言語音合成系統之一",
+        "secs": 0.7084
+      },
+      {
+        "file": "阿里云Cos_s1.wav",
+        "duration_s": 6.56,
+        "rms_db": -21.01,
+        "whisper_cer": 0.3714,
+        "whisper_text": "阿里云CoseyBoss3号是当前开原理最先进的多余言云和成细统之一",
+        "secs": 0.649
+      }
+    ]
+  },
+  {
     "round": "round1_fp16",
     "n_samples": 5,
     "avg_cer": 0.1835,

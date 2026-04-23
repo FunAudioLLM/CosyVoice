@@ -157,6 +157,37 @@ To revisit fp16 hift later: rebuild the engine with TRT
 Snake activation — likely cuts hift time ~30% more, but needs careful
 layer-name targeting in the engine builder.
 
+## Round 11 — fp16 hift + Snake-fp32 mixed precision (null result)
+
+Tried building the hift engine in fp16 with `OBEY_PRECISION_CONSTRAINTS`
++ per-layer fp32 markings on Sin / Pow / Reciprocal / Div ops (the
+decomposed Snake activation in ONNX). Hypothesis: protect Snake from fp16
+overflow while letting the heavy Conv / ConvTranspose layers run fp16.
+
+- Engine built (229 s) with **289 / 3166 layers (9 %) forced to fp32**.
+- Audio is correct: CER 0.234, SECS 0.614 — identical to R10 fp32 hift
+  and to no-hift-TRT baseline. So the Snake-fp32 strategy *fixes* the
+  saturation bug.
+- BUT throughput is **slower than R10 pure-fp32 by 5-15 %** at every
+  concurrency (conc=4 QPS 4.21 vs 4.97; conc=16 QPS 5.15 vs 5.60).
+  The repeated fp16↔fp32 cast layers TRT inserts at every Snake
+  boundary cost more than the fp16 Conv speedup saves on a network
+  this Snake-heavy.
+
+Verdict: **R10 (pure fp32 hift) remains production default.** R11 code
+infrastructure (`fp32_layer_keywords` arg in `convert_onnx_to_trt`) is
+kept for future experiments — better keyword targeting (only the
+`Reciprocal` and second `Mul` of each Snake block, not all Sin/Pow ops)
+*might* beat fp32, but the marginal win isn't worth the engine-build
+complexity right now.
+
+| Round | hift TRT mode | conc=4 QPS | TTFA p50 | Audio CER | Status |
+|---|---|---:|---:|---:|---|
+| (no hift TRT) | PyTorch + autocast | 3.41 (R3) | 1115 | 0.270 | baseline |
+| 6 | fp16 unconstrained | 3.99 | 936 | 1.000 | broken |
+| **10** | **fp32** | **4.97** | **743** | **0.234** | **production** |
+| 11 | fp16 + Snake fp32 | 4.21 | 846 | 0.234 | works but slower |
+
 Round 7 details: full Flow cross-request batching needed re-exporting the
 TRT engine away from the CFG-baked batch=2 layout (1-2 days of work,
 30-50% best-case Flow gain). Instead bumped `trt_concurrent` from 1 to 4,

@@ -113,7 +113,12 @@ class CosyVoiceModel:
                 'max_shape': [(1, 512, 600), (1, 18, 72001)],
                 'input_names': ['x', 's_stft'],
             }
-            convert_onnx_to_trt(hift_engine_path, trt_kwargs, hift_onnx_path, fp16)
+            # When fp16, keep Snake activation ops in fp32 to avoid 1/alpha
+            # overflow (alpha values < ~0.015 send 1/alpha past fp16 max=65504).
+            # Snake decomposes as Sin -> Pow(2) -> Reciprocal/Div -> Mul -> Add;
+            # protecting just Sin/Pow/Reciprocal/Div is enough.
+            extra = {'fp32_layer_keywords': ['sin', 'pow', 'reciprocal', 'div']} if fp16 else {}
+            convert_onnx_to_trt(hift_engine_path, trt_kwargs, hift_onnx_path, fp16, **extra)
         import tensorrt as trt
         import queue as _queue
         with open(hift_engine_path, 'rb') as f:

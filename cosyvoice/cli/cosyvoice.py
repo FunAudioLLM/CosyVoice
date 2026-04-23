@@ -224,12 +224,13 @@ class CosyVoice3(CosyVoice2):
                                 trt_concurrent,
                                 self.fp16)
             # HiFi-GAN decoder (post conv_pre) -> TRT, opt-in via env LOAD_TRT_HIFT=1.
-            # NOTE: hift TRT uses fp32 by default (HIFT_TRT_FP16 defaults off).
-            # The fp16 engine produces saturated audio (likely Snake activation
-            # numerical overflow); fp32 is correct but only ~10-15% faster than
-            # PyTorch+autocast. See slo_analysis.md "Round 6 regression".
+            # As of Round 13, hift TRT is fp16 by default. The Snake activation
+            # in cosyvoice/transformer/activation.py was patched to clamp
+            # inv_alpha at the source (max=6e4), which fixes the fp16 overflow
+            # that previously saturated audio (Round 6 regression). Pure fp16
+            # is now safe AND fastest. Set HIFT_TRT_FP16=0 to revert to fp32.
             if os.environ.get('LOAD_TRT_HIFT', '0') == '1':
-                hift_fp16 = os.environ.get('HIFT_TRT_FP16', '0') == '1'
+                hift_fp16 = os.environ.get('HIFT_TRT_FP16', '1') == '1'
                 hift_onnx = '{}/hift.decoder.fp32.onnx'.format(model_dir)
                 hift_engine = '{}/hift.decoder.{}.mygpu.plan'.format(
                     model_dir, 'fp16' if hift_fp16 else 'fp32')

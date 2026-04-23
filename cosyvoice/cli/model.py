@@ -113,13 +113,13 @@ class CosyVoiceModel:
                 'max_shape': [(1, 512, 600), (1, 18, 72001)],
                 'input_names': ['x', 's_stft'],
             }
-            # When fp16, keep Snake activation ops in fp32 to avoid 1/alpha
-            # overflow (alpha values < ~0.015 send 1/alpha past fp16 max=65504).
-            # ONNX-export node-name probe (dump_onnx_nodes.py) showed all
-            # Snake ops live under "/activations<N>.<M>/", so this single
-            # keyword precisely targets them and nothing else (vs the previous
-            # 'sin/pow/reciprocal/div' keyword set that over-matched).
-            extra = {'fp32_layer_keywords': ['activations']} if fp16 else {}
+            # Snake activation in cosyvoice/transformer/activation.py now
+            # clamps inv_alpha at the source (max=6e4, fp16-safe) so the
+            # 4/10752 outlier alphas no longer trigger overflow. This makes
+            # pure fp16 hift engine viable WITHOUT OBEY_PRECISION_CONSTRAINTS.
+            # Set HIFT_TRT_FP32_KW=1 to force the per-layer fp32 fallback.
+            extra = {'fp32_layer_keywords': ['activations']} \
+                if fp16 and os.environ.get('HIFT_TRT_FP32_KW', '0') == '1' else {}
             convert_onnx_to_trt(hift_engine_path, trt_kwargs, hift_onnx_path, fp16, **extra)
         import tensorrt as trt
         import queue as _queue

@@ -75,10 +75,20 @@ class Snake(nn.Module):
         Forward pass of the function.
         Applies the function to the input elementwise.
         Snake ∶= x + 1/a * sin^2 (xa)
+
+        FP16-safety note: 4/10752 trained alpha channels in CosyVoice3 hift
+        have alpha < 1.6e-5, which sends 1/alpha past fp16 max=65504 and
+        saturates the entire downstream waveform when the engine is fp16
+        (without per-layer precision constraints). Clamping inv_alpha to
+        a fp16-safe ceiling fixes this with negligible math change for the
+        99.96% of channels with normal alpha values.
         '''
         alpha = self.alpha.unsqueeze(0).unsqueeze(-1)  # line up with x to [B, C, T]
         if self.alpha_logscale:
             alpha = torch.exp(alpha)
-        x = x + (1.0 / (alpha + self.no_div_by_zero)) * pow(sin(x * alpha), 2)
+        inv_alpha = 1.0 / (alpha + self.no_div_by_zero)
+        # 6e4 is just under fp16 max; affects only the few outlier channels
+        inv_alpha = torch.clamp(inv_alpha, max=6e4)
+        x = x + inv_alpha * pow(sin(x * alpha), 2)
 
         return x

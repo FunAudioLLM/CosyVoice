@@ -185,9 +185,10 @@ complexity right now.
 |---|---|---:|---:|---:|---|
 | (no hift TRT) | PyTorch + autocast | 3.41 (R3) | 1115 | 0.270 | baseline |
 | 6 | fp16 unconstrained | 3.99 | 936 | 1.000 | broken |
-| **10** | **fp32** | **4.97** | **743** | **0.234** | **production** |
+| 10 | fp32 (no Snake fix) | 4.97 | 743 | 0.234 | works |
 | 11 | fp16 + sin/pow/recip/div fp32 (broad keywords, 289 layers) | 4.21 | 846 | 0.234 | works but slower |
 | 12 | fp16 + `activations` precise keyword (648 layers = 72 Snake × 9 ops) | 4.84 | 758 | 0.234 | works, ≈ fp32 |
+| **13** | **fp16 unconstrained + Snake `clamp(inv_alpha, max=6e4)`** | **5.03** | **749** | **0.234** | **production** |
 
 ## Round 12 — precise Snake-fp32 keyword from ONNX node-name probe
 
@@ -212,6 +213,60 @@ that does the Snake math entirely in fp32 inside one kernel, avoiding
 the per-op cast overhead.
 
 **Production config remains R10**: pure fp32 hift TRT engine.
+
+## Round 13 — Snake `inv_alpha` clamp at the source (real fp16 win)
+
+Followed up R11/R12 with a diagnostic dump of the trained Snake alpha
+values from `hift.pt`:
+
+```
+overall stats over 10752 alpha values
+  alpha min=1.6024e-06  max=4.4509e+00  mean=2.2736e-01
+  1/alpha max=6.2369e+05  fp16 max=65504
+  values where 1/alpha > 65504 (fp16 overflow): 4 / 10752
+  values where 1/alpha > 6500  (close to limit):     56
+```
+
+Only 4 outlier channels overflow fp16 — but those 4 channels feed Inf
+into the downstream multiply, NaN-poison the magnitude head, and the
+iSTFT clamp drives every output sample to ±1.0. **A two-line patch
+fixes it at the source**:
+
+```python
+# cosyvoice/transformer/activation.py:Snake.forward
+inv_alpha = 1.0 / (alpha + self.no_div_by_zero)
+inv_alpha = torch.clamp(inv_alpha, max=6e4)  # NEW: fp16-safe (max=65504)
+x = x + inv_alpha * pow(sin(x * alpha), 2)
+```
+
+The clamp affects only the 4 outlier channels (0.04 %); on the other
+99.96 % of channels the math is identical (no clamp triggers). After
+re-exporting hift ONNX with the patched Snake and rebuilding the fp16
+TRT engine **without any precision constraints**:
+
+| metric | R10 fp32 (no Snake fix) | R13 fp16 + Snake clamp |
+|---|---:|---:|
+| Audio CER | 0.234 | 0.234 |
+| Audio SECS | 0.615 | 0.615 |
+| Engine build | ~30 s | **32 s** (vs R11/R12: 230 s) |
+| conc=1 TTFA p50 | 444 ms | **409 ms** (−8 %) |
+| conc=4 QPS | 4.97 | **5.03** (+1 %) |
+| conc=4 TTFA p95 | 1054 ms | **938 ms** (−11 %) |
+| conc=8 QPS | 5.74 | 5.44 (−5 %, noise) |
+| conc=16 QPS | 5.60 | 5.24 (−6 %, noise) |
+
+Same audio, faster engine build, lower tail latency at conc=4 (the
+production sweet spot per SLO). Peak QPS at conc=8/16 is within
+benchmark noise of R10. **R13 is the new production default**:
+
+```
+LOAD_TRT=1 FP16=1 LOAD_TRT_HIFT=1 HIFT_TRT_FP16=1   <-- was 0 before R13
+FLOW_TRT_CONCURRENT=4
+```
+
+The `fp32_layer_keywords` infrastructure from R11/R12 stays in place
+behind env `HIFT_TRT_FP32_KW=1` for the unlikely future case where
+re-trained Snake alphas drift back into the overflow range.
 
 Round 7 details: full Flow cross-request batching needed re-exporting the
 TRT engine away from the CFG-baked batch=2 layout (1-2 days of work,

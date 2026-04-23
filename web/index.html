@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CosyVoice3 TTS 测试</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    max-width: 880px; margin: 24px auto; padding: 0 16px; color: #222;
+    background: #fafbfc;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: #666; font-size: 13px; margin-bottom: 24px; }
+  .card { background: #fff; border: 1px solid #e1e4e8; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  textarea {
+    width: 100%; min-height: 90px; padding: 10px; font-size: 14px;
+    font-family: inherit; border: 1px solid #d1d5da; border-radius: 6px;
+    resize: vertical;
+  }
+  .presets { margin: 8px 0; display: flex; gap: 8px; flex-wrap: wrap; }
+  .presets button {
+    background: #f6f8fa; border: 1px solid #d1d5da; padding: 4px 10px;
+    border-radius: 12px; font-size: 12px; cursor: pointer;
+  }
+  .presets button:hover { background: #e1e4e8; }
+  .controls { display: flex; gap: 12px; margin-top: 12px; align-items: center; }
+  .controls button {
+    padding: 9px 18px; font-size: 14px; font-weight: 600;
+    border: none; border-radius: 6px; cursor: pointer; color: #fff;
+    transition: opacity 0.15s;
+  }
+  .controls button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-sync   { background: #28a745; }
+  .btn-stream { background: #0366d6; }
+  .btn-stop   { background: #d73a49; }
+  .seed { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .seed input { width: 70px; padding: 5px; border: 1px solid #d1d5da; border-radius: 4px; font-size: 13px; }
+  .metrics {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px; margin-top: 12px;
+  }
+  .metric {
+    background: #f6f8fa; padding: 10px; border-radius: 6px;
+    border-left: 3px solid #0366d6;
+  }
+  .metric .label { font-size: 11px; color: #586069; text-transform: uppercase; letter-spacing: 0.5px; }
+  .metric .value { font-size: 18px; font-weight: 600; margin-top: 2px; color: #24292e; font-variant-numeric: tabular-nums; }
+  .status {
+    margin-top: 12px; padding: 10px; border-radius: 6px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
+    background: #1e1e1e; color: #d4d4d4; min-height: 24px;
+    max-height: 180px; overflow-y: auto;
+    white-space: pre-wrap;
+  }
+  .status .ok    { color: #4ec9b0; }
+  .status .warn  { color: #dcdcaa; }
+  .status .err   { color: #f48771; }
+  .status .info  { color: #9cdcfe; }
+  audio { width: 100%; margin-top: 10px; }
+  .footer-tip { font-size: 11px; color: #999; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<h1>CosyVoice3 TTS 测试</h1>
+<div class="sub">单 RTX 3090 · vLLM 0.11 + TRT · 24kHz mono · 默认音色：希望你以后能够做的比我还好呦</div>
+
+<div class="card">
+  <textarea id="text" placeholder="输入要合成的中文/英文文本...">你好，今天天气真不错，我们去公园散步吧。</textarea>
+  <div class="presets">
+    <button data-text="你好。">极短(2字)</button>
+    <button data-text="你好，今天天气真不错。">短(11字)</button>
+    <button data-text="收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。">中(50字)</button>
+    <button data-text="在人工智能技术飞速发展的今天，语音合成已经从早期生硬的拼接方式，进化到如今能够表达丰富情感、自然流畅的神经网络模型。CosyVoice 作为阿里达摩院推出的多语言语音生成模型，在零样本音色克隆、跨语种合成、多方言支持等方面都展现出了令人惊艳的能力，为众多应用场景带来了新的可能性。">长(140字)</button>
+    <button data-text="Hello, how are you today? It's a nice day for a walk in the park.">英文短句</button>
+  </div>
+  <div class="controls">
+    <button id="btn-sync" class="btn-sync">▶ 同步合成 /tts</button>
+    <button id="btn-stream" class="btn-stream">⚡ 流式合成 /tts/stream</button>
+    <button id="btn-stop" class="btn-stop" disabled>■ 停止</button>
+    <span class="seed">seed <input id="seed" type="number" value="1" min="0"></span>
+  </div>
+</div>
+
+<div class="card">
+  <div style="font-size:13px;font-weight:600;margin-bottom:8px;">本次结果</div>
+  <div class="metrics">
+    <div class="metric"><div class="label">TTFA (首音频)</div><div class="value" id="m-ttfa">— ms</div></div>
+    <div class="metric"><div class="label">总耗时</div><div class="value" id="m-total">— ms</div></div>
+    <div class="metric"><div class="label">音频时长</div><div class="value" id="m-audio">— s</div></div>
+    <div class="metric"><div class="label">RTF</div><div class="value" id="m-rtf">—</div></div>
+    <div class="metric"><div class="label">音频字节</div><div class="value" id="m-bytes">— KB</div></div>
+    <div class="metric"><div class="label">分块数</div><div class="value" id="m-chunks">—</div></div>
+  </div>
+  <div id="status" class="status">就绪。</div>
+  <audio id="audio-sync" controls style="display:none"></audio>
+  <div class="footer-tip" id="tip"></div>
+</div>
+
+<div class="card">
+  <div style="font-size:13px;font-weight:600;margin-bottom:6px;">服务端累计指标 (/metrics)</div>
+  <div id="server-metrics" style="font-family:ui-monospace,monospace;font-size:12px;color:#586069;">点击下方按钮刷新</div>
+  <div style="margin-top:8px;"><button id="btn-refresh" style="padding:5px 12px;font-size:12px;background:#f6f8fa;border:1px solid #d1d5da;border-radius:4px;cursor:pointer;">刷新</button></div>
+</div>
+
+<script>
+const SR = 24000; // server sample rate
+const els = {
+  text: document.getElementById('text'),
+  seed: document.getElementById('seed'),
+  btnSync: document.getElementById('btn-sync'),
+  btnStream: document.getElementById('btn-stream'),
+  btnStop: document.getElementById('btn-stop'),
+  btnRefresh: document.getElementById('btn-refresh'),
+  status: document.getElementById('status'),
+  audioSync: document.getElementById('audio-sync'),
+  tip: document.getElementById('tip'),
+  serverMetrics: document.getElementById('server-metrics'),
+  m: {
+    ttfa: document.getElementById('m-ttfa'),
+    total: document.getElementById('m-total'),
+    audio: document.getElementById('m-audio'),
+    rtf: document.getElementById('m-rtf'),
+    bytes: document.getElementById('m-bytes'),
+    chunks: document.getElementById('m-chunks'),
+  },
+};
+
+// presets
+document.querySelectorAll('.presets button').forEach(b => {
+  b.onclick = () => { els.text.value = b.dataset.text; };
+});
+
+// status logger
+function log(msg, cls = 'info') {
+  const ts = new Date().toLocaleTimeString();
+  els.status.innerHTML += `<span class="${cls}">[${ts}] ${msg}</span>\n`;
+  els.status.scrollTop = els.status.scrollHeight;
+}
+function clearStatus() { els.status.innerHTML = ''; }
+
+function setMetrics({ ttfa, total, audio, bytes, chunks }) {
+  if (ttfa !== undefined)  els.m.ttfa.textContent  = ttfa  === null ? '— ms' : `${ttfa.toFixed(0)} ms`;
+  if (total !== undefined) els.m.total.textContent = total === null ? '— ms' : `${total.toFixed(0)} ms`;
+  if (audio !== undefined) els.m.audio.textContent = audio === null ? '— s'  : `${audio.toFixed(2)} s`;
+  if (audio && total) els.m.rtf.textContent = (total / 1000 / audio).toFixed(3);
+  if (bytes !== undefined) els.m.bytes.textContent = bytes === null ? '— KB' : `${(bytes/1024).toFixed(1)} KB`;
+  if (chunks !== undefined) els.m.chunks.textContent = chunks === null ? '—' : `${chunks}`;
+}
+
+function lockUi(busy) {
+  els.btnSync.disabled = busy;
+  els.btnStream.disabled = busy;
+  els.btnStop.disabled = !busy;
+}
+
+// ---- Sync /tts ----
+els.btnSync.onclick = async () => {
+  const text = els.text.value.trim();
+  if (!text) { log('文本为空', 'warn'); return; }
+  clearStatus();
+  setMetrics({ ttfa: null, total: null, audio: null, bytes: null, chunks: null });
+  els.tip.textContent = '';
+  els.audioSync.style.display = 'none';
+  lockUi(true);
+
+  const t0 = performance.now();
+  try {
+    log(`POST /tts seed=${els.seed.value} chars=${text.length}`, 'info');
+    const resp = await fetch('/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, seed: parseInt(els.seed.value) || 0 }),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const blob = await resp.blob();
+    const t1 = performance.now();
+    const audioSec = parseFloat(resp.headers.get('X-Audio-Seconds') || 0);
+    const wallSec = parseFloat(resp.headers.get('X-Wall-Seconds') || 0);
+    log(`✓ 收到 wav ${(blob.size/1024).toFixed(1)} KB, server_wall=${(wallSec*1000).toFixed(0)}ms, audio=${audioSec.toFixed(2)}s`, 'ok');
+    setMetrics({
+      ttfa: t1 - t0,
+      total: t1 - t0,
+      audio: audioSec,
+      bytes: blob.size,
+      chunks: 1,
+    });
+    els.tip.textContent = `同步模式：TTFA = TOTAL（要等全部音频生成完）`;
+    const url = URL.createObjectURL(blob);
+    els.audioSync.src = url;
+    els.audioSync.style.display = 'block';
+    els.audioSync.play().catch(e => log('autoplay blocked: ' + e.message, 'warn'));
+  } catch (e) {
+    log('✗ 错误: ' + e.message, 'err');
+  } finally {
+    lockUi(false);
+  }
+};
+
+// ---- Stream /tts/stream with Web Audio API ----
+let streamCtl = null;
+
+els.btnStop.onclick = () => {
+  if (streamCtl) {
+    streamCtl.abort();
+    log('用户中止', 'warn');
+  }
+};
+
+els.btnStream.onclick = async () => {
+  const text = els.text.value.trim();
+  if (!text) { log('文本为空', 'warn'); return; }
+  clearStatus();
+  setMetrics({ ttfa: null, total: null, audio: null, bytes: null, chunks: null });
+  els.tip.textContent = '';
+  els.audioSync.style.display = 'none';
+  lockUi(true);
+
+  const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SR });
+  // resume in case suspended (browsers require user gesture)
+  if (ctx.state === 'suspended') await ctx.resume();
+  let nextPlayTime = ctx.currentTime;
+  let chunksCount = 0;
+  let totalBytes = 0;
+  let totalSamples = 0;
+  let firstChunkAt = null;
+
+  const ctrl = new AbortController();
+  streamCtl = ctrl;
+
+  const t0 = performance.now();
+  log(`POST /tts/stream seed=${els.seed.value} chars=${text.length}`, 'info');
+
+  try {
+    const resp = await fetch('/tts/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, seed: parseInt(els.seed.value) || 0 }),
+      signal: ctrl.signal,
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const sr = parseInt(resp.headers.get('X-Sample-Rate') || SR);
+    log(`Headers OK, sample_rate=${sr}, 等待第一个音频块...`, 'info');
+
+    const reader = resp.body.getReader();
+    let leftover = new Uint8Array(0); // for odd-byte boundary handling
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      // concat leftover + value
+      const buf = new Uint8Array(leftover.length + value.length);
+      buf.set(leftover, 0); buf.set(value, leftover.length);
+
+      // ensure even-length for int16 samples
+      const evenLen = buf.length - (buf.length % 2);
+      leftover = buf.slice(evenLen);
+      const usable = buf.slice(0, evenLen);
+      totalBytes += value.length;
+
+      if (firstChunkAt === null && usable.length > 0) {
+        firstChunkAt = performance.now();
+        const ttfa = firstChunkAt - t0;
+        log(`✓ 首音频块到达 TTFA = ${ttfa.toFixed(0)} ms (size=${usable.length} bytes)`, 'ok');
+        setMetrics({ ttfa });
+      }
+
+      // decode int16 LE -> float32 [-1,1]
+      const dv = new DataView(usable.buffer, usable.byteOffset, usable.byteLength);
+      const numSamples = usable.length / 2;
+      const f32 = new Float32Array(numSamples);
+      for (let i = 0; i < numSamples; i++) {
+        f32[i] = dv.getInt16(i * 2, true) / 32768;
+      }
+      totalSamples += numSamples;
+
+      // schedule playback
+      const audioBuf = ctx.createBuffer(1, numSamples, sr);
+      audioBuf.copyToChannel(f32, 0);
+      const src = ctx.createBufferSource();
+      src.buffer = audioBuf;
+      src.connect(ctx.destination);
+      const startAt = Math.max(ctx.currentTime, nextPlayTime);
+      src.start(startAt);
+      nextPlayTime = startAt + audioBuf.duration;
+
+      chunksCount++;
+      setMetrics({ chunks: chunksCount, bytes: totalBytes });
+    }
+
+    const t1 = performance.now();
+    const audioSec = totalSamples / SR;
+    log(`✓ 流结束 chunks=${chunksCount} bytes=${(totalBytes/1024).toFixed(1)}KB audio=${audioSec.toFixed(2)}s total=${(t1-t0).toFixed(0)}ms`, 'ok');
+    setMetrics({ total: t1 - t0, audio: audioSec });
+    els.tip.textContent = `流式：用户在 ${(firstChunkAt - t0).toFixed(0)}ms 就听到了开头，整段音频 ${audioSec.toFixed(2)}s。`;
+  } catch (e) {
+    if (e.name === 'AbortError') log('已中止', 'warn');
+    else log('✗ 错误: ' + e.message, 'err');
+  } finally {
+    streamCtl = null;
+    lockUi(false);
+  }
+};
+
+// ---- /metrics refresh ----
+els.btnRefresh.onclick = async () => {
+  try {
+    const r = await fetch('/metrics');
+    const m = await r.json();
+    els.serverMetrics.textContent = JSON.stringify(m, null, 2);
+  } catch (e) {
+    els.serverMetrics.textContent = '错误: ' + e.message;
+  }
+};
+
+// auto-refresh metrics on load
+els.btnRefresh.click();
+</script>
+
+</body>
+</html>

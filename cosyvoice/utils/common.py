@@ -202,7 +202,7 @@ class TrtContextWrapper:
         self.trt_engine = trt_engine
         for _ in range(trt_concurrent):
             trt_context = trt_engine.create_execution_context()
-            trt_stream = torch.cuda.stream(torch.cuda.Stream(device))
+            trt_stream = torch.cuda.Stream(device)
             assert trt_context is not None, 'failed to create trt context, maybe not enough CUDA memory, try reduce current trt concurrent {}'.format(trt_concurrent)
             self.trt_context_pool.put([trt_context, trt_stream])
         assert self.trt_context_pool.empty() is False, 'no avaialbe estimator context'

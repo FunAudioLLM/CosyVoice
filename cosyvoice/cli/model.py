@@ -22,11 +22,14 @@ from torch.nn import functional as F
 from contextlib import nullcontext
 import uuid
 from cosyvoice.utils.common import fade_in_out
-from cosyvoice.utils.file_utils import convert_onnx_to_trt, export_cosyvoice2_vllm
-from cosyvoice.utils.common import TrtContextWrapper
+from cosyvoice.utils.file_utils import convert_onnx_to_trt, export_cosyvoice2_vllm, flow_decoder_estimator_bucket_plan
+from cosyvoice.utils.common import TrtContextWrapper, TrtBucketedContextWrapper
 
 
 class CosyVoiceModel:
+
+    TRT_BUCKET_MAX_LENS = (256, 768, 1536, 3000)
+    TRT_BUCKET_MEM_MB = {256: 1800.0, 768: 2600.0, 1536: 3400.0, 3000: 4600.0}
 
     def __init__(self,
                  llm: torch.nn.Module,
@@ -80,22 +83,48 @@ class CosyVoiceModel:
         flow_encoder = torch.jit.load(flow_encoder_model, map_location=self.device)
         self.flow.encoder = flow_encoder
 
-    def load_trt(self, flow_decoder_estimator_model, flow_decoder_onnx_model, trt_concurrent, fp16):
+    def load_trt(self, flow_decoder_estimator_model, flow_decoder_onnx_model, trt_concurrent, fp16,
+                 trt_bucket=False, model_dir=''):
         assert torch.cuda.is_available(), 'tensorrt only supports gpu!'
-        if not os.path.exists(flow_decoder_estimator_model) or os.path.getsize(flow_decoder_estimator_model) == 0:
-            convert_onnx_to_trt(flow_decoder_estimator_model, self.get_trt_kwargs(), flow_decoder_onnx_model, fp16)
         del self.flow.decoder.estimator
         import tensorrt as trt
+        if trt_bucket is True:
+            assert model_dir, 'model_dir is required when trt_bucket is True'
+            bucket_engines = []
+            os.makedirs(os.path.join(model_dir, 'trt_bucket_plans'), exist_ok=True)
+            for max_len in self.TRT_BUCKET_MAX_LENS:
+                plan_path = flow_decoder_estimator_bucket_plan(model_dir, max_len)
+                if not os.path.exists(plan_path) or os.path.getsize(plan_path) == 0:
+                    convert_onnx_to_trt(plan_path, self.get_trt_kwargs(max_len=max_len), flow_decoder_onnx_model, fp16)
+                with open(plan_path, 'rb') as f:
+                    estimator_engine = trt.Runtime(trt.Logger(trt.Logger.INFO)).deserialize_cuda_engine(f.read())
+                assert estimator_engine is not None, 'failed to load trt {}'.format(plan_path)
+                bucket_engines.append({
+                    'max_seq_len': max_len,
+                    'engine': estimator_engine,
+                    'plan_path': plan_path,
+                    'estimated_mem_mb': self.TRT_BUCKET_MEM_MB.get(max_len, 0.0),
+                })
+            self.flow.decoder.estimator = TrtBucketedContextWrapper(
+                bucket_engines=bucket_engines,
+                trt_concurrent=trt_concurrent,
+                device=self.device,
+            )
+            return
+        if not os.path.exists(flow_decoder_estimator_model) or os.path.getsize(flow_decoder_estimator_model) == 0:
+            convert_onnx_to_trt(flow_decoder_estimator_model, self.get_trt_kwargs(), flow_decoder_onnx_model, fp16)
         with open(flow_decoder_estimator_model, 'rb') as f:
             estimator_engine = trt.Runtime(trt.Logger(trt.Logger.INFO)).deserialize_cuda_engine(f.read())
         assert estimator_engine is not None, 'failed to load trt {}'.format(flow_decoder_estimator_model)
         self.flow.decoder.estimator = TrtContextWrapper(estimator_engine, trt_concurrent=trt_concurrent, device=self.device)
 
-    def get_trt_kwargs(self):
-        min_shape = [(2, 80, 4), (2, 1, 4), (2, 80, 4), (2, 80, 4)]
-        opt_shape = [(2, 80, 500), (2, 1, 500), (2, 80, 500), (2, 80, 500)]
-        max_shape = [(2, 80, 3000), (2, 1, 3000), (2, 80, 3000), (2, 80, 3000)]
-        input_names = ["x", "mask", "mu", "cond"]
+    def get_trt_kwargs(self, max_len=3000):
+        max_len = int(max(4, max_len))
+        opt_len = int(min(max_len, max(64, max_len * 3 // 5)))
+        min_shape = [(2, 80, 4), (2, 1, 4), (2, 80, 4), (2,), (2, 80), (2, 80, 4)]
+        opt_shape = [(2, 80, opt_len), (2, 1, opt_len), (2, 80, opt_len), (2,), (2, 80), (2, 80, opt_len)]
+        max_shape = [(2, 80, max_len), (2, 1, max_len), (2, 80, max_len), (2,), (2, 80), (2, 80, max_len)]
+        input_names = ["x", "mask", "mu", "t", "spks", "cond"]
         return {'min_shape': min_shape, 'opt_shape': opt_shape, 'max_shape': max_shape, 'input_names': input_names}
 
     def llm_job(self, text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):

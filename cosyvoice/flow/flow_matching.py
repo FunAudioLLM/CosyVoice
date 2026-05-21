@@ -105,7 +105,7 @@ class ConditionalCFM(BASECFM):
 
         trt_session = None
         if not isinstance(self.estimator, torch.nn.Module):
-            [estimator, stream], trt_engine = self.estimator.acquire_estimator()
+            [estimator, stream], trt_engine = self.estimator.acquire_estimator(seq_len=x_in.size(2))
             trt_session = (estimator, stream, trt_engine)
 
         try:
@@ -143,7 +143,7 @@ class ConditionalCFM(BASECFM):
         if isinstance(self.estimator, torch.nn.Module):
             return self.estimator(x, mask, mu, t, spks, cond, streaming=streaming)
         else:
-            [estimator, stream], trt_engine = self.estimator.acquire_estimator()
+            [estimator, stream], trt_engine = self.estimator.acquire_estimator(seq_len=x.size(2))
             try:
                 return self._forward_estimator_trt(estimator, stream, trt_engine, x, mask, mu, t, spks, cond)
             finally:

@@ -18,7 +18,7 @@
 
 import queue
 import random
-from typing import List
+from typing import Dict, List
 
 import numpy as np
 import torch
@@ -207,8 +207,73 @@ class TrtContextWrapper:
             self.trt_context_pool.put([trt_context, trt_stream])
         assert self.trt_context_pool.empty() is False, 'no avaialbe estimator context'
 
-    def acquire_estimator(self):
+    def acquire_estimator(self, seq_len=None):
+        del seq_len
         return self.trt_context_pool.get(), self.trt_engine
 
     def release_estimator(self, context, stream):
         self.trt_context_pool.put([context, stream])
+
+
+class TrtBucketedContextWrapper:
+    def __init__(self, bucket_engines: List[Dict], trt_concurrent=1, device='cuda:0',
+                 min_free_mem_mb=2048, reserve_free_mem_ratio=0.12):
+        self.trt_concurrent = trt_concurrent
+        self.device = device
+        self.min_free_mem_mb = float(min_free_mem_mb)
+        self.reserve_free_mem_ratio = float(reserve_free_mem_ratio)
+        self.buckets = []
+        self._ctx_to_bucket = {}
+        for idx, item in enumerate(sorted(bucket_engines, key=lambda x: int(x['max_seq_len']))):
+            trt_engine = item['engine']
+            max_seq_len = int(item['max_seq_len'])
+            plan_path = item.get('plan_path', 'bucket_{}'.format(idx))
+            est_mem_mb = float(item.get('estimated_mem_mb', 0.0))
+            trt_context_pool = queue.Queue(maxsize=trt_concurrent)
+            for _ in range(trt_concurrent):
+                trt_context = trt_engine.create_execution_context()
+                trt_stream = torch.cuda.Stream(device)
+                assert trt_context is not None, 'failed to create trt context, maybe not enough CUDA memory, try reduce current trt concurrent {}'.format(trt_concurrent)
+                trt_context_pool.put([trt_context, trt_stream])
+                self._ctx_to_bucket[id(trt_context)] = idx
+            self.buckets.append({
+                'idx': idx,
+                'max_seq_len': max_seq_len,
+                'plan_path': plan_path,
+                'estimated_mem_mb': est_mem_mb,
+                'queue': trt_context_pool,
+                'engine': trt_engine,
+            })
+        assert len(self.buckets) > 0, 'no available trt bucket engine'
+
+    def _memory_budget_ok(self, estimated_mem_mb):
+        if estimated_mem_mb <= 0:
+            return True
+        free_mem, total_mem = torch.cuda.mem_get_info(self.device)
+        free_mb = free_mem / (1024 * 1024)
+        total_mb = total_mem / (1024 * 1024)
+        reserve_mb = max(self.min_free_mem_mb, total_mb * self.reserve_free_mem_ratio)
+        return (free_mb - estimated_mem_mb) >= reserve_mb
+
+    def _choose_bucket(self, seq_len):
+        candidates = [b for b in self.buckets if seq_len <= b['max_seq_len']]
+        if len(candidates) == 0:
+            raise RuntimeError('seq_len={} exceeds all TRT buckets (max={})'.format(
+                seq_len, self.buckets[-1]['max_seq_len']))
+        for bucket in candidates:
+            if self._memory_budget_ok(bucket['estimated_mem_mb']):
+                return bucket
+        return candidates[0]
+
+    def acquire_estimator(self, seq_len=None):
+        if seq_len is None:
+            bucket = self.buckets[-1]
+        else:
+            bucket = self._choose_bucket(int(seq_len))
+        return bucket['queue'].get(), bucket['engine']
+
+    def release_estimator(self, context, stream):
+        idx = self._ctx_to_bucket.get(id(context), None)
+        if idx is None:
+            raise RuntimeError('unknown TRT context: cannot map back to bucket')
+        self.buckets[idx]['queue'].put([context, stream])

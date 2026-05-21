@@ -20,13 +20,13 @@ from modelscope import snapshot_download
 import torch
 from cosyvoice.cli.frontend import CosyVoiceFrontEnd
 from cosyvoice.cli.model import CosyVoiceModel, CosyVoice2Model, CosyVoice3Model
-from cosyvoice.utils.file_utils import logging
+from cosyvoice.utils.file_utils import logging, flow_decoder_estimator_onnx_model
 from cosyvoice.utils.class_utils import get_model_type
 
 
 class CosyVoice:
 
-    def __init__(self, model_dir, load_jit=False, load_trt=False, fp16=False, trt_concurrent=1):
+    def __init__(self, model_dir, load_jit=False, load_trt=False, fp16=False, trt_concurrent=1, trt_bucket=False):
         self.model_dir = model_dir
         self.fp16 = fp16
         if not os.path.exists(model_dir):
@@ -57,9 +57,11 @@ class CosyVoice:
                                 '{}/flow.encoder.{}.zip'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'))
         if load_trt:
             self.model.load_trt('{}/flow.decoder.estimator.{}.mygpu.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
-                                '{}/flow.decoder.estimator.fp32.onnx'.format(model_dir),
+                                flow_decoder_estimator_onnx_model(model_dir),
                                 trt_concurrent,
-                                self.fp16)
+                                self.fp16,
+                                trt_bucket=trt_bucket,
+                                model_dir=model_dir)
         del configs
 
     def list_available_spks(self):
@@ -138,7 +140,8 @@ class CosyVoice:
 
 class CosyVoice2(CosyVoice):
 
-    def __init__(self, model_dir, load_jit=False, load_trt=False, load_vllm=False, fp16=False, trt_concurrent=1):
+    def __init__(self, model_dir, load_jit=False, load_trt=False, load_vllm=False, fp16=False, trt_concurrent=1,
+                 trt_bucket=False):
         self.model_dir = model_dir
         self.fp16 = fp16
         if not os.path.exists(model_dir):
@@ -169,9 +172,11 @@ class CosyVoice2(CosyVoice):
             self.model.load_jit('{}/flow.encoder.{}.zip'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'))
         if load_trt:
             self.model.load_trt('{}/flow.decoder.estimator.{}.mygpu.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
-                                '{}/flow.decoder.estimator.fp32.onnx'.format(model_dir),
+                                flow_decoder_estimator_onnx_model(model_dir),
                                 trt_concurrent,
-                                self.fp16)
+                                self.fp16,
+                                trt_bucket=trt_bucket,
+                                model_dir=model_dir)
         del configs
 
     def inference_instruct2(self, tts_text, instruct_text, prompt_wav, zero_shot_spk_id='', stream=False, speed=1.0, text_frontend=True):
@@ -188,7 +193,7 @@ class CosyVoice2(CosyVoice):
 
 class CosyVoice3(CosyVoice2):
 
-    def __init__(self, model_dir, load_trt=False, load_vllm=False, fp16=False, trt_concurrent=1):
+    def __init__(self, model_dir, load_trt=False, load_vllm=False, fp16=False, trt_concurrent=1, trt_bucket=False):
         self.model_dir = model_dir
         self.fp16 = fp16
         if not os.path.exists(model_dir):
@@ -219,9 +224,11 @@ class CosyVoice3(CosyVoice2):
             if self.fp16 is True:
                 logging.warning('DiT tensorRT fp16 engine have some performance issue, use at caution!')
             self.model.load_trt('{}/flow.decoder.estimator.{}.mygpu.plan'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
-                                '{}/flow.decoder.estimator.fp32.onnx'.format(model_dir),
+                                flow_decoder_estimator_onnx_model(model_dir),
                                 trt_concurrent,
-                                self.fp16)
+                                self.fp16,
+                                trt_bucket=trt_bucket,
+                                model_dir=model_dir)
         del configs
 
 

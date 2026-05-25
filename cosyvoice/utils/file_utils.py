@@ -46,7 +46,11 @@ def load_wav(wav, target_sr, min_sr=16000):
     # Use soundfile directly to avoid the torchcodec dependency introduced
     # in torchaudio >= 2.7, where torchaudio.load() routes all backends
     # through TorchCodec (which requires FFmpeg 5+ not shipped by Ubuntu 22.04).
-    data, sample_rate = sf.read(wav, dtype="float32", always_2d=False)
+    # libsndfile reads from the current cursor position; CosyVoice's frontend
+    # passes the same file-like object to multiple load_wav calls, so reset.
+    if hasattr(wav, 'seek'):
+        wav.seek(0)
+    data, sample_rate = sf.read(wav, dtype='float32', always_2d=False)
     if data.ndim > 1:
         data = data.mean(axis=1)
     speech = torch.from_numpy(data).unsqueeze(0)

@@ -80,17 +80,21 @@ class CosyVoice2ForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
             self.model.make_empty_intermediate_tensors)
 
     def get_input_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
-        return self.model.get_input_embeddings(input_ids)
+        if hasattr(self.model, "get_input_embeddings"):
+            return self.model.get_input_embeddings(input_ids)
+
+        return self.model.embed_input_ids(input_ids)
 
     # vLLM >= 0.20 introduced the VllmModelForTextGeneration runtime-checkable
     # protocol (vllm/model_executor/models/interfaces_base.py). Its
     # _check_vllm_model_embed_input_ids probe looks for embed_input_ids
     # specifically; without it, is_text_generation_model() returns False and
     # ModelConfig validation raises "This model does not support `--runner
-    # generate`". Delegating to the underlying Qwen2Model is the same path as
-    # get_input_embeddings above.
+    # generate`". The underlying vLLM Qwen2Model exposes embed_input_ids
+    # (which internally calls self.embed_tokens); there is no
+    # get_input_embeddings method on vLLM's Qwen2Model.
     def embed_input_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
-        return self.model.get_input_embeddings(input_ids)
+        return self.model.embed_input_ids(input_ids)
 
     def forward(
         self,

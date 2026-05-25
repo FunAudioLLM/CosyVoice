@@ -18,6 +18,8 @@ import os
 import json
 import torch
 import torchaudio
+import soundfile as sf
+import numpy as np
 import logging
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.basicConfig(level=logging.DEBUG,
@@ -42,8 +44,21 @@ def read_json_lists(list_file):
 
 
 def load_wav(wav, target_sr, min_sr=16000):
-    speech, sample_rate = torchaudio.load(wav, backend='soundfile')
-    speech = speech.mean(dim=0, keepdim=True)
+    # Read via soundfile directly: since torchaudio 2.8, torchaudio.load routes
+    # through torchcodec, an optional dependency that is often not installed.
+    try:
+        speech_np, sample_rate = sf.read(wav, dtype='float32')
+        # Convert to torch tensor
+        if speech_np.ndim == 1:
+            speech = torch.from_numpy(speech_np).unsqueeze(0)
+        else:
+            # Multi-channel: convert to mono by averaging
+            speech = torch.from_numpy(speech_np.T).mean(dim=0, keepdim=True)
+    except Exception as e:
+        logging.warning(f'soundfile failed, falling back to torchaudio: {e}')
+        speech, sample_rate = torchaudio.load(wav, backend='soundfile')
+        speech = speech.mean(dim=0, keepdim=True)
+    
     if sample_rate != target_sr:
         assert sample_rate >= min_sr, 'wav sample rate {} must be greater than {}'.format(sample_rate, target_sr)
         speech = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=target_sr)(speech)

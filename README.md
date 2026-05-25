@@ -100,6 +100,14 @@
     conda create -n cosyvoice -y python=3.10
     conda activate cosyvoice
     pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+    ```
+
+    # Optional: enable vLLM support in a separate environment
+    ``` sh
+    conda create -n cosyvoice_vllm -y python=3.10
+    conda activate cosyvoice_vllm
+    pip install -r requirements.txt -r requirements/vllm.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+    ```
 
     # If you encounter sox compatibility issues
     # ubuntu
@@ -160,10 +168,10 @@ Notice that `vllm` has a lot of specific requirements. You can create a new env 
 ``` sh
 conda create -n cosyvoice_vllm --clone cosyvoice
 conda activate cosyvoice_vllm
-# for vllm==0.9.0
-pip install vllm==v0.9.0 transformers==4.51.3 numpy==1.26.4 -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
-# for vllm>=0.11.0
-pip install vllm==v0.11.0 transformers==4.57.1 numpy==1.26.4 -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+# Install recommended vLLM support
+pip install -r requirements/vllm.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
+# Legacy vLLM support (optional):
+# pip install vllm==0.9.0 transformers==4.51.3 numpy==1.26.4 -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host=mirrors.aliyun.com
 python vllm_example.py
 ```
 

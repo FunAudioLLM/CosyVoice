@@ -1,0 +1,4 @@
+# Optional vLLM support. Install in a separate environment if needed.
+vllm==0.11.0
+transformers==4.57.1
+numpy==1.26.4

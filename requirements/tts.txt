@@ -1,0 +1,9 @@
+diffusers==0.29.0
+gdown==5.1.0
+librosa==0.10.2
+soundfile==0.12.1
+pyworld==0.3.4
+pyarrow==18.1.0
+modelscope==1.20.0
+wetext==0.0.4
+openai-whisper==20231117

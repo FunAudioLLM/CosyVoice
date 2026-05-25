@@ -1,0 +1,6 @@
+onnx==1.16.0
+onnxruntime-gpu==1.18.0; sys_platform == 'linux'
+onnxruntime==1.18.0; sys_platform == 'darwin' or sys_platform == 'win32'
+tensorrt-cu12==10.13.3.9; sys_platform == 'linux'
+tensorrt-cu12-bindings==10.13.3.9; sys_platform == 'linux'
+tensorrt-cu12-libs==10.13.3.9; sys_platform == 'linux'

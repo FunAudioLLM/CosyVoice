@@ -1,0 +1,4 @@
+deepspeed==0.15.1; sys_platform == 'linux'
+lightning==2.2.4
+tensorboard==2.14.0
+matplotlib==3.7.5

@@ -1,0 +1,6 @@
+fastapi==0.115.6
+fastapi-cli==0.0.4
+gradio==5.4.0
+grpcio==1.57.0
+grpcio-tools==1.57.0
+uvicorn==0.30.0

@@ -23,7 +23,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Inference-only Qwen2 model compatible with HuggingFace weights."""
-from typing import Optional
+from typing import Iterable, Optional, Union
 from packaging.version import parse as vparse
 import vllm
 

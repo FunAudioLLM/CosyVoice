@@ -1,5 +1,3 @@
---extra-index-url https://download.pytorch.org/whl/cu121
---extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/ # https://github.com/microsoft/onnxruntime/issues/21684
 conformer==0.3.2
 deepspeed==0.15.1; sys_platform == 'linux'
 diffusers==0.29.0
@@ -33,8 +31,8 @@ tensorboard==2.14.0
 tensorrt-cu12==10.13.3.9; sys_platform == 'linux'
 tensorrt-cu12-bindings==10.13.3.9; sys_platform == 'linux'
 tensorrt-cu12-libs==10.13.3.9; sys_platform == 'linux'
-torch==2.3.1
-torchaudio==2.3.1
+torch>=2.3.1
+torchaudio>=2.3.1
 transformers==4.51.3
 x-transformers==2.11.24
 uvicorn==0.30.0

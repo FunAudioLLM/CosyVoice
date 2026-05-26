@@ -108,6 +108,32 @@
     sudo yum install sox sox-devel
     ```
 
+### macOS Apple Silicon (M1/M2/M3/M4)
+
+For Apple Silicon Macs, use the dedicated setup script:
+
+``` sh
+git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
+cd CosyVoice
+bash setup_macos.sh
+```
+
+Or manually:
+
+``` sh
+conda create -n cosyvoice -y python=3.10
+conda activate cosyvoice
+conda install -c conda-forge pynini==2.1.5 -y
+pip install torch torchaudio
+pip install -r requirements.txt
+```
+
+**Apple Silicon notes:**
+- Inference runs on MPS (Metal Performance Shaders) — faster than CPU
+- TensorRT and vLLM are not available (CUDA-only)
+- Training with DeepSpeed/DDP is not supported
+- For CUDA environments (Linux), use `pip install -r requirements-cuda.txt` instead
+
 ### Model download
 
 We strongly recommend that you download our pretrained `Fun-CosyVoice3-0.5B` `CosyVoice2-0.5B` `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `CosyVoice-ttsfrd` resource.

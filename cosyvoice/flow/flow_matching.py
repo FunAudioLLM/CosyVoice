@@ -98,28 +98,44 @@ class ConditionalCFM(BASECFM):
         t_in = torch.zeros([2], device=x.device, dtype=spks.dtype)
         spks_in = torch.zeros([2, 80], device=x.device, dtype=spks.dtype)
         cond_in = torch.zeros([2, 80, x.size(2)], device=x.device, dtype=spks.dtype)
-        for step in range(1, len(t_span)):
-            # Classifier-Free Guidance inference introduced in VoiceBox
-            x_in[:] = x
-            mask_in[:] = mask
-            mu_in[0] = mu
-            t_in[:] = t.unsqueeze(0)
-            spks_in[0] = spks
-            cond_in[0] = cond
-            dphi_dt = self.forward_estimator(
-                x_in, mask_in,
-                mu_in, t_in,
-                spks_in,
-                cond_in,
-                streaming
-            )
-            dphi_dt, cfg_dphi_dt = torch.split(dphi_dt, [x.size(0), x.size(0)], dim=0)
-            dphi_dt = ((1.0 + self.inference_cfg_rate) * dphi_dt - self.inference_cfg_rate * cfg_dphi_dt)
-            x = x + dt * dphi_dt
-            t = t + dt
-            sol.append(x)
-            if step < len(t_span) - 1:
-                dt = t_span[step + 1] - t
+        mask_in[:] = mask
+        mu_in[0] = mu
+        spks_in[0] = spks
+        cond_in[0] = cond
+
+        trt_session = None
+        if not isinstance(self.estimator, torch.nn.Module):
+            [estimator, stream], trt_engine = self.estimator.acquire_estimator(seq_len=x_in.size(2))
+            trt_session = (estimator, stream, trt_engine)
+
+        try:
+            for step in range(1, len(t_span)):
+                # Classifier-Free Guidance inference introduced in VoiceBox
+                x_in[:] = x
+                t_in[:] = t.unsqueeze(0)
+                if isinstance(self.estimator, torch.nn.Module):
+                    dphi_dt = self.forward_estimator(
+                        x_in, mask_in,
+                        mu_in, t_in,
+                        spks_in,
+                        cond_in,
+                        streaming
+                    )
+                else:
+                    dphi_dt = self._forward_estimator_trt(
+                        trt_session[0], trt_session[1], trt_session[2],
+                        x_in, mask_in, mu_in, t_in, spks_in, cond_in,
+                    )
+                dphi_dt, cfg_dphi_dt = torch.split(dphi_dt, [x.size(0), x.size(0)], dim=0)
+                dphi_dt = ((1.0 + self.inference_cfg_rate) * dphi_dt - self.inference_cfg_rate * cfg_dphi_dt)
+                x = x + dt * dphi_dt
+                t = t + dt
+                sol.append(x)
+                if step < len(t_span) - 1:
+                    dt = t_span[step + 1] - t
+        finally:
+            if trt_session is not None:
+                self.estimator.release_estimator(trt_session[0], trt_session[1])
 
         return sol[-1].float()
 
@@ -127,30 +143,34 @@ class ConditionalCFM(BASECFM):
         if isinstance(self.estimator, torch.nn.Module):
             return self.estimator(x, mask, mu, t, spks, cond, streaming=streaming)
         else:
-            [estimator, stream], trt_engine = self.estimator.acquire_estimator()
-            # NOTE need to synchronize when switching stream
-            torch.cuda.current_stream().synchronize()
-            with stream:
-                estimator.set_input_shape('x', (2, 80, x.size(2)))
-                estimator.set_input_shape('mask', (2, 1, x.size(2)))
-                estimator.set_input_shape('mu', (2, 80, x.size(2)))
-                estimator.set_input_shape('t', (2,))
-                estimator.set_input_shape('spks', (2, 80))
-                estimator.set_input_shape('cond', (2, 80, x.size(2)))
-                data_ptrs = [x.contiguous().data_ptr(),
-                             mask.contiguous().data_ptr(),
-                             mu.contiguous().data_ptr(),
-                             t.contiguous().data_ptr(),
-                             spks.contiguous().data_ptr(),
-                             cond.contiguous().data_ptr(),
-                             x.data_ptr()]
-                for i, j in enumerate(data_ptrs):
-                    estimator.set_tensor_address(trt_engine.get_tensor_name(i), j)
-                # run trt engine
-                assert estimator.execute_async_v3(torch.cuda.current_stream().cuda_stream) is True
-                torch.cuda.current_stream().synchronize()
-            self.estimator.release_estimator(estimator, stream)
-            return x
+            [estimator, stream], trt_engine = self.estimator.acquire_estimator(seq_len=x.size(2))
+            try:
+                return self._forward_estimator_trt(estimator, stream, trt_engine, x, mask, mu, t, spks, cond)
+            finally:
+                self.estimator.release_estimator(estimator, stream)
+
+    def _forward_estimator_trt(self, estimator, stream, trt_engine, x, mask, mu, t, spks, cond):
+        producer_stream = torch.cuda.current_stream()
+        with torch.cuda.stream(stream):
+            stream.wait_stream(producer_stream)
+            estimator.set_input_shape('x', (2, 80, x.size(2)))
+            estimator.set_input_shape('mask', (2, 1, x.size(2)))
+            estimator.set_input_shape('mu', (2, 80, x.size(2)))
+            estimator.set_input_shape('t', (2,))
+            estimator.set_input_shape('spks', (2, 80))
+            estimator.set_input_shape('cond', (2, 80, x.size(2)))
+            data_ptrs = [x.contiguous().data_ptr(),
+                         mask.contiguous().data_ptr(),
+                         mu.contiguous().data_ptr(),
+                         t.contiguous().data_ptr(),
+                         spks.contiguous().data_ptr(),
+                         cond.contiguous().data_ptr(),
+                         x.data_ptr()]
+            for i, j in enumerate(data_ptrs):
+                estimator.set_tensor_address(trt_engine.get_tensor_name(i), j)
+            assert estimator.execute_async_v3(stream.cuda_stream) is True
+        producer_stream.wait_stream(stream)
+        return x
 
     def compute_loss(self, x1, mask, mu, spks=None, cond=None, streaming=False):
         """Computes diffusion loss

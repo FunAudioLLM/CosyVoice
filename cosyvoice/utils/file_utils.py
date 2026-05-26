@@ -50,6 +50,23 @@ def load_wav(wav, target_sr, min_sr=16000):
     return speech
 
 
+def flow_decoder_estimator_onnx_model(model_dir):
+    """Prefer optimized Flow DiT ONNX, fall back to the official export."""
+    for name in (
+        'flow.decoder.estimator.fp32.optimize.onnx',
+        'flow.decoder.estimator.fp32.onnx',
+    ):
+        path = os.path.join(model_dir, name)
+        if os.path.isfile(path):
+            return path
+    return os.path.join(model_dir, 'flow.decoder.estimator.fp32.onnx')
+
+
+def flow_decoder_estimator_bucket_plan(model_dir, max_len):
+    plan_dir = os.path.join(model_dir, 'trt_bucket_plans')
+    return os.path.join(plan_dir, 'flow.decoder.estimator.fp32.optimize.b{}.plan'.format(int(max_len)))
+
+
 def convert_onnx_to_trt(trt_model, trt_kwargs, onnx_model, fp16):
     import tensorrt as trt
     logging.info("Converting onnx to trt...")

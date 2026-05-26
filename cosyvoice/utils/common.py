@@ -135,16 +135,16 @@ def init_weights(m, mean=0.0, std=0.01):
 
 
 # Repetition Aware Sampling in VALL-E 2
-def ras_sampling(weighted_scores, decoded_tokens, sampling, top_p=0.8, top_k=25, win_size=10, tau_r=0.1):
-    top_ids = nucleus_sampling(weighted_scores, top_p=top_p, top_k=top_k)
+def ras_sampling(weighted_scores, decoded_tokens, sampling, top_p=0.8, top_k=25, win_size=10, tau_r=0.1, generator=None):
+    top_ids = nucleus_sampling(weighted_scores, top_p=top_p, top_k=top_k, generator=generator)
     rep_num = (torch.tensor(decoded_tokens[-win_size:]).to(weighted_scores.device) == top_ids).sum().item()
     if rep_num >= win_size * tau_r:
         weighted_scores[top_ids] = -float('inf')
-        top_ids = random_sampling(weighted_scores, decoded_tokens, sampling)
+        top_ids = random_sampling(weighted_scores, decoded_tokens, sampling, generator=generator)
     return top_ids
 
 
-def nucleus_sampling(weighted_scores, top_p=0.8, top_k=25):
+def nucleus_sampling(weighted_scores, top_p=0.8, top_k=25, generator=None):
     prob, indices = [], []
     cum_prob = 0.0
     sorted_value, sorted_idx = weighted_scores.softmax(dim=0).sort(descending=True, stable=True)
@@ -158,24 +158,22 @@ def nucleus_sampling(weighted_scores, top_p=0.8, top_k=25):
             break
     prob = torch.tensor(prob).to(weighted_scores)
     indices = torch.tensor(indices, dtype=torch.long).to(weighted_scores.device)
-    top_ids = indices[prob.multinomial(1, replacement=True)].item()
+    top_ids = indices[prob.multinomial(1, replacement=True, generator=generator)].item()
     return top_ids
 
 
-def random_sampling(weighted_scores, decoded_tokens, sampling):
-    top_ids = weighted_scores.softmax(dim=0).multinomial(1, replacement=True).item()
+def random_sampling(weighted_scores, decoded_tokens, sampling, generator=None):
+    top_ids = weighted_scores.softmax(dim=0).multinomial(1, replacement=True, generator=generator).item()
     return top_ids
 
 
 def fade_in_out(fade_in_mel, fade_out_mel, window):
-    device = fade_in_mel.device
-    fade_in_mel, fade_out_mel = fade_in_mel.cpu(), fade_out_mel.cpu()
     mel_overlap_len = int(window.shape[0] / 2)
-    if fade_in_mel.device == torch.device('cpu'):
-        fade_in_mel = fade_in_mel.clone()
+    fade_in_mel = fade_in_mel.clone()
+    window = torch.as_tensor(window, device=fade_in_mel.device, dtype=fade_in_mel.dtype)
     fade_in_mel[..., :mel_overlap_len] = fade_in_mel[..., :mel_overlap_len] * window[:mel_overlap_len] + \
         fade_out_mel[..., -mel_overlap_len:] * window[mel_overlap_len:]
-    return fade_in_mel.to(device)
+    return fade_in_mel
 
 
 def set_all_random_seed(seed):
@@ -202,7 +200,7 @@ class TrtContextWrapper:
         self.trt_engine = trt_engine
         for _ in range(trt_concurrent):
             trt_context = trt_engine.create_execution_context()
-            trt_stream = torch.cuda.stream(torch.cuda.Stream(device))
+            trt_stream = None if trt_concurrent == 1 else torch.cuda.stream(torch.cuda.Stream(device))
             assert trt_context is not None, 'failed to create trt context, maybe not enough CUDA memory, try reduce current trt concurrent {}'.format(trt_concurrent)
             self.trt_context_pool.put([trt_context, trt_stream])
         assert self.trt_context_pool.empty() is False, 'no avaialbe estimator context'

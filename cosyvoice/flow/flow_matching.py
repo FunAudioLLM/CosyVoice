@@ -12,6 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from contextlib import nullcontext
+
 import torch
 import torch.nn.functional as F
 from matcha.models.components.flow_matching import BASECFM
@@ -128,9 +130,11 @@ class ConditionalCFM(BASECFM):
             return self.estimator(x, mask, mu, t, spks, cond, streaming=streaming)
         else:
             [estimator, stream], trt_engine = self.estimator.acquire_estimator()
-            # NOTE need to synchronize when switching stream
-            torch.cuda.current_stream().synchronize()
-            with stream:
+            stream_context = stream if stream is not None else nullcontext()
+            if stream is not None:
+                # NOTE only synchronize when switching to a dedicated TRT stream.
+                torch.cuda.current_stream().synchronize()
+            with stream_context:
                 estimator.set_input_shape('x', (2, 80, x.size(2)))
                 estimator.set_input_shape('mask', (2, 1, x.size(2)))
                 estimator.set_input_shape('mu', (2, 80, x.size(2)))
@@ -148,7 +152,8 @@ class ConditionalCFM(BASECFM):
                     estimator.set_tensor_address(trt_engine.get_tensor_name(i), j)
                 # run trt engine
                 assert estimator.execute_async_v3(torch.cuda.current_stream().cuda_stream) is True
-                torch.cuda.current_stream().synchronize()
+                if stream is not None:
+                    torch.cuda.current_stream().synchronize()
             self.estimator.release_estimator(estimator, stream)
             return x
 

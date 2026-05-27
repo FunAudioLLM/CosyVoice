@@ -17,12 +17,12 @@ import random
 import pyarrow.parquet as pq
 from io import BytesIO
 import numpy as np
-import whisper
 import torch
 import torchaudio
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
 import pyworld as pw
+from cosyvoice.utils.audio_utils import log_mel_spectrogram
 from cosyvoice.utils.onnx import embedding_extractor, online_feature
 
 AUDIO_FORMAT_SETS = {'flac', 'mp3', 'm4a', 'ogg', 'opus', 'wav', 'wma'}
@@ -193,7 +193,7 @@ def compute_whisper_fbank(data, num_frames=-1, mode='train'):
         if num_frames != -1:
             assert sample['speech'].shape[1] % num_frames == 0, 'speech length is not aligned with speech_token'
         sample['speech_16k'] = torchaudio.transforms.Resample(orig_freq=sample['sample_rate'], new_freq=16000)(sample['speech'])
-        sample['whisper_feat'] = whisper.log_mel_spectrogram(sample['speech_16k'], n_mels=128).squeeze(dim=0).transpose(0, 1)
+        sample['whisper_feat'] = log_mel_spectrogram(sample['speech_16k'], n_mels=128).squeeze(dim=0).transpose(0, 1)
         yield sample
 
 

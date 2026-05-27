@@ -17,13 +17,13 @@ import json
 import onnxruntime
 import torch
 import numpy as np
-import whisper
 from typing import Callable
 import torchaudio.compliance.kaldi as kaldi
 import os
 import re
 import inflect
 from cosyvoice.utils.file_utils import logging, load_wav
+from cosyvoice.utils.audio_utils import log_mel_spectrogram
 from cosyvoice.utils.frontend_utils import contains_chinese, replace_blank, replace_corner_mark, remove_bracket, spell_out_number, split_paragraph, is_only_punctuation
 
 
@@ -95,7 +95,7 @@ class CosyVoiceFrontEnd:
     def _extract_speech_token(self, prompt_wav):
         speech = load_wav(prompt_wav, 16000)
         assert speech.shape[1] / 16000 <= 30, 'do not support extract speech token for audio longer than 30s'
-        feat = whisper.log_mel_spectrogram(speech, n_mels=128)
+        feat = log_mel_spectrogram(speech, n_mels=128)
         speech_token = self.speech_tokenizer_session.run(None,
                                                          {self.speech_tokenizer_session.get_inputs()[0].name:
                                                           feat.detach().cpu().numpy(),

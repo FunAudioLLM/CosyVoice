@@ -50,7 +50,14 @@ def load_wav(wav, target_sr, min_sr=16000):
     return speech
 
 
-def convert_onnx_to_trt(trt_model, trt_kwargs, onnx_model, fp16):
+def convert_onnx_to_trt(trt_model, trt_kwargs, onnx_model, fp16, fp32_layer_keywords=None):
+    """
+    fp32_layer_keywords: optional iterable of substrings; any TRT layer whose
+        name OR op type contains one of these (case-insensitive) is forced to
+        run in fp32 even when the engine is built in fp16. Used to protect
+        numerically sensitive ops (e.g., Snake activation: 1/alpha * sin(alpha*x)^2
+        overflows fp16 when alpha is small).
+    """
     import tensorrt as trt
     logging.info("Converting onnx to trt...")
     network_flags = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
@@ -80,6 +87,21 @@ def convert_onnx_to_trt(trt_model, trt_kwargs, onnx_model, fp16):
     for i in range(network.num_outputs):
         output_tensor = network.get_output(i)
         output_tensor.dtype = tensor_dtype
+    # Per-layer fp32 overrides for numerically sensitive ops.
+    if fp16 and fp32_layer_keywords:
+        config.set_flag(trt.BuilderFlag.OBEY_PRECISION_CONSTRAINTS)
+        keys = [k.lower() for k in fp32_layer_keywords]
+        forced = 0
+        for li in range(network.num_layers):
+            layer = network.get_layer(li)
+            sig = (layer.name + ' ' + str(layer.type)).lower()
+            if any(k in sig for k in keys):
+                layer.precision = trt.DataType.FLOAT
+                for j in range(layer.num_outputs):
+                    layer.set_output_type(j, trt.DataType.FLOAT)
+                forced += 1
+        logging.info("forced %d/%d layers to fp32 (keywords=%s)",
+                     forced, network.num_layers, list(fp32_layer_keywords))
     config.add_optimization_profile(profile)
     engine_bytes = builder.build_serialized_network(network, config)
     # save trt engine

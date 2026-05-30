@@ -190,12 +190,16 @@ You can run the following steps.
 ``` sh
 cd runtime/python
 docker build -t cosyvoice:v1.0 .
+# For recent NVIDIA GPUs such as RTX 50-series cards with compute capability sm_120,
+# build the CUDA 12.8 / PyTorch 2.8 runtime instead. Please make sure the host NVIDIA
+# driver supports CUDA 12.8 or newer.
+# docker build -f Dockerfile.cuda128 -t cosyvoice:v1.0-cu128 .
 # change iic/CosyVoice-300M to iic/CosyVoice-300M-Instruct if you want to use instruct inference
 # for grpc usage
-docker run -d --runtime=nvidia -p 50000:50000 cosyvoice:v1.0 /bin/bash -c "cd /opt/CosyVoice/CosyVoice/runtime/python/grpc && python3 server.py --port 50000 --max_conc 4 --model_dir iic/CosyVoice-300M && sleep infinity"
+docker run -d --gpus all -p 50000:50000 cosyvoice:v1.0 /bin/bash -c "cd /opt/CosyVoice/CosyVoice/runtime/python/grpc && python3 server.py --port 50000 --max_conc 4 --model_dir iic/CosyVoice-300M && sleep infinity"
 cd grpc && python3 client.py --port 50000 --mode <sft|zero_shot|cross_lingual|instruct>
 # for fastapi usage
-docker run -d --runtime=nvidia -p 50000:50000 cosyvoice:v1.0 /bin/bash -c "cd /opt/CosyVoice/CosyVoice/runtime/python/fastapi && python3 server.py --port 50000 --model_dir iic/CosyVoice-300M && sleep infinity"
+docker run -d --gpus all -p 50000:50000 cosyvoice:v1.0 /bin/bash -c "cd /opt/CosyVoice/CosyVoice/runtime/python/fastapi && python3 server.py --port 50000 --model_dir iic/CosyVoice-300M && sleep infinity"
 cd fastapi && python3 client.py --port 50000 --mode <sft|zero_shot|cross_lingual|instruct>
 ```
 

@@ -1,0 +1,43 @@
+# syntax=docker/dockerfile:1.7
+FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /opt/CosyVoice
+
+RUN sed -i \
+    -e s@/archive.ubuntu.com/@/mirrors.aliyun.com/@g \
+    -e s@/security.ubuntu.com/@/mirrors.aliyun.com/@g \
+    /etc/apt/sources.list
+RUN apt-get update -y
+RUN apt-get -y install git unzip git-lfs g++
+RUN git lfs install
+RUN git clone --recursive https://github.com/FunAudioLLM/CosyVoice.git
+# Use a CUDA 12.8 PyTorch runtime so RTX 50-series GPUs with sm_120 can run CUDA kernels.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m pip install \
+    -i https://mirrors.aliyun.com/pypi/simple/ \
+    --trusted-host=mirrors.aliyun.com \
+    "pip==25.3" "setuptools<80" wheel
+RUN printf 'setuptools<80\n' > /tmp/pip-build-constraints.txt \
+    && printf 'setuptools<80\ntorch==2.8.0\ntorchaudio==2.8.0\n' > /tmp/pip-constraints.txt \
+    && cd CosyVoice \
+    && grep -Ev '^(--extra-index-url|torch==|torchaudio==|tensorrt-cu12|deepspeed==|onnxruntime-gpu==|openai-whisper==)' requirements.txt > /tmp/cosyvoice-runtime-requirements.txt \
+    && python3 -m pip install \
+        --constraint /tmp/pip-constraints.txt \
+        --build-constraint /tmp/pip-build-constraints.txt \
+        -r /tmp/cosyvoice-runtime-requirements.txt \
+        -i https://mirrors.aliyun.com/pypi/simple/ \
+        --trusted-host=mirrors.aliyun.com
+RUN python3 -m pip install \
+    --constraint /tmp/pip-constraints.txt \
+    -i https://mirrors.aliyun.com/pypi/simple/ \
+    --trusted-host=mirrors.aliyun.com \
+    "onnxruntime-gpu==1.22.0" \
+    "tiktoken==0.5.2" \
+    && python3 -m pip install \
+        --no-deps \
+        --no-build-isolation \
+        -i https://mirrors.aliyun.com/pypi/simple/ \
+        --trusted-host=mirrors.aliyun.com \
+        "openai-whisper==20231117"
+RUN cd CosyVoice/runtime/python/grpc && python3 -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. cosyvoice.proto

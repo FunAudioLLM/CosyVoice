@@ -107,6 +107,13 @@
     # centos
     sudo yum install sox sox-devel
     ```
+  
+### llama-cpp-python Backend (optional)
+For CPU/low-VRAM inference using GGUF quantized models:
+```sh
+pip install llama-cpp-python
+```
+Download quantized GGUF model from [Ferraronp/CosyVoice3-qwen2.5-0.5b-speech-gguf](https://huggingface.co/Ferraronp/CosyVoice3-qwen2.5-0.5b-speech-gguf).
 
 ### Model download
 
@@ -150,6 +157,17 @@ Follow the code in `example.py` for detailed usage of each model.
 ```sh
 python example.py
 ```
+
+#### llama.cpp Usage
+Replace the default model initialization with:
+```python
+cosyvoice = AutoModel(
+    model_dir='pretrained_models/Fun-CosyVoice3-0.5B',
+    load_llama_cpp=True,
+    gguf_model_path='/path/to/model.gguf'
+)
+```
+All existing inference methods (`inference_zero_shot`, etc.) work unchanged.
 
 #### vLLM Usage
 CosyVoice2/3 now supports **vLLM 0.11.x+ (V1 engine)** and **vLLM 0.9.0 (legacy)**.

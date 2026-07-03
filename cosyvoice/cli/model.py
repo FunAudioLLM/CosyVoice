@@ -33,7 +33,7 @@ class CosyVoiceModel:
                  flow: torch.nn.Module,
                  hift: torch.nn.Module,
                  fp16: bool = False):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(f'cuda:{torch.cuda.current_device()}' if torch.cuda.is_available() else torch.device('cpu'))
         self.llm = llm
         self.flow = flow
         self.hift = hift
@@ -249,7 +249,7 @@ class CosyVoice2Model(CosyVoiceModel):
                  flow: torch.nn.Module,
                  hift: torch.nn.Module,
                  fp16: bool = False):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(f'cuda:{torch.cuda.current_device()}' if torch.cuda.is_available() else torch.device('cpu'))
         self.llm = llm
         self.flow = flow
         self.hift = hift
@@ -401,7 +401,7 @@ class CosyVoice3Model(CosyVoice2Model):
                  flow: torch.nn.Module,
                  hift: torch.nn.Module,
                  fp16: bool = False):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(f'cuda:{torch.cuda.current_device()}' if torch.cuda.is_available() else torch.device('cpu'))
         self.llm = llm
         self.flow = flow
         self.hift = hift

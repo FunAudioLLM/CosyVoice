@@ -155,7 +155,11 @@ class TransformerLM(torch.nn.Module):
             ignore_eos: bool = True,
     ):
         if ignore_eos is True:
-            weighted_scores[self.speech_token_size] = -float('inf')
+            if hasattr(self, 'stop_token_ids'):
+                for stop_id in self.stop_token_ids:
+                    weighted_scores[stop_id] = -float('inf')
+            else:
+                weighted_scores[self.speech_token_size] = -float('inf')
         top_ids = self.sampling(weighted_scores, decoded_tokens, sampling)
         return top_ids
 

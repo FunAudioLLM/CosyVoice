@@ -12,7 +12,7 @@ stop_stage=$2
 huggingface_llm_local_dir=$cosyvoice_path/runtime/triton_trtllm/hf_cosyvoice3_llm
 cosyvoice3_official_model_dir=$cosyvoice_path/runtime/triton_trtllm/Fun-CosyVoice3-0.5B-2512
 
-trt_dtype=bfloat16
+trt_dtype=float16
 trt_weights_dir=$cosyvoice_path/runtime/triton_trtllm/trt_weights_${trt_dtype}
 trt_engines_dir=$cosyvoice_path/runtime/triton_trtllm/trt_engines_${trt_dtype}
 
@@ -51,8 +51,10 @@ if [ $stage -le 1 ] && [ $stop_stage -ge 1 ]; then
     trtllm-build --checkpoint_dir $trt_weights_dir \
                 --output_dir $trt_engines_dir \
                 --max_batch_size 64 \
-                --max_num_tokens 32768 \
-                --gemm_plugin $trt_dtype || exit 1
+                --max_num_tokens 2048 \
+		        --max_seq_len 2048 \
+                --gemm_plugin $trt_dtype \
+	            --context_fmha disable || exit 1
 
     echo "Testing TensorRT engines"
     python3 ./scripts/test_llm.py --input_text "你好，请问你叫什么？" \

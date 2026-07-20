@@ -71,7 +71,7 @@ def cosyvoice2_example():
 def cosyvoice3_example():
     """ CosyVoice3 Usage, check https://funaudiollm.github.io/cosyvoice3/ for more details
     """
-    cosyvoice = AutoModel(model_dir='pretrained_models/Fun-CosyVoice3-0.5B')
+    cosyvoice = AutoModel(model_dir='FunAudioLLM/Fun-CosyVoice3-0.5B-2512')
     # zero_shot usage
     for i, j in enumerate(cosyvoice.inference_zero_shot('八百标兵奔北坡，北坡炮兵并排跑，炮兵怕把标兵碰，标兵怕碰炮兵炮。', 'You are a helpful assistant.<|endofprompt|>希望你以后能够做的比我还好呦。',
                                                         './asset/zero_shot_prompt.wav', stream=False)):

@@ -35,7 +35,7 @@ exp
 data
 raw_wav
 tensorboard
-**/*build*
+**/build
 
 # Clangd files
 .cache
@@ -50,3 +50,5 @@ pretrained_models/*
 *_pb2_grpc.py
 *_pb2.py
 *.tar
+
+CLAUDE.md

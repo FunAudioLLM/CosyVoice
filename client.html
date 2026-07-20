@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>CosyVoice · Streaming TTS</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; }
+body { font-family:'Inter',system-ui,sans-serif; background:#080810; color:#e0e0e0; display:flex; justify-content:center; height:100vh; overflow:hidden; }
+
+/* Hero */
+.hero { padding:24px 28px 16px; flex-shrink:0; }
+.hero-top { display:flex; align-items:center; gap:16px; margin-bottom:14px; }
+.logo { font-size:30px; font-weight:900; letter-spacing:-1px; }
+.logo .g { background:linear-gradient(135deg,#64ffda,#00bfa5); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.logo .w { color:#fff; }
+.logo .s { color:rgba(255,255,255,0.3); font-weight:400; font-size:15px; margin-left:8px; }
+.hero-links { margin-left:auto; display:flex; gap:10px; }
+.hero-links a { font-size:12px; color:#aaa; text-decoration:none; padding:6px 14px; border-radius:8px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); transition:all 0.2s; font-weight:500; }
+.hero-links a:hover { color:#64ffda; border-color:rgba(100,255,218,0.3); }
+
+.features { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+.feat { font-size:11px; padding:5px 12px; border-radius:20px; font-weight:500; }
+.feat-green { color:#64ffda; background:rgba(100,255,218,0.08); border:1px solid rgba(100,255,218,0.2); }
+.feat-yellow { color:#fbbf24; background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.2); }
+.feat-purple { color:#a78bfa; background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.2); }
+.feat-blue { color:#38bdf8; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.2); }
+
+.hero-desc { font-size:13px; color:rgba(255,255,255,0.45); line-height:1.7; }
+.hero-desc b { color:rgba(255,255,255,0.75); font-weight:600; }
+
+/* Main Panel */
+.main { flex:1; display:flex; flex-direction:column; padding:0 28px 20px; min-height:0; }
+.panel { flex:1; display:flex; flex-direction:column; background:rgba(16,16,24,0.95); border:1px solid rgba(255,255,255,0.05); border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,0.4); min-height:0; }
+
+/* Controls */
+.controls { padding:14px 20px; display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(255,255,255,0.04); flex-shrink:0; flex-wrap:wrap; }
+.controls input[type=text],
+.controls textarea { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:8px 12px; color:#ccc; font-size:12px; outline:none; font-family:inherit; resize:none; }
+.controls input[type=text]:focus,
+.controls textarea:focus { border-color:rgba(100,255,218,0.4); }
+.controls input[type=file] { display:none; }
+.btn { padding:8px 18px; border:none; border-radius:10px; font-size:12px; cursor:pointer; font-weight:600; transition:all 0.12s; white-space:nowrap; }
+.btn:hover { transform:scale(1.04); }
+.btn:active { transform:scale(0.97); }
+.btn-synth { background:linear-gradient(135deg,#64ffda,#00bfa5); color:#080810; }
+.btn-stop { background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; }
+.btn-upload { background:rgba(167,139,250,0.12); color:#a78bfa; border:1px solid rgba(167,139,250,0.3); }
+
+.sta { margin-left:auto; display:flex; align-items:center; gap:6px; }
+.dot { width:7px; height:7px; border-radius:50%; background:#222; }
+.dot.on { background:#64ffda; box-shadow:0 0 10px rgba(100,255,218,0.6); animation:g 1.5s infinite; }
+.dot.warn { background:#fbbf24; box-shadow:0 0 10px rgba(251,191,36,0.6); }
+@keyframes g { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.sta span { font-size:10px; color:#555; }
+
+/* Prompt row */
+.prompt-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.prompt-row .lbl { font-size:10px; color:#555; min-width:fit-content; }
+
+/* Result area */
+.result { flex:1; overflow-y:auto; padding:18px 22px; min-height:0; display:flex; flex-direction:column; }
+.result::-webkit-scrollbar { width:4px; }
+.result::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.06); border-radius:2px; }
+
+.ph { color:rgba(255,255,255,0.1); text-align:center; padding:50px 20px; font-size:14px; line-height:2; flex:1; }
+
+/* History items */
+.hist { padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.03); display:flex; align-items:center; gap:10px; font-size:13px; }
+.hist .idx { color:rgba(100,255,218,0.4); font-size:10px; min-width:24px; }
+.hist .txt { color:rgba(255,255,255,0.7); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hist .dur { color:rgba(255,255,255,0.25); font-size:10px; min-width:60px; text-align:right; }
+.hist .ply { color:#64ffda; cursor:pointer; font-size:11px; padding:3px 8px; border-radius:5px; background:rgba(100,255,218,0.08); border:1px solid rgba(100,255,218,0.15); }
+.hist .ply:hover { background:rgba(100,255,218,0.18); }
+
+/* Progress bar */
+.prog-wrap { width:100%; height:3px; background:rgba(255,255,255,0.04); border-radius:2px; margin:8px 0; flex-shrink:0; }
+.prog { height:100%; background:linear-gradient(90deg,#64ffda,#00bfa5); border-radius:2px; width:0%; transition:width 0.3s; }
+</style>
+</head>
+<body><div style="width:920px;height:100%;display:flex;flex-direction:column">
+
+<div class="hero">
+    <div class="hero-top">
+        <div class="logo"><span class="g">CosyVoice</span><span class="s">Streaming TTS</span></div>
+        <div class="hero-links">
+            <a href="https://github.com/FunAudioLLM/CosyVoice" target="_blank">GitHub</a>
+            <a href="https://modelscope.cn/models/FunAudioLLM/Fun-CosyVoice3-0.5B-2512" target="_blank">ModelScope</a>
+            <a href="https://huggingface.co/FunAudioLLM" target="_blank">HuggingFace</a>
+        </div>
+    </div>
+    <div class="features">
+        <span class="feat feat-green">Zero-shot Voice Cloning</span>
+        <span class="feat feat-yellow">Streaming Output</span>
+        <span class="feat feat-purple">Emotion Preservation</span>
+        <span class="feat feat-blue">Chinese · English · Japanese</span>
+    </div>
+    <p class="hero-desc">
+        基于 <b>CosyVoice</b> 流式语音合成服务。输入文本，<b>实时生成语音</b>并逐块回传播放。<br>
+        <b>Zero-shot</b>：只需 3 秒提示音频即可克隆任意音色。支持流式输出，边说边生成。
+    </p>
+</div>
+
+<div class="main">
+<div class="panel">
+    <!-- Server & prompt -->
+    <div class="controls">
+        <input type="text" id="serverUrl" value="ws://localhost:10096" style="width:180px;" title="WebSocket server URL">
+        <span class="lbl" style="font-size:10px;color:#555;">提示文本:</span>
+        <input type="text" id="promptText" value="You are a helpful assistant.<|endofprompt|>希望你以后能够做的比我还好呦。" style="width:320px;" title="Prompt (reference) text for CosyVoice3. Format: system<|endofprompt|>prompt_text">
+        <input type="file" id="promptWavInput" accept="audio/*,.wav,.mp3,.flac">
+        <button class="btn btn-upload" id="btnUploadPrompt" onclick="document.getElementById('promptWavInput').click()">提示音频</button>
+        <span id="promptWavName" style="font-size:10px;color:#555;">使用默认</span>
+        <div class="sta"><div class="dot" id="dot"></div><span id="status">Ready</span></div>
+    </div>
+
+    <!-- Text input -->
+    <div class="controls" style="border-bottom:none;padding-top:4px;">
+        <textarea id="ttsText" rows="2" style="flex:1;min-width:300px;" placeholder="输入要合成的文本...&#10;支持中文、英文、日文等多语言"></textarea>
+        <span class="lbl" style="font-size:10px;color:#555;">语速:</span>
+        <input type="range" id="speed" min="0.5" max="2.0" step="0.1" value="1.0" style="width:80px;" title="播放速度">
+        <span id="speedVal" style="font-size:10px;color:#aaa;min-width:32px;">1.0x</span>
+        <button class="btn btn-synth" id="btnSynth" onclick="startSynth()">合成</button>
+        <button class="btn btn-stop" id="btnStop" onclick="stopSynth()" style="display:none;">停止</button>
+    </div>
+
+    <!-- Progress -->
+    <div class="prog-wrap"><div class="prog" id="prog"></div></div>
+
+    <!-- Output -->
+    <div class="result" id="resultBox">
+        <div class="ph">
+            输入文本后点击 <b>合成</b> 开始实时语音生成<br>
+            可自定义 <b>提示文本</b> 和 <b>提示音频</b>（3秒即可）进行音色克隆
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+// =========================================================================
+// State
+// =========================================================================
+let ws = null;
+let audioCtx = null;
+let nextPlayTime = 0;
+let playSources = [];
+let isSynthesizing = false;
+let promptWavBase64 = null;
+let promptWavFilename = null;
+let history = [];
+let histId = 0;
+let synthStartTime = 0;
+
+const SAMPLE_RATE = 24000;
+
+// =========================================================================
+// UI helpers
+// =========================================================================
+const $ = id => document.getElementById(id);
+function setStatus(m, cls) {
+    $('status').textContent = m;
+    const dot = $('dot');
+    dot.className = 'dot' + (cls ? ' ' + cls : '');
+}
+function sSynth() { $('btnSynth').style.display='none'; $('btnStop').style.display='inline'; }
+function sIdle()  { $('btnSynth').style.display='inline'; $('btnStop').style.display='none'; }
+
+$('speed').addEventListener('input', function(){
+    $('speedVal').textContent = parseFloat(this.value).toFixed(1) + 'x';
+});
+
+// Prompt audio upload
+$('promptWavInput').addEventListener('change', function(){
+    const f = this.files[0];
+    if (!f) return;
+    $('promptWavName').textContent = f.name;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const buf = e.target.result;
+        const bytes = new Uint8Array(buf);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        promptWavBase64 = btoa(binary);
+        promptWavFilename = f.name;
+        setStatus('Prompt loaded', '');
+    };
+    reader.readAsArrayBuffer(f);
+});
+
+// =========================================================================
+// Audio playback
+// =========================================================================
+function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new AudioContext();
+    nextPlayTime = audioCtx.currentTime + 0.15;
+}
+
+function playChunk(int16Bytes) {
+    if (!audioCtx) initAudio();
+    const int16 = new Int16Array(int16Bytes);
+    if (int16.length === 0) return;
+
+    const float32 = new Float32Array(int16.length);
+    for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768.0;
+
+    const buf = audioCtx.createBuffer(1, float32.length, SAMPLE_RATE);
+    buf.getChannelData(0).set(float32);
+
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtx.destination);
+
+    const t0 = Math.max(nextPlayTime, audioCtx.currentTime);
+    src.start(t0);
+    nextPlayTime = t0 + buf.duration;
+    playSources.push(src);
+
+    // Update progress
+    const elapsed = (audioCtx.currentTime + buf.duration) - synthStartTime + (synthStartTime > 0 ? 0 : 0);
+    updateProgress();
+}
+
+function stopAudio() {
+    playSources.forEach(s => { try { s.stop(); } catch(e){} });
+    playSources = [];
+    if (audioCtx) {
+        nextPlayTime = audioCtx.currentTime + 0.05;
+    }
+}
+
+function updateProgress() {
+    if (!audioCtx || synthStartTime === 0) return;
+    // approximate: use scheduled vs played
+    const scheduled = nextPlayTime - synthStartTime;
+    const played = audioCtx.currentTime - synthStartTime;
+    const pct = Math.min(98, Math.max(0, played / Math.max(scheduled, 0.01) * 100));
+    $('prog').style.width = pct + '%';
+}
+
+// =========================================================================
+// WebSocket
+// =========================================================================
+function connect(cb) {
+    const url = $('serverUrl').value.trim();
+    setStatus('Connecting...', 'warn');
+
+    ws = new WebSocket(url);
+    ws.binaryType = 'arraybuffer';
+
+    ws.onopen = () => {
+        setStatus('Ready', '');
+        if (cb) cb();
+    };
+
+    ws.onmessage = (e) => {
+        if (e.data instanceof ArrayBuffer) {
+            // Audio chunk
+            playChunk(e.data);
+            updateProgress();
+        } else {
+            // JSON message
+            try {
+                const msg = JSON.parse(e.data);
+                handleMessage(msg);
+            } catch(err) {
+                console.error('Bad JSON:', e.data);
+            }
+        }
+    };
+
+    ws.onerror = () => setStatus('Error', 'warn');
+    ws.onclose = () => {
+        if (isSynthesizing) finishSynth();
+        setStatus('Disconnected', '');
+        ws = null;
+    };
+}
+
+function handleMessage(msg) {
+    switch (msg.event) {
+        case 'ready':
+            setStatus('Ready', '');
+            if (msg.prompt_text && $('promptText').value === '') {
+                $('promptText').value = msg.prompt_text;
+            }
+            break;
+        case 'start':
+            setStatus('Synthesizing...', 'on');
+            synthStartTime = audioCtx ? audioCtx.currentTime + 0.15 : 0;
+            addHistory(msg.text);
+            break;
+        case 'end':
+            updateProgress();
+            $('prog').style.width = '100%';
+            setTimeout(() => { $('prog').style.width = '0%'; }, 800);
+            finishSynth();
+            break;
+        case 'stopped':
+            finishSynth();
+            break;
+        case 'error':
+            console.error('Server error:', msg.message);
+            setStatus('Error: ' + msg.message, 'warn');
+            finishSynth();
+            break;
+        case 'info':
+            console.log('Server info:', msg);
+            break;
+    }
+}
+
+function addHistory(text) {
+    history.unshift({ id: ++histId, text: text, time: new Date() });
+    if (history.length > 20) history.pop();
+    renderHistory();
+}
+
+function renderHistory() {
+    let h = '';
+    history.forEach((item, i) => {
+        h += '<div class="hist">' +
+             '<span class="idx">#' + item.id + '</span>' +
+             '<span class="txt" title="' + item.text.replace(/"/g,'&quot;') + '">' + item.text + '</span>' +
+             '<span class="dur">' + item.time.toLocaleTimeString() + '</span>' +
+             '<span class="ply" onclick="replay(' + item.id + ')">重新合成</span>' +
+             '</div>';
+    });
+    if (!h) h = '<div class="ph">输入文本后点击 <b>合成</b> 开始实时语音生成</div>';
+    $('resultBox').innerHTML = h;
+}
+
+function replay(id) {
+    const item = history.find(x => x.id === id);
+    if (item) {
+        $('ttsText').value = item.text;
+        startSynth();
+    }
+}
+
+// =========================================================================
+// Synthesize
+// =========================================================================
+function startSynth() {
+    const text = $('ttsText').value.trim();
+    if (!text) { setStatus('请输入文本', 'warn'); return; }
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        connect(() => sendSynth(text));
+    } else {
+        sendSynth(text);
+    }
+}
+
+function sendSynth(text) {
+    stopAudio();
+    initAudio();
+    synthStartTime = audioCtx.currentTime + 0.15;
+    isSynthesizing = true;
+    sSynth();
+    $('prog').style.width = '0%';
+    setStatus('Synthesizing...', 'on');
+
+    const msg = {
+        cmd: 'synthesize',
+        text: text,
+        prompt_text: $('promptText').value.trim(),
+        speed: parseFloat($('speed').value),
+    };
+    // If user uploaded a prompt wav, send it as base64
+    if (promptWavBase64) {
+        msg.prompt_wav_data = promptWavBase64;
+        msg.prompt_wav_filename = promptWavFilename;
+    }
+
+    ws.send(JSON.stringify(msg));
+}
+
+function stopSynth() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ cmd: 'stop' }));
+    }
+    stopAudio();
+    finishSynth();
+}
+
+function finishSynth() {
+    isSynthesizing = false;
+    synthStartTime = 0;
+    sIdle();
+    $('prog').style.width = '0%';
+    setStatus('Ready', '');
+}
+
+// =========================================================================
+// Init
+// =========================================================================
+connect();
+// Reconnect on click if disconnected
+$('serverUrl').addEventListener('change', () => {
+    if (ws) { ws.close(); ws = null; }
+    connect();
+});
+
+// Progress updater
+setInterval(() => {
+    if (isSynthesizing && audioCtx && synthStartTime > 0) {
+        updateProgress();
+    }
+}, 200);
+
+// Keyboard shortcut: Ctrl+Enter to synthesize
+$('ttsText').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        startSynth();
+    }
+});
+
+// Stop button
+$('btnStop').addEventListener('click', stopSynth);
+</script>
+</div></body>
+</html>

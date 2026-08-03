@@ -110,10 +110,13 @@ def wrap_cuda_model(args, model):
 
 def init_optimizer_and_scheduler(args, configs, model, gan):
     if gan is False:
+        trainable_parameters = [p for p in model.parameters() if p.requires_grad]
+        if not trainable_parameters:
+            raise RuntimeError('No trainable parameters found')
         if configs['train_conf']['optim'] == 'adam':
-            optimizer = optim.Adam(model.parameters(), **configs['train_conf']['optim_conf'])
+            optimizer = optim.Adam(trainable_parameters, **configs['train_conf']['optim_conf'])
         elif configs['train_conf']['optim'] == 'adamw':
-            optimizer = optim.AdamW(model.parameters(), **configs['train_conf']['optim_conf'])
+            optimizer = optim.AdamW(trainable_parameters, **configs['train_conf']['optim_conf'])
         else:
             raise ValueError("unknown optimizer: " + configs['train_conf'])
 
@@ -199,7 +202,12 @@ def save_model(model, model_name, info_dict):
 
     if info_dict["train_engine"] == "torch_ddp":
         if rank == 0:
-            torch.save({**model.module.state_dict(), 'epoch': info_dict['epoch'], 'step': info_dict['step']}, save_model_path)
+            if getattr(model.module, '_lora_enabled', False):
+                from cosyvoice.utils.lora import lora_state_dict
+                state = lora_state_dict(model.module)
+            else:
+                state = model.module.state_dict()
+            torch.save({**state, 'epoch': info_dict['epoch'], 'step': info_dict['step']}, save_model_path)
     else:
         with torch.no_grad():
             model.save_checkpoint(save_dir=model_dir,

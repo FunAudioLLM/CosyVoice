@@ -1,0 +1,52 @@
+# CosyVoice TTS HTTP Service Dockerfile
+# 基于 vllm/vllm-openai（预装 CUDA + PyTorch），额外安装 CosyVoice 依赖
+FROM vllm/vllm-openai:v0.11.0
+
+# ── 国内镜像加速 ────────────────────────────────────────────────────
+# apt Ubuntu 阿里云源
+RUN sed -i 's|http://archive.ubuntu.com|http://mirrors.aliyun.com|g' /etc/apt/sources.list 2>/dev/null; \
+    sed -i 's|http://security.ubuntu.com|http://mirrors.aliyun.com|g' /etc/apt/sources.list 2>/dev/null; \
+    true
+# pip 阿里云源
+RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
+# HuggingFace 镜像（transformers 下载 tokenizer 等）
+ENV HF_ENDPOINT=https://hf-mirror.com
+
+# ── CosyVoice 核心依赖 ──────────────────────────────────────────────
+RUN pip install --no-cache-dir \
+    onnx==1.16.0 \
+    onnxruntime-gpu==1.22.0 \
+    HyperPyYAML==1.2.3 \
+    transformers==4.57.1 \
+    numpy==1.26.4 \
+    openai-whisper==20250625 \
+    inflect==7.3.1 \
+    omegaconf==2.3.0 \
+    wetext==0.0.4 \
+    conformer==0.3.2 \
+    diffusers==0.29.0 \
+    hydra-core==1.3.2 \
+    lightning==2.2.4 \
+    gdown==5.1.0 \
+    matplotlib==3.7.5 \
+    wget==3.2 \
+    x-transformers==2.11.24 \
+    librosa==0.10.2 \
+    pyarrow==18.1.0 \
+    pyworld==0.3.4 \
+    tensorboard==2.14.0 \
+    tensorrt-cu12==10.13.3.9 \
+    tensorrt-cu12-bindings==10.13.3.9 \
+    tensorrt-cu12-libs==10.13.3.9 \
+    fastapi==0.115.6 \
+    uvicorn==0.30.0 \
+    pydantic==2.7.0 \
+    modelscope==1.20.0 \
+    soundfile==0.12.1
+
+# ── 复制源码 ────────────────────────────────────────────────────────
+COPY . .
+
+# ── TTS 服务入口 ────────────────────────────────────────────────────
+EXPOSE 9200
+CMD ["python", "tts_server.py"]

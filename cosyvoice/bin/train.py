@@ -35,6 +35,7 @@ from cosyvoice.utils.train_utils import (
     init_optimizer_and_scheduler,
     init_summarywriter, save_model,
     wrap_cuda_model, check_modify_and_save_config)
+from cosyvoice.utils.lora import inject_lora, load_lora_state_dict
 
 
 def get_args():
@@ -51,6 +52,12 @@ def get_args():
     parser.add_argument('--qwen_pretrain_path', required=False, help='qwen pretrain path')
     parser.add_argument('--onnx_path', required=False, help='onnx path, which is required for online feature extraction')
     parser.add_argument('--checkpoint', help='checkpoint model')
+    parser.add_argument('--lora', action='store_true', default=False,
+                        help='freeze the model and train native LoRA adapters')
+    parser.add_argument('--lora_checkpoint', help='adapter-only checkpoint to resume')
+    parser.add_argument('--lora_rank', type=int, default=16)
+    parser.add_argument('--lora_alpha', type=float, default=32.0)
+    parser.add_argument('--lora_dropout', type=float, default=0.05)
     parser.add_argument('--model_dir', required=True, help='save model dir')
     parser.add_argument('--tensorboard_dir',
                         default='tensorboard',
@@ -142,6 +149,18 @@ def main():
                 start_epoch = state_dict['epoch']
         else:
             logging.warning('checkpoint {} do not exsist!'.format(args.checkpoint))
+
+    if args.lora:
+        target_count = inject_lora(model, args.lora_rank, args.lora_alpha, args.lora_dropout)
+        logging.info('Injected LoRA into %s projection layers; trainable parameters=%s',
+                     target_count, sum(p.numel() for p in model.parameters() if p.requires_grad))
+        if args.lora_checkpoint is not None:
+            adapter_state = torch.load(args.lora_checkpoint, map_location='cpu')
+            load_lora_state_dict(model, adapter_state)
+            if 'step' in adapter_state:
+                start_step = int(adapter_state['step'])
+            if 'epoch' in adapter_state:
+                start_epoch = int(adapter_state['epoch'])
 
     # Dispatch model from cpu to gpu
     model = wrap_cuda_model(args, model)

@@ -100,11 +100,12 @@ def lora_state_dict(model: nn.Module) -> dict[str, torch.Tensor]:
 
 
 def load_lora_state_dict(model: nn.Module, state: dict[str, torch.Tensor]) -> None:
+    trainable_names = {name for name, p in model.named_parameters() if p.requires_grad}
     missing, unexpected = model.load_state_dict(state, strict=False)
     unexpected = [name for name in unexpected if name not in {"step", "epoch"}]
     if unexpected:
         raise RuntimeError(f"Unexpected LoRA checkpoint keys: {unexpected[:8]}")
-    missing_trainable = [name for name in missing if name in state]
+    missing_trainable = [name for name in missing if name in trainable_names]
     if missing_trainable:
         raise RuntimeError(f"Could not load LoRA checkpoint keys: {missing_trainable[:8]}")
 

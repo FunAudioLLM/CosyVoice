@@ -25,9 +25,10 @@ LoRA freezes the base model, injects adapters into the attention and MLP
 projections, and keeps the speech embedding and decoder heads trainable. The
 optimizer receives only trainable parameters.
 
-To continue from an adapter checkpoint, use `--lora_checkpoint`. The adapter
-checkpoint contains only trainable adapter/head weights plus `epoch` and
-`step`, so the original base checkpoint is still required.
+To continue from an adapter checkpoint, use `--lora_checkpoint`. When using
+`--train_engine torch_ddp`, the adapter checkpoint contains only trainable
+adapter/head weights plus `epoch` and `step`, so the original base checkpoint is
+still required.
 
 ## Inference
 

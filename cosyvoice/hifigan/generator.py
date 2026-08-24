@@ -43,6 +43,27 @@ This code is modified from https://github.com/jik876/hifi-gan
 """
 
 
+def _linear_interpolate_1d_fallback(input: torch.Tensor, scale_factor: float) -> torch.Tensor:
+    input_size = input.shape[-1]
+    output_size = int(input_size * scale_factor)
+    source = (torch.arange(output_size, device=input.device, dtype=torch.float32) + 0.5) / scale_factor - 0.5
+    source = source.clamp(min=0)
+    lower = source.floor().to(torch.int64)
+    upper = (lower + 1).clamp(max=input_size - 1)
+    upper_weight = (source - lower).to(input.dtype)
+    lower_weight = 1 - upper_weight
+    return input.index_select(-1, lower) * lower_weight + input.index_select(-1, upper) * upper_weight
+
+
+def _linear_interpolate_1d(input: torch.Tensor, scale_factor: float) -> torch.Tensor:
+    if input.device.type != 'npu':
+        return F.interpolate(input, scale_factor=scale_factor, mode='linear')
+
+    # Ascend UpsampleLinear1d can fault on the large 480x downsampling used by
+    # CosyVoice3. Use equivalent tensor operations to keep computation on NPU.
+    return _linear_interpolate_1d_fallback(input, scale_factor)
+
+
 class ResBlock(torch.nn.Module):
     """Residual block module in HiFiGAN/BigVGAN."""
     def __init__(
@@ -248,9 +269,8 @@ class SineGen2(torch.nn.Module):
 
         # instantanouse phase sine[t] = sin(2*pi \sum_i=1 ^{t} rad)
         if not self.flag_for_pulse:
-            rad_values = torch.nn.functional.interpolate(rad_values.transpose(1, 2),
-                                                         scale_factor=1 / self.upsample_scale,
-                                                         mode="linear").transpose(1, 2)
+            rad_values = _linear_interpolate_1d(
+                rad_values.transpose(1, 2), scale_factor=1 / self.upsample_scale).transpose(1, 2)
 
             phase = torch.cumsum(rad_values, dim=1) * 2 * np.pi
             phase = torch.nn.functional.interpolate(phase.transpose(1, 2) * self.upsample_scale,

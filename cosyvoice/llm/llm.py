@@ -498,6 +498,10 @@ class Qwen2LM(TransformerLM):
         max_len = int((text_len - prompt_text_len) * max_token_text_ratio)
 
         # 5. step by step decode
+        # speculative vllm path: token-based V1 API (CosyVoice3 only)
+        if hasattr(self, 'vllm_spec'):
+            yield from self._inference_spec(text, prompt_speech_token, min_len, max_len)
+            return
         for token in self.inference_wrapper(lm_input, sampling, min_len, max_len, uuid):
             yield token
 
@@ -704,3 +708,36 @@ class CosyVoice3LM(Qwen2LM):
         self.vllm_output_queue = {}
         if online_feature is True:
             self.speech_token_extractor = SpeechTokenExtractor(model_path=os.path.join(onnx_path, 'speech_tokenizer_v3.batch.onnx'))
+
+    def _inference_spec(self, text: torch.Tensor, prompt_speech_token: torch.Tensor,
+                        min_len: int, max_len: int):
+        """Token-based speculative decoding via vllm V1 LLM (set by load_vllm_spec).
+
+        `text` is the concatenated [prompt_text, target_text] as Qwen2 token IDs.
+        `prompt_speech_token` holds voice-clone speech token IDs (0..speech_token_size).
+        Output: yields integer speech token IDs.
+        """
+        from vllm import SamplingParams
+        offset = self.vllm_spec_speech_offset
+        # only pass the primary eos stop token (vllm caps stop_token_ids at 128);
+        # the yield loop below also filters any token outside [0, speech_token_size)
+        stop_ids = [offset + self.eos_token]
+
+        text_str = self.vllm_spec_tokenizer.decode(text[0].tolist(), skip_special_tokens=False)
+        speech_str = ''.join(f'<|s_{t}|>' for t in prompt_speech_token[0].tolist()) if prompt_speech_token.shape[1] > 0 else ''
+
+        chat = [{'role': 'user', 'content': text_str}]
+        if speech_str:
+            chat.append({'role': 'assistant', 'content': speech_str})
+        prompt = self.vllm_spec_tokenizer.apply_chat_template(
+            chat, tokenize=False, continue_final_message=True)
+
+        params = SamplingParams(
+            temperature=0.8, top_p=0.95, top_k=15, repetition_penalty=1.1,
+            min_tokens=min_len, max_tokens=max_len, stop_token_ids=stop_ids)
+        output = self.vllm_spec.generate([prompt], params, use_tqdm=False)[0]
+        for token_id in output.outputs[0].token_ids:
+            speech_id = token_id - offset
+            if speech_id < 0 or speech_id >= self.speech_token_size:
+                break
+            yield speech_id

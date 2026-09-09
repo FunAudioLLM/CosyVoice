@@ -422,6 +422,49 @@ class CosyVoice3Model(CosyVoice2Model):
         # FSQ silent and breath token
         self.silent_tokens = [1, 2, 28, 29, 55, 248, 494, 2241, 2242, 2322, 2323]
 
+    def load_vllm_spec(self, model_dir, draft_model_dir, gpu_memory_utilization=0.6):
+        """Load CosyVoice3 + DSpark speculative decoding (vllm V1 API, token-based).
+
+        `model_dir` is the CosyVoice3 pretrained model directory (same as used to load
+        the model, e.g. 'pretrained_models/Fun-CosyVoice3-0.5B').  The HuggingFace export
+        is created automatically under <model_dir>/hf_spec the first time (like
+        export_cosyvoice2_vllm() for load_vllm()).
+        `draft_model_dir` is a speculators-format DSpark checkpoint (local path or HF repo).
+
+        After loading, self.llm.vllm_spec is used automatically inside tts() calls.
+        """
+        import json
+        from transformers import AutoTokenizer
+        from vllm import LLM
+        from cosyvoice.utils.file_utils import export_cosyvoice3_vllm_spec
+
+        hf_llm_dir = os.path.join(model_dir, 'CosyVoice-BlankEN')
+        hf_model_dir = os.path.join(model_dir, 'hf_spec')
+        export_cosyvoice3_vllm_spec(self.llm, hf_model_dir, hf_llm_dir, self.device)
+
+        with open(os.path.join(hf_model_dir, 'cosyvoice3_metadata.json')) as f:
+            metadata = json.load(f)
+        with open(os.path.join(draft_model_dir, 'config.json')) as f:
+            draft_cfg = json.load(f)
+        method = draft_cfg.get('speculators_model_type', 'dspark')
+        num_spec_tokens = draft_cfg.get('block_size', 8) - 1
+
+        self.llm.vllm_spec_tokenizer = AutoTokenizer.from_pretrained(hf_model_dir)
+        self.llm.vllm_spec_speech_offset = metadata['speech_token_offset']
+        self.llm.vllm_spec = LLM(
+            model=hf_model_dir,
+            speculative_config={
+                'model': draft_model_dir,
+                'method': method,
+                'num_speculative_tokens': num_spec_tokens,
+                'draft_sample_method': 'probabilistic',
+                'draft_apply_repetition_penalty': True,
+            },
+            gpu_memory_utilization=gpu_memory_utilization,
+        )
+        # free PyTorch model weights; vllm manages GPU memory from here
+        del self.llm.llm.model.model.layers
+
     def token2wav(self, token, prompt_token, prompt_feat, embedding, token_offset, uuid, stream=False, finalize=False, speed=1.0):
         with torch.cuda.amp.autocast(self.fp16):
             tts_mel, _ = self.flow.inference(token=token.to(self.device, dtype=torch.int32),

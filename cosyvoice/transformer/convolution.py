@@ -169,7 +169,7 @@ class CausalConv1d(torch.nn.Conv1d):
                                            padding_mode=padding_mode,
                                            device=device, dtype=dtype)
         assert stride == 1
-        self.causal_padding = int((kernel_size * dilation - dilation) / 2) * 2 + (kernel_size + 1) % 2
+        self.causal_padding = (kernel_size - 1) * dilation
         assert causal_type in ['left', 'right']
         self.causal_type = causal_type
 

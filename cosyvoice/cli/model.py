@@ -18,6 +18,7 @@ import torch
 import numpy as np
 import threading
 import time
+import traceback
 from torch.nn import functional as F
 from contextlib import nullcontext
 import uuid
@@ -63,8 +64,10 @@ class CosyVoiceModel:
         self.silent_tokens = []
 
     def load(self, llm_model, flow_model, hift_model):
-        self.llm.load_state_dict(torch.load(llm_model, map_location=self.device, weights_only=True), strict=True)
-        self.llm.to(self.device).eval()
+        # NOTE llm is None in the decoder process, which only needs flow and hift
+        if self.llm is not None:
+            self.llm.load_state_dict(torch.load(llm_model, map_location=self.device, weights_only=True), strict=True)
+            self.llm.to(self.device).eval()
         self.flow.load_state_dict(torch.load(flow_model, map_location=self.device, weights_only=True), strict=True)
         self.flow.to(self.device).eval()
         # in case hift_model is a hifigan model
@@ -99,6 +102,11 @@ class CosyVoiceModel:
         return {'min_shape': min_shape, 'opt_shape': opt_shape, 'max_shape': max_shape, 'input_names': input_names}
 
     def llm_job(self, text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):
+        for i in self.llm_tokens(text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):
+            self.tts_speech_token_dict[uuid].append(i)
+        self.llm_end_dict[uuid] = True
+
+    def llm_tokens(self, text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):
         cur_silent_token_num, max_silent_token_num = 0, 5
         with self.llm_context, torch.cuda.amp.autocast(self.fp16 is True and hasattr(self.llm, 'vllm') is False):
             if isinstance(text, Generator):
@@ -125,8 +133,7 @@ class CosyVoiceModel:
                         continue
                 else:
                     cur_silent_token_num = 0
-                self.tts_speech_token_dict[uuid].append(i)
-        self.llm_end_dict[uuid] = True
+                yield i
 
     def vc_job(self, source_speech_token, uuid):
         self.tts_speech_token_dict[uuid] = source_speech_token.flatten().tolist()
@@ -243,6 +250,8 @@ class CosyVoiceModel:
 
 
 class CosyVoice2Model(CosyVoiceModel):
+    # NOTE set to a DecoderProcess to run flow and hift in their own process during stream inference
+    decoder_process = None
 
     def __init__(self,
                  llm: torch.nn.Module,
@@ -330,6 +339,10 @@ class CosyVoice2Model(CosyVoiceModel):
             llm_prompt_speech_token=torch.zeros(1, 0, dtype=torch.int32),
             flow_prompt_speech_token=torch.zeros(1, 0, dtype=torch.int32),
             prompt_speech_feat=torch.zeros(1, 0, 80), source_speech_token=torch.zeros(1, 0, dtype=torch.int32), stream=False, speed=1.0, **kwargs):
+        if stream is True and self.decoder_process is not None and source_speech_token.shape[1] == 0:
+            yield from self.tts_decoder_process(text, flow_embedding, llm_embedding, prompt_text, llm_prompt_speech_token,
+                                                flow_prompt_speech_token, prompt_speech_feat)
+            return
         # this_uuid is used to track variables related to this inference thread
         this_uuid = str(uuid.uuid1())
         with self.lock:
@@ -389,6 +402,46 @@ class CosyVoice2Model(CosyVoiceModel):
             self.tts_speech_token_dict.pop(this_uuid)
             self.llm_end_dict.pop(this_uuid)
             self.hift_cache_dict.pop(this_uuid)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.current_stream().synchronize()
+
+    def llm_dispatch_job(self, text, prompt_text, llm_prompt_speech_token, llm_embedding, flow_prompt_speech_token, uuid):
+        # NOTE same chunk schedule as tts(), but chunks are sent to the decoder process as soon as the llm produces enough tokens
+        try:
+            tokens, token_offset = [], 0
+            prompt_token_pad = int(np.ceil(flow_prompt_speech_token.shape[1] / self.token_hop_len) * self.token_hop_len - flow_prompt_speech_token.shape[1])
+            for i in self.llm_tokens(text, prompt_text, llm_prompt_speech_token, llm_embedding, uuid):
+                tokens.append(i)
+                this_token_hop_len = self.token_hop_len + prompt_token_pad if token_offset == 0 else self.token_hop_len
+                if len(tokens) - token_offset >= this_token_hop_len + self.flow.pre_lookahead_len:
+                    this_tts_speech_token = torch.tensor(tokens[:token_offset + this_token_hop_len + self.flow.pre_lookahead_len]).unsqueeze(dim=0)
+                    self.decoder_process.send_chunk(uuid, this_tts_speech_token, token_offset, finalize=False)
+                    token_offset += this_token_hop_len
+                    self.token_hop_len = min(self.token_max_hop_len, self.token_hop_len * self.stream_scale_factor)
+            self.decoder_process.send_chunk(uuid, torch.tensor(tokens).unsqueeze(dim=0), token_offset, finalize=True)
+        except Exception:
+            self.decoder_process.fail(uuid, traceback.format_exc())
+
+    def tts_decoder_process(self, text, flow_embedding, llm_embedding, prompt_text, llm_prompt_speech_token,
+                            flow_prompt_speech_token, prompt_speech_feat):
+        this_uuid = str(uuid.uuid1())
+        replies = self.decoder_process.start(this_uuid, flow_prompt_speech_token, prompt_speech_feat, flow_embedding)
+        try:
+            p = threading.Thread(target=self.llm_dispatch_job,
+                                 args=(text, prompt_text, llm_prompt_speech_token, llm_embedding, flow_prompt_speech_token, this_uuid))
+            p.start()
+            while True:
+                kind, payload = replies.get()
+                if kind == 'error':
+                    raise RuntimeError('stream inference failed:\n{}'.format(payload))
+                this_tts_speech, finalize = payload
+                yield {'tts_speech': this_tts_speech}
+                if finalize is True:
+                    break
+            p.join()
+        finally:
+            self.decoder_process.end(this_uuid)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             torch.cuda.current_stream().synchronize()

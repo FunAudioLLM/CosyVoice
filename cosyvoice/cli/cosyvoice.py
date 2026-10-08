@@ -20,6 +20,7 @@ from modelscope import snapshot_download
 import torch
 from cosyvoice.cli.frontend import CosyVoiceFrontEnd
 from cosyvoice.cli.model import CosyVoiceModel, CosyVoice2Model, CosyVoice3Model
+from cosyvoice.cli.decoder_process import DecoderProcess
 from cosyvoice.utils.file_utils import logging
 from cosyvoice.utils.class_utils import get_model_type
 
@@ -138,7 +139,8 @@ class CosyVoice:
 
 class CosyVoice2(CosyVoice):
 
-    def __init__(self, model_dir, load_jit=False, load_trt=False, load_vllm=False, fp16=False, trt_concurrent=1):
+    def __init__(self, model_dir, load_jit=False, load_trt=False, load_vllm=False, fp16=False, trt_concurrent=1,
+                 decoder_process=False, decoder_device=None):
         self.model_dir = model_dir
         self.fp16 = fp16
         if not os.path.exists(model_dir):
@@ -173,6 +175,12 @@ class CosyVoice2(CosyVoice):
                                 trt_concurrent,
                                 self.fp16)
         del configs
+        if decoder_process:
+            # NOTE stream inference only, flow and hift run in their own process (and on decoder_device if given) so they do not share the GIL with the llm
+            if decoder_device is not None and torch.cuda.is_available() is False:
+                decoder_device = None
+                logging.warning('no cuda device, set decoder_device to None')
+            self.model.decoder_process = DecoderProcess(model_dir, 'cosyvoice2.yaml', fp16, load_jit, load_trt, trt_concurrent, decoder_device)
 
     def inference_instruct2(self, tts_text, instruct_text, prompt_wav, zero_shot_spk_id='', stream=False, speed=1.0, text_frontend=True):
         for i in tqdm(self.frontend.text_normalize(tts_text, split=True, text_frontend=text_frontend)):
